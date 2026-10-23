@@ -1,7 +1,7 @@
 /**
  * Observability Module
  *
- * Provides tracer abstraction for Langfuse v4 (OpenTelemetry-based) observability.
+ * Provides the tracer abstraction commands use. Traces stay local.
  * Commands use createTracer(config) to get a Tracer instance, then create
  * traces for their operations.
  *
@@ -20,21 +20,20 @@
 // Types
 export type {
   Tracer,
-  TraceHandle,
-  SpanHandle,
-  GenerationHandle,
-  TraceOptions,
-  SpanOptions,
-  GenerationOptions,
-  UpdateData,
+  
+  
+  
+  
+  
+  
+  
 } from './types.js';
 
 // Factory (primary API)
 export { createTracer } from './factory.js';
 
 // Implementations (for testing or direct use)
-export { createNoopTracer } from './noop-tracer.js';
-export { createLangfuseTracer, type LangfuseTracerConfig } from './langfuse-tracer.js';
+;
 
 // Sampling
 export { shouldRecord } from './sampling.js';

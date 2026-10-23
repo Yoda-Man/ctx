@@ -26,8 +26,8 @@ import type { SearchResultWithContext } from '../search/types.js';
  * - 'sandwich': Most relevant at start AND end (better for long contexts)
  * - 'chronological': By file/line order (good for code understanding)
  */
-export const OrderingStrategySchema = z.enum(['relevance', 'sandwich', 'chronological']);
-export type OrderingStrategy = z.infer<typeof OrderingStrategySchema>;
+const OrderingStrategySchema = z.enum(['relevance', 'sandwich', 'chronological']);
+type OrderingStrategy = z.infer<typeof OrderingStrategySchema>;
 
 /**
  * RAG configuration schema for config.toml [rag] section.
@@ -167,7 +167,7 @@ export interface RAGSource {
 /**
  * Timing breakdown for performance analysis.
  */
-export interface RAGTimingMetadata {
+interface RAGTimingMetadata {
   /** Time spent in retrieval (search + rerank) */
   retrievalMs: number;
 
@@ -392,8 +392,8 @@ export class ConfigError extends RAGEngineError {
  */
 export type {
   ProjectMetadata,
-  RoutingResult,
-  LLMProjectRouterConfig,
+  
+  
 } from './query-router.js';
 
 /**
@@ -418,7 +418,7 @@ export interface RoutingRAGEngineConfig {
    * Used to embed queries before searching with MultiProjectFusionService.
    * Must match the provider used during indexing.
    */
-  embeddingProvider: import('@contextaisdk/rag').EmbeddingProvider;
+  embeddingProvider: import('../sdk/rag/index.js').EmbeddingProvider;
 
   /**
    * Embedding dimensions.
@@ -450,7 +450,7 @@ export interface RoutingRAGEngineConfig {
    *
    * Default: null (heuristic-only routing)
    */
-  llmProvider?: import('@contextaisdk/core').LLMProvider | null;
+  llmProvider?: import('../sdk/core/index.js').LLMProvider | null;
 
   /**
    * Configuration for the underlying router.

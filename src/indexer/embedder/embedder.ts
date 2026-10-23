@@ -11,7 +11,7 @@
  * 4. Report progress for long-running operations
  */
 
-import type { EmbeddingProvider } from '@contextaisdk/rag';
+import type { EmbeddingProvider } from '../../sdk/rag/index.js';
 
 import type { ChunkResult } from '../chunker/types.js';
 import type { EmbeddedChunk, EmbedderOptions } from './types.js';
@@ -22,7 +22,7 @@ const DEFAULT_BATCH_SIZE = 32;
 /**
  * Error thrown when an embedding operation times out.
  */
-export class EmbeddingTimeoutError extends Error {
+class EmbeddingTimeoutError extends Error {
   constructor(timeoutMs: number) {
     super(
       `Embedding operation timed out after ${timeoutMs}ms. ` +

@@ -98,21 +98,23 @@ describe('ObservabilityConfigSchema', () => {
     if (result.success) {
       expect(result.data.enabled).toBe(true);
       expect(result.data.sample_rate).toBe(1.0);
-      expect(result.data.langfuse_host).toBe('https://cloud.langfuse.com');
-      expect(result.data.langfuse_public_key).toBeUndefined();
-      expect(result.data.langfuse_secret_key).toBeUndefined();
     }
   });
 
   it('accepts full valid config with all fields', () => {
+    const result = ObservabilityConfigSchema.safeParse({ enabled: false, sample_rate: 0.5 });
+    expect(result.success).toBe(true);
+  });
+
+  it('drops the removed Langfuse keys from an old config instead of failing on them', () => {
     const result = ObservabilityConfigSchema.safeParse({
-      enabled: false,
-      sample_rate: 0.5,
+      enabled: true,
       langfuse_public_key: 'pk-lf-test',
       langfuse_secret_key: 'sk-lf-test',
-      langfuse_host: 'https://self-hosted.example.com',
+      langfuse_host: 'https://cloud.langfuse.com',
     });
     expect(result.success).toBe(true);
+    if (result.success) expect(Object.keys(result.data).sort()).toEqual(['enabled', 'sample_rate']);
   });
 
   it('rejects sample_rate above 1', () => {
@@ -125,23 +127,6 @@ describe('ObservabilityConfigSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects invalid URL for langfuse_host', () => {
-    const result = ObservabilityConfigSchema.safeParse({
-      langfuse_host: 'not-a-url',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('allows optional langfuse keys to be omitted', () => {
-    const result = ObservabilityConfigSchema.safeParse({
-      enabled: true,
-    });
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.langfuse_public_key).toBeUndefined();
-      expect(result.data.langfuse_secret_key).toBeUndefined();
-    }
-  });
 });
 
 // ============================================================================

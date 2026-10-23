@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import type { LLMProvider } from '@contextaisdk/core';
+import type { LLMProvider } from '../../sdk/core/index.js';
 import type { Config } from '../../config/schema.js';
 
 // Mock the individual provider factories

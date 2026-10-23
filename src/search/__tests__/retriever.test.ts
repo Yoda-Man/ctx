@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { EmbeddingProvider, EmbeddingResult } from '@contextaisdk/rag';
+import type { EmbeddingProvider, EmbeddingResult } from '../../sdk/rag/index.js';
 
 import { SearchService, createSearchService } from '../retriever.js';
 import { resetVectorStoreManager } from '../store.js';

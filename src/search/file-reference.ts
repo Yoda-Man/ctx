@@ -26,7 +26,7 @@ import { getDb, runMigrations } from '../database/index.js';
 /**
  * A single file match with its content.
  */
-export interface FileMatch {
+interface FileMatch {
   /** Full path relative to project root */
   filePath: string;
   /** File name (basename) for display */

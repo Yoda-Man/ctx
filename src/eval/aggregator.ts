@@ -50,12 +50,12 @@ const METRIC_NAMES: readonly (keyof RetrievalMetrics)[] = [
  * - 'down': regressed by more than REGRESSION_THRESHOLD
  * - 'stable': change within ±REGRESSION_THRESHOLD (or no previous run)
  */
-export type MetricDirection = 'up' | 'down' | 'stable';
+type MetricDirection = 'up' | 'down' | 'stable';
 
 /**
  * Trend analysis for a single metric across runs.
  */
-export interface MetricTrend {
+interface MetricTrend {
   /** Which metric this trend describes */
   metric: keyof RetrievalMetrics;
   /** Value from the most recent run */

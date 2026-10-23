@@ -80,7 +80,8 @@ export const EvalConfigSchema = z.object({
       /** Precision at k target (0-1, higher = better). Default: 0.6 */
       precision_at_k: z.number().min(0).max(1).default(0.6),
     })
-    .default({}),
+    // prefault, not default: {} goes through the schema, so the field defaults apply.
+    .prefault({}),
 
   /**
    * Python executable path for RAGAS/DeepEval integration.
@@ -136,40 +137,6 @@ export const ObservabilityConfigSchema = z.object({
   enabled: z.boolean().default(true).describe('Enable trace recording'),
 
   /**
-   * Langfuse public API key.
-   *
-   * Required for cloud sync. Get from https://cloud.langfuse.com/settings
-   * Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
-   */
-  langfuse_public_key: z
-    .string()
-    .optional()
-    .describe('Langfuse public API key for cloud sync'),
-
-  /**
-   * Langfuse secret API key.
-   *
-   * Required for cloud sync. Get from https://cloud.langfuse.com/settings
-   * Can also be set via LANGFUSE_SECRET_KEY environment variable.
-   */
-  langfuse_secret_key: z
-    .string()
-    .optional()
-    .describe('Langfuse secret API key for cloud sync'),
-
-  /**
-   * Langfuse API host URL.
-   *
-   * Override for self-hosted Langfuse instances.
-   * Default: 'https://cloud.langfuse.com'
-   */
-  langfuse_host: z
-    .string()
-    .url()
-    .default('https://cloud.langfuse.com')
-    .describe('Langfuse API host URL'),
-
-  /**
    * Trace sampling rate for local SQLite recording.
    *
    * Controls what fraction of interactions are recorded to eval_traces.
@@ -185,8 +152,6 @@ export const ObservabilityConfigSchema = z.object({
     .default(1.0)
     .describe('Trace sampling rate for local SQLite recording (0.0-1.0)'),
 });
-
-export type ObservabilityConfig = z.infer<typeof ObservabilityConfigSchema>;
 
 // ============================================================================
 // TRACE CAPTURE TYPES (Always-on local recording)
@@ -457,18 +422,6 @@ export interface EvalRunSummary {
   };
 }
 
-/**
- * Trend data across multiple eval runs for a project.
- *
- * Used for plotting metrics over time in `ctx eval report --last N`.
- */
-export interface EvalTrend {
-  /** Project name */
-  project_name: string;
-  /** Run summaries ordered by timestamp (oldest first) */
-  runs: EvalRunSummary[];
-}
-
 // ============================================================================
 // GOLDEN DATASET TYPES
 // ============================================================================
@@ -481,7 +434,7 @@ export interface EvalTrend {
  * - 'generated': Created by LLM from codebase analysis
  * - 'captured': Promoted from positive-feedback traces
  */
-export type GoldenEntrySource = 'manual' | 'generated' | 'captured';
+type GoldenEntrySource = 'manual' | 'generated' | 'captured';
 
 /**
  * Golden dataset file format.

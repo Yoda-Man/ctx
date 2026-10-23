@@ -1,55 +1,90 @@
-# Context Expert
+<p align="center">
+  <img src="docs/assets/ctx-logo.svg" alt="ctx" width="440">
+</p>
 
-[![npm version](https://img.shields.io/npm/v/@contextexpert/cli.svg)](https://www.npmjs.com/package/@contextexpert/cli)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/node/v/@contextexpert/cli.svg)](https://nodejs.org)
+<p align="center">
+  <strong>Semantic search and grounded answers across all your codebases, from the terminal.</strong>
+</p>
 
-A cross-project context agent CLI for unified semantic search and RAG-powered Q&A across multiple codebases.
+<p align="center">
+  <a href="https://www.npmjs.com/package/yodaman-ctx"><img src="https://img.shields.io/npm/v/yodaman-ctx.svg" alt="npm version"></a>
+  <a href="https://github.com/Yoda-Man/ctx/actions/workflows/ci.yml"><img src="https://github.com/Yoda-Man/ctx/actions/workflows/ci.yml/badge.svg?branch=dev" alt="CI"></a>
+  <a href="https://nodejs.org"><img src="https://img.shields.io/node/v/yodaman-ctx.svg" alt="Node.js"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow.svg" alt="MIT License"></a>
+</p>
 
-## Features
+`ctx` indexes your projects once, then answers questions about them: find code
+by what it does, not by what it is called, and ask questions that come back
+with the files and lines they are based on. Embeddings run locally, so your
+code stays on your machine, and answers can come from a local model through
+Ollama or from Anthropic or OpenAI.
 
-- **Cross-project indexing** — Index multiple codebases, search by project
-- **RAG-powered Q&A** — Ask natural language questions with cited source references
-- **Interactive chat** — Multi-turn REPL with conversation context and project focus
-- **Hybrid search** — Combines dense vectors + BM25 with Reciprocal Rank Fusion
-- **Local-first embeddings** — HuggingFace BGE-large runs locally, no API costs
-- **Multi-provider LLMs** — Anthropic (Claude), OpenAI (GPT), or Ollama (local)
-- **Smart chunking** — Language-aware code parsing with Tree-sitter AST
-- **Result reranking** — BGE cross-encoder for improved relevance
-- **ReAct agent** — Autonomous reasoning with tool-use decisions in chat
-- **Real-time streaming** — Token-by-token responses with reasoning chain visualization
-- **Adaptive RAG** — Query classification (simple/factual/complex) optimizes retrieval
-- **Smart routing** — Automatic project selection via heuristic + LLM fallback
-- **TUI chat mode** — Three-region terminal UI with status bar and scroll regions
-- **Result caching** — LRU cache for repeated queries, reducing latency
-- **Evaluation suite** — Batch retrieval quality testing with golden datasets, 6 IR metrics (MRR, Hit Rate, P@K, R@K, NDCG, MAP), trend tracking, and regression detection
-- **Observability** — Always-on local trace recording with optional Langfuse v4 cloud sync via OpenTelemetry
+It is the search engine behind [YodaMan](https://github.com/Yoda-Man/yodaman),
+and works just as well on its own.
 
-## Installation
+<p align="center">
+  <img src="docs/assets/screenshot-search.svg" alt="ctx search: hybrid results with file, line and score" width="820">
+</p>
+
+## Highlights
+
+| | |
+|---|---|
+| **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion, then reranked by a BGE cross-encoder. |
+| **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
+| **Across projects** | Index any number of codebases and search one, several, or all of them at once. |
+| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, not by line count. |
+| **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
+| **Any model** | Anthropic, OpenAI, or Ollama for fully offline use, with automatic fallback between them. |
+| **Built to be scripted** | Every command has `--json` output, made for agents and tools such as YodaMan. |
+| **Measured, not guessed** | `ctx eval` scores retrieval against a golden dataset (MRR, hit rate, precision, NDCG) and tracks regressions. |
+| **Current** | Every dependency is on its latest release, checked in CI and before every publish. |
+
+## Install
 
 ```bash
-npm install -g @contextexpert/cli
+npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,onnxruntime-node
 ```
 
-**Requirements:** Node.js 20.0.0 or higher
+Requires **Node.js 22.12** or later. The `--allow-scripts` list lets npm 11.20
+and later build ctx's native parts (SQLite, the tree-sitter parsers, the ONNX
+runtime); earlier npm builds them anyway and ignores the flag.
 
-## Quick Start
+The first search downloads the embedding and reranker models (about 600 MB)
+into `~/.ctx/models`; after that, everything runs offline.
+
+## Quick start
 
 ```bash
-# 1. Set your API key (for LLM responses)
-export ANTHROPIC_API_KEY=sk-ant-...
+# 1. Index a project
+ctx index ~/code/my-app --name my-app
 
-# 2. Index a project
-ctx index ./my-project --name "my-project"
+# 2. Search it by meaning
+ctx search "where are sessions refreshed" -p my-app
 
-# 3. Search across your codebase
-ctx search "authentication middleware"
+# 3. Ask a question, answered from the code with citations
+ctx ask "How does the authentication flow work?" -p my-app
 
-# 4. Ask questions with RAG
-ctx ask "How does the authentication flow work?"
-
-# 5. Start interactive chat
+# 4. Or talk it through
 ctx chat
+```
+
+For answers, set up one model provider: run Ollama locally (no key needed), or
+set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Search needs no provider at all.
+
+<p align="center">
+  <img src="docs/assets/screenshot-ask.svg" alt="ctx ask: an answer with numbered sources" width="820">
+</p>
+
+## How it works
+
+```
+ index   files ──► tree-sitter chunks ──► local BGE embeddings ──► SQLite (~/.ctx)
+
+ search  query ──┬─► dense vectors ─┐
+                 └─► BM25 keywords ─┴─► rank fusion ──► BGE reranker ──► results
+
+ ask     results ──► context assembly ──► your model ──► answer with sources
 ```
 
 ## Commands
@@ -139,7 +174,7 @@ ctx chat
 
 #### TUI Mode
 
-On TTY terminals, `ctx chat` launches in **TUI mode** by default — a three-region terminal layout with independent scrolling:
+On TTY terminals, `ctx chat` launches in **TUI mode** by default: a three-region terminal layout with independent scrolling:
 
 | Region | Description |
 |--------|-------------|
@@ -166,6 +201,10 @@ ctx config set default_model gpt-4o  # Update setting
 ### `ctx status`
 
 Show storage statistics and system health.
+
+<p align="center">
+  <img src="docs/assets/screenshot-status.svg" alt="ctx status: projects, chunks, models and storage" width="820">
+</p>
 
 ```bash
 ctx status
@@ -239,13 +278,6 @@ export OPENAI_API_KEY=sk-...            # For GPT models
 
 # Optional
 export OLLAMA_HOST=http://localhost:11434  # Custom Ollama URL
-export CTX_CONFIG_PATH=~/.ctx/config.toml  # Override config location
-export CTX_DB_PATH=~/.ctx/context.db       # Override database location
-
-# Langfuse observability (optional)
-export LANGFUSE_PUBLIC_KEY=pk-lf-...       # Langfuse cloud sync
-export LANGFUSE_SECRET_KEY=sk-lf-...       # Langfuse cloud sync
-export LANGFUSE_BASE_URL=https://cloud.langfuse.com  # Self-hosted override
 ```
 
 ### Config File
@@ -297,9 +329,6 @@ precision_at_k = 0.6
 [observability]
 enabled = true
 sample_rate = 1.0
-# langfuse_public_key = "pk-lf-..."
-# langfuse_secret_key = "sk-lf-..."
-# langfuse_host = "https://cloud.langfuse.com"
 ```
 
 ## Providers
@@ -342,18 +371,18 @@ ctx config set default_model llama3.2
 
 ```bash
 # Clone and install
-git clone https://github.com/draco28/ContextExpert.git
-cd ContextExpert
-pnpm install
+git clone https://github.com/Yoda-Man/ctx.git
+cd ctx
+npm install
 
 # Build
-pnpm build
+npm run build
 
 # Run tests
-pnpm test
+npm test
 
 # Run CLI locally
-pnpm dev -- index ./test-project
+npm run start -- index ./test-project
 ```
 
 ### Project Structure
@@ -366,16 +395,24 @@ src/
 ├── indexer/        # File scanning, chunking (Tree-sitter), embedding pipeline
 ├── database/       # SQLite schema, operations, migrations
 ├── eval/           # Golden datasets, batch evaluation, metrics, RAGAS bridge
-├── observability/  # Tracer abstraction, Langfuse v4, local trace recording
+├── observability/  # Tracer abstraction, local trace recording
 ├── providers/      # LLM providers: Anthropic, OpenAI, Ollama
 ├── config/         # TOML config loading with Zod validation
 ├── errors/         # Custom error classes and handler
 └── utils/          # Logging, path validation, table formatting
 ```
 
+## Use with YodaMan
+
+[YodaMan](https://github.com/Yoda-Man/yodaman) runs every search through ctx,
+then ranks the results with its Graphify knowledge graph and tags them with
+OpenSpec specs. YodaMan installs ctx for you (`yodaman setup`, or Repair on its
+Dashboard) and works with the same `~/.ctx` index, so projects indexed here are
+searchable there.
+
 ## Agent Integration
 
-All commands support `--json` for structured output, making Context Expert a first-class tool for AI agents (Claude Code, Codex, OpenCode, etc.). See the [Agent Integration Guide](./docs/agent-integration.md) for JSON response schemas, recommended workflows, and error handling.
+All commands support `--json` for structured output, making ctx a first-class tool for AI agents (Claude Code, Codex, OpenCode, etc.). See the [Agent Integration Guide](./docs/agent-integration.md) for JSON response schemas, recommended workflows, and error handling.
 
 ## Evaluation & Observability
 
@@ -383,15 +420,20 @@ Measure retrieval quality with golden datasets and track every interaction with 
 
 ## Contributing
 
-Contributions are welcome! Please:
+Issues and pull requests are welcome at
+[github.com/Yoda-Man/ctx](https://github.com/Yoda-Man/ctx). Open pull requests
+against `dev`; CI runs the type check, tests and build on Node 22, 24 and 26,
+and fails if any dependency is behind its latest release.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Credits
+
+ctx began as [Context Expert](https://github.com/draco28/ContextExpert) by
+draco, and includes the parts it uses of the
+[ContextAI SDK](https://github.com/draco28/contextai) by the same author. This
+fork is maintained by YodaMan: current dependencies, local-only tracing, and
+the fixes listed in the [changelog](CHANGELOG.md).
 
 ## License
 
-[MIT](LICENSE) © 2026
+[MIT](LICENSE). Copyright (c) 2026 draco, 2025 ContextAI, 2026 YodaMan.
 

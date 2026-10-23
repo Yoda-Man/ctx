@@ -26,7 +26,7 @@ import {
 } from './types.js';
 
 // Re-export types for consumers
-export type { ScanResult, ScanStats };
+export type { ScanResult,  };
 
 /**
  * Scan a directory for files to index.

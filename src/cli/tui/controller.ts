@@ -74,20 +74,6 @@ export interface TUIControllerOptions {
 }
 
 /**
- * Events that can be listened to on the controller.
- */
-export interface TUIControllerEvents {
-  /** User submitted a line of input */
-  line: [string];
-  /** User pressed Ctrl+C */
-  sigint: [];
-  /** TUI is closing */
-  close: [];
-  /** Terminal was resized */
-  resize: [{ rows: number; cols: number }];
-}
-
-/**
  * Orchestrates the TUI components.
  *
  * Usage:
@@ -585,33 +571,4 @@ export class TUIController {
     const rendered = this.statusLine.render();
     this.regionManager.writeStatusBar(rendered);
   }
-}
-
-/**
- * Create and start a TUI controller.
- * Convenience function for simple usage.
- */
-export async function startTUI(
-  options: TUIControllerOptions & {
-    completer?: Completer;
-    onLine: (line: string) => Promise<void> | void;
-    onSIGINT?: () => void;
-    onClose?: () => void;
-  }
-): Promise<TUIController> {
-  const tui = new TUIController(options);
-
-  tui.onLine(options.onLine);
-
-  if (options.onSIGINT) {
-    tui.onSIGINT(options.onSIGINT);
-  }
-
-  if (options.onClose) {
-    tui.onClose(options.onClose);
-  }
-
-  tui.start(options.completer, InputManager.createProjectPrompt(options.project));
-
-  return tui;
 }

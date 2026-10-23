@@ -21,7 +21,7 @@
  * ```
  */
 
-import { BGEReranker, type RetrievalResult } from '@contextaisdk/rag';
+import { BGEReranker, type RetrievalResult } from '../sdk/rag/index.js';
 import type { SearchResultWithContext, RerankConfig } from './types.js';
 
 /**
@@ -45,6 +45,8 @@ const DEFAULT_CANDIDATE_COUNT = 50;
  */
 export class RerankerService {
   private reranker: BGEReranker | null = null;
+  /** Why the model could not load, once it has failed; reranking is then skipped. */
+  private unavailable: Error | null = null;
   private readonly config: Required<RerankConfig>;
 
   constructor(config: RerankConfig = {}) {
@@ -62,15 +64,25 @@ export class RerankerService {
    * The model is ~110MB and takes 2-3 seconds to load.
    *
    * Safe to call multiple times - subsequent calls are no-ops.
+   *
+   * Never throws. Reranking only refines the order, so a model that cannot
+   * load (offline, or its download cut off) must not fail the search: it is
+   * recorded, reported once, and results keep their search order.
    */
   async warmup(): Promise<void> {
+    if (this.unavailable) return;
     if (!this.reranker) {
       this.reranker = new BGEReranker({
         modelName: this.config.model,
         device: this.config.device,
       });
     }
-    await this.reranker.warmup();
+    try {
+      await this.reranker.warmup();
+    } catch (error) {
+      this.unavailable = error instanceof Error ? error : new Error(String(error));
+      console.warn(`Reranking skipped, results keep their search order: ${this.unavailable.message}`);
+    }
   }
 
   /**
@@ -107,6 +119,9 @@ export class RerankerService {
     // Lazy load model if not already loaded
     if (!this.reranker) {
       await this.warmup();
+    }
+    if (this.unavailable) {
+      return results.slice(0, topK);
     }
 
     // Limit to configured candidate count

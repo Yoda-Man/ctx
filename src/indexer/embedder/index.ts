@@ -31,25 +31,25 @@
 // Provider factory
 export {
   createEmbeddingProvider,
-  getModelDimensions,
+  
 } from './provider.js';
 
 // Embedder orchestration
 export {
   embedChunks,
-  embedChunk,
-  estimateEmbeddingMemory,
-  EmbeddingTimeoutError,
+  
+  
+  
 } from './embedder.js';
 
 // Types
 export type {
-  EmbeddingConfig,
-  EmbeddedChunk,
-  EmbedderOptions,
-  ProviderOptions,
-  ModelLoadProgress,
+  
+  
+  
+  
+  
   EmbeddingProvider,
-  EmbeddingResult,
-  EmbeddingProviderResult,
+  
+  
 } from './types.js';

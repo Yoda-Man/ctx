@@ -1,0 +1,20 @@
+# ctx always runs on the latest version of every dependency: Dependabot opens
+# a weekly pull request for every new release, majors included, and publishing
+# is refused while anything is behind (prepublishOnly runs `npm outdated`).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    open-pull-requests-limit: 20
+    groups:
+      all-dependencies:
+        patterns: ['*']
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly

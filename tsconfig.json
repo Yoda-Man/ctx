@@ -11,6 +11,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "./src",
 
     // Strict type checking
     "strict": true,
@@ -28,13 +29,7 @@
     // Resolution
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "skipLibCheck": true,
-
-    // Path aliases (optional, for cleaner imports)
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "src/**/__tests__/**/*", "src/**/*.test.ts", "src/**/*.spec.ts"]

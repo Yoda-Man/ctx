@@ -57,11 +57,11 @@
  * ```
  */
 
-import type { EmbeddingProvider, RAGResult } from '@contextaisdk/rag';
+import type { EmbeddingProvider, RAGResult } from '../sdk/rag/index.js';
 import {
   AdaptiveRAG,
   type AdaptiveRAGResult,
-} from '@contextaisdk/rag/adaptive';
+} from '../sdk/rag/index.js';
 
 import {
   createProjectRouter,

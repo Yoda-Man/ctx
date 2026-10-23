@@ -50,9 +50,6 @@ export const ProjectRowSchema = z.object({
   description: z.string().nullable(),
 });
 
-/** Type inferred from ProjectRowSchema (should match Project interface) */
-export type ProjectRow = z.infer<typeof ProjectRowSchema>;
-
 // ============================================================================
 // Chunk Schema
 // ============================================================================
@@ -78,9 +75,6 @@ export const ChunkRowSchema = z.object({
   metadata: z.string().nullable(),
   created_at: z.string(),
 });
-
-/** Type inferred from ChunkRowSchema (should match Chunk interface) */
-export type ChunkRow = z.infer<typeof ChunkRowSchema>;
 
 /**
  * Partial schema for chunk rows loaded in VectorStoreManager.
@@ -126,27 +120,6 @@ export const ChunkLoadNoEmbeddingSchema = z.object({
 export type ChunkLoadNoEmbeddingRow = z.infer<typeof ChunkLoadNoEmbeddingSchema>;
 
 // ============================================================================
-// FileHash Schema
-// ============================================================================
-
-/**
- * Zod schema for validating FileHash rows from the database.
- *
- * FileHash tracks which files have been indexed and their content hashes
- * for incremental indexing.
- */
-export const FileHashRowSchema = z.object({
-  project_id: z.string(),
-  file_path: z.string(),
-  hash: z.string(),
-  chunk_ids: z.string(), // JSON array stored as string
-  indexed_at: z.string(),
-});
-
-/** Type inferred from FileHashRowSchema (should match FileHash interface) */
-export type FileHashRow = z.infer<typeof FileHashRowSchema>;
-
-// ============================================================================
 // Eval Input Validation Schemas (Defense-in-depth)
 // ============================================================================
 
@@ -165,7 +138,7 @@ export const TraceInputSchema = z.object({
   answer: z.string().optional(),
   retrieval_method: z.enum(['dense', 'bm25', 'fusion']),
   feedback: z.enum(['positive', 'negative']).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   langfuse_trace_id: z.string().optional(),
   trace_type: z.enum(['ask', 'search', 'chat']).optional(),
 });
@@ -202,7 +175,7 @@ export const EvalRunInputSchema = z.object({
     ndcg: z.number().min(0).max(1),
     map: z.number().min(0).max(1),
   }),
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
   notes: z.string().optional(),
 });
 
@@ -253,9 +226,6 @@ export const EvalTraceRowSchema = z.object({
   trace_type: z.string().nullable(),
 });
 
-/** Type inferred from EvalTraceRowSchema */
-export type EvalTraceRow = z.infer<typeof EvalTraceRowSchema>;
-
 // ============================================================================
 // Eval Run Schema
 // ============================================================================
@@ -275,9 +245,6 @@ export const EvalRunRowSchema = z.object({
   config: z.string(), // JSON config snapshot
   notes: z.string().nullable(),
 });
-
-/** Type inferred from EvalRunRowSchema */
-export type EvalRunRow = z.infer<typeof EvalRunRowSchema>;
 
 // ============================================================================
 // Eval Result Schema
@@ -305,9 +272,6 @@ export const EvalResultRowSchema = z.object({
       return val !== 0;
     }),
 });
-
-/** Type inferred from EvalResultRowSchema */
-export type EvalResultRow = z.infer<typeof EvalResultRowSchema>;
 
 // ============================================================================
 // Schema Validation Error

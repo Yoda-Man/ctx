@@ -14,7 +14,6 @@ Measure and improve your RAG pipeline's retrieval quality with batch evaluations
   - [RAGAS Integration (Optional)](#ragas-integration-optional)
 - [Observability System](#observability-system)
   - [Local Traces](#local-traces)
-  - [Langfuse Cloud (Optional)](#langfuse-cloud-optional)
   - [Trace Sampling](#trace-sampling)
 - [Configuration Reference](#configuration-reference)
 - [CLI Command Reference](#cli-command-reference)
@@ -31,7 +30,7 @@ Get eval running in under 5 minutes with an indexed project:
 
 ```bash
 # 1. Build the CLI (if developing locally)
-pnpm build
+npm run build
 
 # 2. Verify you have an indexed project
 ctx list
@@ -59,23 +58,6 @@ ctx eval report --project my-project
 # 6. View interaction traces
 ctx eval traces
 ctx eval traces --project my-project --since 7d
-```
-
-**Optional Langfuse cloud sync:**
-
-```toml
-# Add to ~/.ctx/config.toml
-[observability]
-enabled = true
-langfuse_public_key = "pk-lf-..."
-langfuse_secret_key = "sk-lf-..."
-```
-
-Or via environment variables:
-
-```bash
-export LANGFUSE_PUBLIC_KEY="pk-lf-..."
-export LANGFUSE_SECRET_KEY="sk-lf-..."
 ```
 
 **Optional RAGAS answer quality metrics:**
@@ -255,7 +237,7 @@ Each trace captures:
 | `trace_type` | ask, search, or chat |
 | `metadata` | Token usage, model info, etc. |
 | `feedback` | Optional user feedback (positive/negative) |
-| `langfuse_trace_id` | Link to Langfuse cloud trace (if configured) |
+| `langfuse_trace_id` | Unused since yodaman-ctx 1.0 (cloud tracing removed); kept so existing databases need no migration |
 
 **View traces:**
 
@@ -265,53 +247,6 @@ ctx eval traces --project my-project      # Filter by project
 ctx eval traces --since 7d --type ask     # Last 7 days, ask commands only
 ctx eval traces --limit 50               # Show more results
 ```
-
-### Langfuse Cloud (Optional)
-
-For production monitoring, you can sync traces to [Langfuse](https://langfuse.com/) for dashboards, analytics, and team collaboration.
-
-**Architecture:**
-
-```
-ctx ask/search/chat
-    |
-    v
-+---------------------------+
-| Tracer (factory pattern)  |
-|   Config has keys? -----> LangfuseTracer (OTel + Langfuse cloud)
-|   No keys? ------------> NoopTracer (zero overhead)
-+---------------------------+
-    |
-    v
-RAG pipeline instrumented with child spans:
-  - Root trace: "ctx-ask" / "ctx-search" / "ctx-chat-turn"
-  - Child span: "rag-engine-search" (query, topK, results)
-  - Child generation: LLM call (model, tokens, latency)
-```
-
-**Setup:**
-
-1. Create a [Langfuse account](https://cloud.langfuse.com/)
-2. Get your API keys from Settings
-3. Add to `~/.ctx/config.toml`:
-
-```toml
-[observability]
-enabled = true
-langfuse_public_key = "pk-lf-..."
-langfuse_secret_key = "sk-lf-..."
-# langfuse_host = "https://cloud.langfuse.com"  # Default, override for self-hosted
-```
-
-Or via environment variables (takes precedence over config):
-
-```bash
-export LANGFUSE_PUBLIC_KEY="pk-lf-..."
-export LANGFUSE_SECRET_KEY="sk-lf-..."
-export LANGFUSE_BASE_URL="https://cloud.langfuse.com"  # Optional override
-```
-
-The `langfuse_trace_id` column in local SQLite traces links each local record to its Langfuse cloud counterpart for cross-referencing.
 
 ### Trace Sampling
 
@@ -324,7 +259,7 @@ sample_rate = 1.0   # Default: record everything
 # sample_rate = 0.0 # Disable local recording entirely
 ```
 
-This controls local SQLite recording only. Langfuse cloud sync has its own sampling via the Langfuse SDK.
+This controls local SQLite recording, which is the only recording ctx does.
 
 ---
 
@@ -365,20 +300,10 @@ enabled = true
 # Trace sampling rate for local SQLite (default: 1.0 = all)
 # 0.5 = 50% of interactions, 0.0 = none
 sample_rate = 1.0
-
-# Langfuse cloud sync (optional - omit for local-only mode)
-langfuse_public_key = "pk-lf-..."
-langfuse_secret_key = "sk-lf-..."
-langfuse_host = "https://cloud.langfuse.com"
 ```
 
-**Environment variable overrides** (take precedence over config.toml):
-
-| Variable | Config Equivalent |
-|----------|-------------------|
-| `LANGFUSE_PUBLIC_KEY` | `observability.langfuse_public_key` |
-| `LANGFUSE_SECRET_KEY` | `observability.langfuse_secret_key` |
-| `LANGFUSE_BASE_URL` | `observability.langfuse_host` |
+Traces are recorded to local SQLite only. The Langfuse keys earlier versions
+accepted are ignored (with a warning) since yodaman-ctx 1.0, which removed cloud sync.
 
 ---
 
@@ -657,7 +582,7 @@ The project includes `.github/workflows/eval.yml` which:
 ```yaml
 - name: Run eval
   run: |
-    pnpm build
+    npm run build
     ctx eval run --project my-project --json > eval-results.json
 
 - name: Check thresholds
@@ -742,7 +667,6 @@ All tables have **CASCADE DELETE** on their foreign keys. Deleting a project rem
 | Python not found (RAGAS) | Set `[eval] python_path` in config.toml or install Python |
 | RAGAS package not installed | Run `pip install ragas` |
 | "No traces found" | Use `ctx ask` or `ctx search` first to generate traces |
-| Langfuse traces not appearing | Verify API keys are set and `[observability] enabled = true` |
 | Low metrics after re-indexing | Golden file paths are relative -- ensure your project path hasn't changed |
 | "Invalid --top-k value" | Must be an integer between 1 and 100 |
 | "Invalid --type value" | Allowed: `ask`, `search`, `chat` |

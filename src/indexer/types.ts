@@ -158,7 +158,7 @@ export interface ScanResult {
  * Extension to language mapping.
  * Maps file extensions (without dot) to their programming language.
  */
-export const EXTENSION_TO_LANGUAGE: Record<string, Language> = {
+const EXTENSION_TO_LANGUAGE: Record<string, Language> = {
   // TypeScript
   ts: 'typescript',
   tsx: 'typescript',
@@ -252,7 +252,7 @@ export const EXTENSION_TO_LANGUAGE: Record<string, Language> = {
  * Language to file type mapping.
  * Categorizes languages into broader file types.
  */
-export const LANGUAGE_TO_TYPE: Record<Language, FileType> = {
+const LANGUAGE_TO_TYPE: Record<Language, FileType> = {
   typescript: 'code',
   javascript: 'code',
   python: 'code',

@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { EmbeddingProvider, EmbeddingResult } from '@contextaisdk/rag';
+import type { EmbeddingProvider, EmbeddingResult } from '../../sdk/rag/index.js';
 
 import {
   computeRRF,
@@ -404,12 +404,12 @@ describe('DEFAULT_RRF_K', () => {
 });
 
 // Service tests require database mocking, similar to other search services
-describe('FusionService', () => {
-  // Mock the database module
-  vi.mock('../../database/connection.js', () => ({
-    getDb: vi.fn(),
-  }));
+// Mock the database module (top level: vitest hoists it there regardless)
+vi.mock('../../database/connection.js', () => ({
+  getDb: vi.fn(),
+}));
 
+describe('FusionService', () => {
   beforeEach(() => {
     resetVectorStoreManager();
     resetBM25StoreManager();

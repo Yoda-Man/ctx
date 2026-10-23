@@ -17,7 +17,7 @@ import type {
   RAGSearchMetadata,
   RAGTimings,
   AssembledContext,
-} from '@contextaisdk/rag';
+} from '../../sdk/rag/index.js';
 
 import { FusionServiceAdapter, ContextExpertRAGEngine } from '../rag-engine.js';
 import type { FusionService } from '../../search/fusion.js';

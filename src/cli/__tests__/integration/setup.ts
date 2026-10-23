@@ -335,7 +335,7 @@ export function countChunksInDb(db: Database.Database, projectId: string): numbe
  * @param db - better-sqlite3 Database instance
  * @param projectId - Project ID
  */
-export function getChunkContents(db: Database.Database, projectId: string): string[] {
+function getChunkContents(db: Database.Database, projectId: string): string[] {
   const rows = db
     .prepare('SELECT content FROM chunks WHERE project_id = ?')
     .all(projectId) as Array<{ content: string }>;

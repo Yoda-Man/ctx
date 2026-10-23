@@ -55,11 +55,10 @@ export const DEFAULT_CONFIG: Config = {
     ragas_model: 'gpt-4o-mini',
   },
 
-  // Observability settings - local tracing enabled, Langfuse opt-in
+  // Observability settings - local SQLite traces only
   observability: {
     enabled: true,
     sample_rate: 1.0,
-    langfuse_host: 'https://cloud.langfuse.com',
   },
 };
 
@@ -111,11 +110,8 @@ hit_rate = ${DEFAULT_CONFIG.eval!.thresholds.hit_rate}
 precision_at_k = ${DEFAULT_CONFIG.eval!.thresholds.precision_at_k}
 
 # Observability Settings
-# Local SQLite traces are always-on; Langfuse cloud sync is opt-in
+# Traces are recorded to local SQLite only; nothing is sent anywhere
 [observability]
 enabled = ${DEFAULT_CONFIG.observability!.enabled}
 sample_rate = ${DEFAULT_CONFIG.observability!.sample_rate}
-langfuse_host = "${DEFAULT_CONFIG.observability!.langfuse_host}"
-# langfuse_public_key = "pk-lf-..."  # or set LANGFUSE_PUBLIC_KEY env var
-# langfuse_secret_key = "sk-lf-..."  # or set LANGFUSE_SECRET_KEY env var
 `;

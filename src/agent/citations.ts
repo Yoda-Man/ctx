@@ -124,7 +124,7 @@ export interface CitationFormatter {
 /**
  * Zod schema for CitationStyle validation.
  */
-export const CitationStyleSchema = z.enum(['compact', 'detailed', 'minimal']);
+const CitationStyleSchema = z.enum(['compact', 'detailed', 'minimal']);
 
 /**
  * Zod schema for CitationFormatOptions validation.

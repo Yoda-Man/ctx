@@ -23,7 +23,7 @@ export interface SearchServiceOptions {
   projectId: string;
   /** Embedding dimensions (1024 for BGE-large, 768 for BGE-base) */
   dimensions: number;
-  /** Use HNSW index for O(log n) search (default: true) */
+  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
   useHNSW?: boolean;
   /** HNSW index tuning parameters */
   hnswConfig?: {
@@ -170,10 +170,10 @@ export interface FusionConfig {
  * Dense search options for FusionService.
  * Dimensions is required to ensure embedding configuration is explicit.
  */
-export interface DenseSearchOptions {
+interface DenseSearchOptions {
   /** Embedding dimensions - REQUIRED, must match indexed data */
   dimensions: number;
-  /** Use HNSW index for O(log n) search (default: true) */
+  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
   useHNSW?: boolean;
   /** HNSW index tuning parameters */
   hnswConfig?: SearchServiceOptions['hnswConfig'];
@@ -293,7 +293,7 @@ export interface MultiProjectLoadOptions {
   projectIds: string[];
   /** Embedding dimensions (must be consistent across all projects) */
   dimensions: number;
-  /** Use HNSW index for O(log n) search (default: true) */
+  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
   useHNSW?: boolean;
   /** HNSW index tuning parameters */
   hnswConfig?: SearchServiceOptions['hnswConfig'];
@@ -411,7 +411,7 @@ export interface MultiProjectFusionLoadOptions {
   projectIds: string[];
   /** Embedding dimensions (must be consistent across all projects) */
   dimensions: number;
-  /** Use HNSW index for O(log n) search (default: true) */
+  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
   useHNSW?: boolean;
   /** HNSW index tuning parameters */
   hnswConfig?: SearchServiceOptions['hnswConfig'];

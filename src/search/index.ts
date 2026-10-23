@@ -39,17 +39,17 @@
  */
 
 // Dense (vector) search service
-export { SearchService, createSearchService } from './retriever.js';
+;
 
 // Sparse (BM25) search service
-export { BM25SearchService, createBM25SearchService } from './bm25-retriever.js';
+;
 
 // Hybrid (fusion) search service
 export {
   FusionService,
   createFusionService,
-  computeRRF,
-  DEFAULT_RRF_K,
+  
+  
 } from './fusion.js';
 
 // Reranking service
@@ -57,75 +57,67 @@ export { RerankerService } from './reranker.js';
 
 // Store management - Vector
 export {
-  VectorStoreManager,
+  
   getVectorStoreManager,
   resetVectorStoreManager,
 } from './store.js';
 
 // Store management - BM25
 export {
-  BM25StoreManager,
+  
   getBM25StoreManager,
   resetBM25StoreManager,
 } from './bm25-store.js';
 
 // Store management - Multi-Project Vector
-export {
-  MultiProjectVectorStoreManager,
-  getMultiProjectVectorStoreManager,
-  resetMultiProjectVectorStoreManager,
-} from './multi-project-store.js';
+;
 
 // Store management - Multi-Project BM25
-export {
-  MultiProjectBM25StoreManager,
-  getMultiProjectBM25StoreManager,
-  resetMultiProjectBM25StoreManager,
-} from './multi-project-bm25-store.js';
+;
 
 // Store management - Multi-Project Fusion (combines Vector + BM25)
 export {
-  MultiProjectFusionService,
+  
   getMultiProjectFusionService,
-  resetMultiProjectFusionService,
+  
 } from './multi-project-fusion.js';
 
 // Result formatting
 export {
-  formatResult,
+  
   formatResults,
-  formatResultJSON,
+  
   formatResultsJSON,
-  formatScore,
-  truncateSnippet,
+  
+  
 } from './formatter.js';
 
 // Types
 export type {
-  SearchConfig,
-  SearchServiceOptions,
-  SearchQueryOptions,
+  
+  
+  
   SearchResultWithContext,
-  IndexBuildProgress,
-  BM25Config,
-  BM25ServiceOptions,
-  FusionConfig,
-  FusionServiceOptions,
-  DenseSearchOptions,
-  RerankConfig,
-  FormatOptions,
-  FormattedResultJSON,
+  
+  
+  
+  
+  
+  
+  
+  
+  
   // Multi-project types
-  MultiProjectLoadOptions,
-  MultiProjectLoadProgress,
+  
+  
   MultiProjectSearchResult,
-  MultiProjectSearchOptions,
-  EmbeddingValidation,
-  MultiProjectBM25LoadOptions,
+  
+  
+  
   // Multi-project fusion types
-  MultiProjectFusionLoadOptions,
-  MultiProjectFusionConfig,
-  MultiProjectFusionSearchOptions,
+  
+  
+  
 } from './types.js';
 
 // Error types

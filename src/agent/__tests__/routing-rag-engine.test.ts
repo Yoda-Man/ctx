@@ -11,8 +11,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { RoutingRAGEngineConfig, ProjectMetadata, RAGSearchResult } from '../types.js';
-import type { EmbeddingProvider } from '@contextaisdk/rag';
-import type { AdaptiveRAGResult } from '@contextaisdk/rag/adaptive';
+import type { EmbeddingProvider } from '../../sdk/rag/index.js';
+import type { AdaptiveRAGResult } from '../../sdk/rag/index.js';
 
 // Mock router
 const mockRoute = vi.fn();
@@ -38,7 +38,7 @@ vi.mock('../rag-engine.js', () => ({
 
 // Mock AdaptiveRAG from SDK
 const mockAdaptiveSearch = vi.fn();
-vi.mock('@contextaisdk/rag/adaptive', () => ({
+vi.mock('../../sdk/rag/index.js', () => ({
   AdaptiveRAG: class MockAdaptiveRAG {
     search = mockAdaptiveSearch;
     constructor() {

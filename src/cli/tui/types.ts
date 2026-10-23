@@ -54,7 +54,7 @@ export interface RegionBounds {
 /**
  * Token usage tracking for context gauge display.
  */
-export interface TokenUsageState {
+interface TokenUsageState {
   /** Tokens used in current conversation */
   used: number;
   /** Total context window size */
@@ -68,7 +68,7 @@ export interface TokenUsageState {
 /**
  * Cost tracking for status bar display.
  */
-export interface CostState {
+interface CostState {
   /** Total cost in USD for current session */
   totalUsd: number;
   /** Optional budget limit - triggers warnings when approached */
@@ -78,7 +78,7 @@ export interface CostState {
 /**
  * Current activity description for status bar.
  */
-export interface ActivityState {
+interface ActivityState {
   /** Current tool being used (e.g., 'read_file', 'search') */
   tool?: string;
   /** Human-readable description (e.g., 'Reading src/index.ts') */
@@ -88,7 +88,7 @@ export interface ActivityState {
 /**
  * Model information for status bar.
  */
-export interface ModelState {
+interface ModelState {
   /** Display name (e.g., 'Claude 3.5 Sonnet') */
   name: string;
   /** Provider name (e.g., 'anthropic', 'openai') */

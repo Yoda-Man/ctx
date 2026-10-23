@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 200" width="560" height="200" role="img" aria-labelledby="t d">
+  <title id="t">ctx</title>
+  <desc id="d">The letters c and t, with the x formed by two crossed light blades, one cyan and one red, over a field of stars.</desc>
+  <defs>
+    <radialGradient id="space" cx="50%" cy="45%" r="75%">
+      <stop offset="0" stop-color="#121a33"/>
+      <stop offset="1" stop-color="#05070f"/>
+    </radialGradient>
+    <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feFlood flood-color="#38e8ff" flood-opacity="0.9"/>
+      <feComposite in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-red" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feFlood flood-color="#ff3b4e" flood-opacity="0.9"/>
+      <feComposite in2="b" operator="in" result="g"/>
+      <feMerge><feMergeNode in="g"/><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+
+  <rect width="560" height="200" rx="28" fill="url(#space)"/>
+  <g fill="#ffffff">
+    <circle cx="38" cy="30" r="1.2" opacity=".8"/><circle cx="92" cy="168" r="1" opacity=".6"/>
+    <circle cx="150" cy="22" r="1.4" opacity=".9"/><circle cx="214" cy="178" r="1" opacity=".5"/>
+    <circle cx="268" cy="16" r="1" opacity=".7"/><circle cx="520" cy="34" r="1.5" opacity=".9"/>
+    <circle cx="532" cy="160" r="1" opacity=".6"/><circle cx="398" cy="182" r="1.2" opacity=".7"/>
+    <circle cx="20" cy="120" r="1" opacity=".5"/><circle cx="330" cy="26" r=".9" opacity=".6"/>
+    <circle cx="66" cy="72" r=".8" opacity=".5"/><circle cx="540" cy="96" r=".8" opacity=".5"/>
+  </g>
+
+  <!-- c -->
+  <path d="M118 74 A36 36 0 1 0 118 126" fill="none" stroke="#e8edf7" stroke-width="16" stroke-linecap="round"/>
+  <!-- t -->
+  <path d="M178 52 V122 Q178 138 196 138 H206" fill="none" stroke="#e8edf7" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M158 80 H206" fill="none" stroke="#e8edf7" stroke-width="16" stroke-linecap="round"/>
+
+  <!-- x: two crossed blades with hilts -->
+  <g filter="url(#glow-cyan)">
+    <line x1="252" y1="150" x2="340" y2="50" stroke="#c9fbff" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <g filter="url(#glow-red)">
+    <line x1="340" y1="150" x2="252" y2="50" stroke="#ffd2d6" stroke-width="9" stroke-linecap="round"/>
+  </g>
+  <g stroke-linecap="round">
+    <line x1="236" y1="168" x2="252" y2="150" stroke="#9aa3b5" stroke-width="12"/>
+    <line x1="240" y1="163" x2="246" y2="156" stroke="#3b4255" stroke-width="12"/>
+    <line x1="356" y1="168" x2="340" y2="150" stroke="#9aa3b5" stroke-width="12"/>
+    <line x1="352" y1="163" x2="346" y2="156" stroke="#3b4255" stroke-width="12"/>
+  </g>
+
+  <!-- tagline -->
+  <g fill="#7f8aa6" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" letter-spacing="3">
+    <text x="392" y="96">CONTEXT</text>
+    <text x="392" y="116">EXPERT</text>
+  </g>
+</svg>

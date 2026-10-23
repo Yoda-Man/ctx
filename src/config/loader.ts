@@ -17,8 +17,8 @@ import { ConfigError } from '../errors/index.js';
 import { getCtxDir, getConfigPath } from './paths.js';
 
 // Re-export path functions and types for backwards compatibility
-export { getCtxDir, getConfigPath };
-export type { Config, PartialConfig };
+export {  getConfigPath };
+export type { Config,  };
 
 /**
  * Ensure the ~/.ctx directory exists
@@ -87,7 +87,7 @@ const KNOWN_CONFIG_KEYS: Record<string, string[]> = {
   indexing: ['ignore_patterns'],
   eval: ['golden_path', 'default_k', 'thresholds', 'python_path', 'ragas_model'],
   thresholds: ['mrr', 'hit_rate', 'precision_at_k'],
-  observability: ['enabled', 'sample_rate', 'langfuse_public_key', 'langfuse_secret_key', 'langfuse_host'],
+  observability: ['enabled', 'sample_rate'],
 };
 
 /**

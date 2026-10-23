@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { defineTool, type Tool, type ToolResult } from '@contextaisdk/core';
+import { defineTool, type Tool, type ToolResult } from '../../sdk/core/index.js';
 import type { RoutingRAGEngine } from '../routing-rag-engine.js';
 import type { ProjectMetadata } from '../query-router.js';
 import type { RAGSource, RoutingRAGResult, QueryClassification } from '../types.js';

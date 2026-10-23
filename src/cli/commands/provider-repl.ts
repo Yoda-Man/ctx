@@ -41,7 +41,7 @@ import {
   createAnthropicProvider,
   DEFAULT_ANTHROPIC_MODEL,
 } from '../../providers/anthropic.js';
-import type { LLMProvider } from '@contextaisdk/core';
+import type { LLMProvider } from '../../sdk/core/index.js';
 
 // ============================================================================
 // TYPES

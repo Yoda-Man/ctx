@@ -31,7 +31,7 @@ import {
   type ChatMessage,
   type StreamChunk,
   type TokenUsage,
-} from '@contextaisdk/core';
+} from '../../sdk/core/index.js';
 import { getDb, runMigrations, getDatabase } from '../../database/index.js';
 import { loadConfig, type Config } from '../../config/loader.js';
 import { createRAGEngine, type ContextExpertRAGEngine } from '../../agent/rag-engine.js';
@@ -84,7 +84,7 @@ import {
   AgentPhase,
   type StreamChunk as TUIStreamChunk,
 } from '../tui/index.js';
-import type { LLMProvider } from '@contextaisdk/core';
+import type { LLMProvider } from '../../sdk/core/index.js';
 import { ChatAgent } from '../../agent/chat-agent.js';
 import {
   renderAgentEventsREPL,
@@ -160,7 +160,7 @@ export interface ChatState {
   chatAgent?: ChatAgent;
   /** AbortController for cancelling in-flight agent work (Ctrl+C support) */
   agentAbortController?: AbortController;
-  /** Tracer for observability (NoopTracer if Langfuse not configured) */
+  /** Tracer for observability (local only) */
   tracer: Tracer;
 }
 
@@ -208,7 +208,7 @@ function cleanupChatState(state: ChatState, ctx: CommandContext): void {
   // Clear conversation context
   state.conversationContext.clear();
 
-  // Shut down tracer (flushes pending Langfuse events, no-op if not configured)
+  // Shut down tracer
   state.tracer.shutdown().catch((err) => ctx.debug(`[tracer] shutdown error: ${err}`));
 }
 
@@ -2524,7 +2524,7 @@ export function createChatCommand(getContext: () => CommandContext): Command {
       const config = loadConfig();
       ctx.debug(`LLM: ${config.default_model ?? 'default'}`);
 
-      // Create tracer for the chat session (NoopTracer if Langfuse not configured)
+      // Create tracer for the chat session (local only)
       const tracer = createTracer(config);
       ctx.debug(`Tracer: ${tracer.isRemote ? 'Langfuse' : 'noop'}`);
 

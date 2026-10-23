@@ -58,8 +58,8 @@ import {
   type SourceAttribution,
   type OrderingStrategy as SDKOrderingStrategy,
   type EmbeddingProvider,
-} from '@contextaisdk/rag';
-import { LRUCacheProvider } from '@contextaisdk/rag/cache';
+} from '../sdk/rag/index.js';
+import { LRUCacheProvider } from '../sdk/rag/index.js';
 
 import { createAssembler } from './assembler.js';
 

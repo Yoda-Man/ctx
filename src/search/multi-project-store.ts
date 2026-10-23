@@ -42,8 +42,8 @@
  * ```
  */
 
-import type { InMemoryVectorStore, SearchOptions, MetadataFilter } from '@contextaisdk/rag';
-import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '@contextaisdk/rag';
+import type { InMemoryVectorStore, SearchOptions, MetadataFilter } from '../sdk/rag/index.js';
+import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '../sdk/rag/index.js';
 
 import { getDatabase, type DatabaseOperations } from '../database/operations.js';
 import type { Project } from '../database/schema.js';
@@ -179,7 +179,7 @@ export class MultiProjectVectorStoreManager {
     options: MultiProjectLoadOptions,
     onProgress?: (progress: MultiProjectLoadProgress) => void
   ): Promise<Map<string, InMemoryVectorStore>> {
-    const { projectIds, dimensions, useHNSW = true, hnswConfig } = options;
+    const { projectIds, dimensions, useHNSW, hnswConfig } = options;
 
     // Validate embedding compatibility for cross-project search (2+ projects)
     // Single-project loads skip validation since there's nothing to compare

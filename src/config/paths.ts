@@ -16,8 +16,15 @@ import { homedir } from 'node:os';
 
 // Core path constants - the single source of truth
 export const CTX_DIR = join(homedir(), '.ctx');
+
+/**
+ * Downloaded embedding and reranker models. Kept here, beside the index,
+ * rather than in transformers.js's default (inside its own package folder),
+ * where every reinstall or Node version change threw away a ~1.3 GB download.
+ */
+export const MODELS_DIR = join(CTX_DIR, 'models');
 export const DB_PATH = join(CTX_DIR, 'context.db');
-export const CONFIG_PATH = join(CTX_DIR, 'config.toml');
+const CONFIG_PATH = join(CTX_DIR, 'config.toml');
 export const PROVIDERS_PATH = join(CTX_DIR, 'providers.json');
 
 /**

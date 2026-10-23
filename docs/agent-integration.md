@@ -9,7 +9,7 @@ All commands support `--json` for structured output. Always use `--json` when ca
 ## Quick Start
 
 ```bash
-npm install -g @contextexpert/cli                                     # 1. Install
+npm install -g yodaman-ctx                                     # 1. Install
 ctx status --json                                                      # 2. Verify installation
 ctx index /path/to/project --name "my-project" --json                  # 3. Index a project
 ctx list --json                                                        # 4. Discover indexed projects
@@ -26,7 +26,7 @@ The `--context-only` flag on `ctx ask` returns XML-formatted code context withou
 
 ### Requirements
 
-1. Install: `npm install -g @contextexpert/cli`
+1. Install: `npm install -g yodaman-ctx`
 2. Set an API key for the LLM provider:
    ```bash
    export ANTHROPIC_API_KEY=sk-ant-...   # or
