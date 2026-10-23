@@ -20,35 +20,35 @@
 // Main chunker functions
 export {
   chunkFile,
-  chunkFiles,
+  
   // Structured result functions (Ticket #50)
-  chunkFileWithResult,
+  
   chunkFilesWithResult,
   type ChunkerConfig,
 } from './chunker.js';
 
 // Types
 export type {
-  ContentType,
-  SymbolType,
-  ExtractedSegment,
-  ChunkResult,
-  ChunkOptions,
-  ExtractionResult,
+  
+  
+  
+  
+  
+  
   // Structured result types (Ticket #50)
-  SkipReason,
-  FileChunkResult,
-  BatchChunkResult,
+  
+  
+  
 } from './types.js';
 
 // Configuration
 export {
-  CHUNK_CONFIG,
-  MAX_FILE_SIZE,
-  MIN_CHUNK_SIZE,
-  getChunkConfig,
+  
+  
+  
+  
   estimateTokens,
-  type ChunkConfig,
+  
 } from './config.js';
 
 // Extractors (for advanced use)

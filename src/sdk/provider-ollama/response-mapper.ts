@@ -198,13 +198,6 @@ export function mapStreamChunk(
   return null;
 }
 
-/**
- * Finalizes streaming state and returns any accumulated tool calls.
- */
-export function finalizeToolCalls(state: StreamingState): ToolCall[] {
-  return Array.from(state.toolCalls.values());
-}
-
 // ============================================================================
 // NDJSON Parsing
 // ============================================================================
@@ -218,7 +211,7 @@ export function finalizeToolCalls(state: StreamingState): ToolCall[] {
  * @param line - A single line from the stream
  * @returns Parsed chunk or null if line is empty/invalid
  */
-export function parseNDJSONLine(line: string): OllamaStreamChunk | null {
+function parseNDJSONLine(line: string): OllamaStreamChunk | null {
   const trimmed = line.trim();
 
   // Skip empty lines

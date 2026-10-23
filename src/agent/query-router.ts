@@ -348,7 +348,7 @@ export interface ProjectMetadata {
  * The LLM returns this JSON structure to indicate which
  * projects should be searched.
  */
-export const LLMRoutingResponseSchema = z.object({
+const LLMRoutingResponseSchema = z.object({
   projectIds: z.array(z.string()),
   confidence: z.number().min(0).max(1),
   reasoning: z.string().optional(),

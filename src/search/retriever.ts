@@ -52,7 +52,7 @@ export class SearchService {
   private readonly dimensions: number;
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly config: SearchConfig;
-  private readonly useHNSW: boolean;
+  private readonly useHNSW: boolean | undefined;
   private readonly hnswConfig?: SearchServiceOptions['hnswConfig'];
 
   constructor(
@@ -64,7 +64,7 @@ export class SearchService {
     this.config = config;
     this.projectId = options.projectId;
     this.dimensions = options.dimensions;
-    this.useHNSW = options.useHNSW ?? true;
+    this.useHNSW = options.useHNSW;
     this.hnswConfig = options.hnswConfig;
   }
 
@@ -225,7 +225,7 @@ export function createSearchService(
   return new SearchService(embeddingProvider, config, {
     projectId,
     dimensions,
-    useHNSW: options?.useHNSW ?? true,
+    useHNSW: options?.useHNSW,
     hnswConfig: options?.hnswConfig,
   });
 }

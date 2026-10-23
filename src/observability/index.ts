@@ -20,20 +20,20 @@
 // Types
 export type {
   Tracer,
-  TraceHandle,
-  SpanHandle,
-  GenerationHandle,
-  TraceOptions,
-  SpanOptions,
-  GenerationOptions,
-  UpdateData,
+  
+  
+  
+  
+  
+  
+  
 } from './types.js';
 
 // Factory (primary API)
 export { createTracer } from './factory.js';
 
 // Implementations (for testing or direct use)
-export { createNoopTracer } from './noop-tracer.js';
+;
 
 // Sampling
 export { shouldRecord } from './sampling.js';

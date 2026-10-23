@@ -22,7 +22,7 @@ import type { RetrievalResult } from '../retrieval/types.js';
  * Contains the LLM's judgment on whether the document is relevant,
  * along with confidence and optional reasoning for transparency.
  */
-export interface VerificationResult {
+interface VerificationResult {
   /** Whether the document is verified as relevant to the query */
   verified: boolean;
 
@@ -154,78 +154,4 @@ export interface Verifier {
     results: RetrievalResult[],
     options?: VerifierOptions
   ): Promise<VerifiedRetrievalResult[]>;
-}
-
-// ============================================================================
-// LLM Verifier Configuration
-// ============================================================================
-
-/**
- * Configuration for LLM-based verifier.
- *
- * Uses an LLM to judge document relevance by asking it to score
- * how well each document answers the query.
- */
-export interface LLMVerifierConfig {
-  /** Name for this verifier instance (default: 'LLMVerifier') */
-  name?: string;
-
-  /**
-   * Prompt template for verification.
-   * Available placeholders: {query}, {document}
-   *
-   * Default prompt asks for JSON with verified, score, and reasoning.
-   */
-  promptTemplate?: string;
-
-  /**
-   * System prompt for the LLM.
-   * Default: instructs to act as a strict relevance judge.
-   */
-  systemPrompt?: string;
-
-  /**
-   * Temperature for LLM responses.
-   * Lower = more deterministic judgments.
-   * Default: 0 (deterministic)
-   */
-  temperature?: number;
-
-  /**
-   * Default concurrency limit for individual verification.
-   * Default: 5
-   */
-  defaultConcurrency?: number;
-
-  /**
-   * Minimum score to consider a document verified (0-10).
-   * Documents with score >= this threshold are marked verified.
-   * Default: 6
-   */
-  verificationThreshold?: number;
-}
-
-// ============================================================================
-// Error Types
-// ============================================================================
-
-/**
- * Error codes for verification failures.
- */
-export type VerifierErrorCode =
-  | 'VERIFICATION_FAILED'
-  | 'INVALID_INPUT'
-  | 'CONFIG_ERROR'
-  | 'LLM_ERROR';
-
-/**
- * Details about a verifier error.
- */
-export interface VerifierErrorDetails {
-  /** Machine-readable error code */
-  code: VerifierErrorCode;
-  /** Name of the verifier that failed */
-  verifierName: string;
-  /** Underlying cause, if any */
-  cause?: Error;
 }

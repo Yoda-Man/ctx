@@ -18,7 +18,7 @@
   /**                                                                                                                                                                   
    * Symbol types extracted from code AST.                                                                                                                              
    */                                                                                                                                                                   
-  export type SymbolType = 'function' | 'class' | 'method' | 'module' | 'interface' | 'type';                                                                           
+  type SymbolType = 'function' | 'class' | 'method' | 'module' | 'interface' | 'type';                                                                           
                                                                                                                                                                         
   /**                                                                                                                                                                   
    * A segment extracted from a file before chunking.                                                                                                                   
@@ -147,7 +147,7 @@
  *
  * Note: 'empty' with success=true means the file was valid but had no content.
  */
-export type SkipReason =
+type SkipReason =
   | 'too_large'    // File exceeds MAX_FILE_SIZE limit
   | 'empty'        // File has no content (success, just nothing to chunk)
   | 'read_error'   // Could not read file from disk

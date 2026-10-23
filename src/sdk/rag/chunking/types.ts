@@ -114,5 +114,5 @@ export interface ChunkerErrorDetails {
 }
 
 // Re-export types that chunkers produce/consume
-export type { Document, DocumentMetadata } from '../loaders/types.js';
+export type { Document,  } from '../loaders/types.js';
 export type { Chunk, ChunkMetadata } from '../vector-store/types.js';

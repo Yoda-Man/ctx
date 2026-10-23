@@ -237,7 +237,7 @@ Each trace captures:
 | `trace_type` | ask, search, or chat |
 | `metadata` | Token usage, model info, etc. |
 | `feedback` | Optional user feedback (positive/negative) |
-| `langfuse_trace_id` | Unused since 2.0 (cloud tracing removed); kept so existing databases need no migration |
+| `langfuse_trace_id` | Unused since yodaman-ctx 1.0 (cloud tracing removed); kept so existing databases need no migration |
 
 **View traces:**
 
@@ -303,7 +303,7 @@ sample_rate = 1.0
 ```
 
 Traces are recorded to local SQLite only. The Langfuse keys earlier versions
-accepted are ignored (with a warning) since 2.0, which removed cloud sync.
+accepted are ignored (with a warning) since yodaman-ctx 1.0, which removed cloud sync.
 
 ---
 

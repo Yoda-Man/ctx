@@ -102,7 +102,7 @@ export interface EmbedderOptions {
  * Progress information during model loading.
  * Passed through to HuggingFace's onProgress callback.
  */
-export interface ModelLoadProgress {
+interface ModelLoadProgress {
   /** Current status message (e.g., "Downloading model...") */
   status: string;
 

@@ -10,8 +10,6 @@
  * - Multi-query: Expand single query into multiple perspectives
  */
 
-import type { LLMProvider } from '../../core/index.js';
-import type { EmbeddingProvider } from '../embeddings/types.js';
 
 // ============================================================================
 // Enhancement Strategy Types
@@ -40,7 +38,7 @@ export type EnhancementStrategy =
  * Metadata about the enhancement operation.
  * Provides transparency into what was done and at what cost.
  */
-export interface EnhancementMetadata {
+interface EnhancementMetadata {
   /** Total tokens used by LLM calls (if available) */
   tokensUsed?: number;
   /** Time spent on LLM calls in milliseconds */
@@ -87,7 +85,7 @@ export interface EnhancementResult {
 /**
  * Options for enhancement operations.
  */
-export interface EnhanceOptions {
+interface EnhanceOptions {
   /**
    * Minimum query length to attempt enhancement.
    * Very short queries (e.g., single words) may not benefit.
@@ -148,150 +146,4 @@ export interface QueryEnhancer {
    * @returns Enhanced queries with metadata
    */
   enhance(query: string, options?: EnhanceOptions): Promise<EnhancementResult>;
-}
-
-// ============================================================================
-// Configuration Types
-// ============================================================================
-
-/**
- * Base configuration shared by all enhancers.
- */
-export interface BaseEnhancerConfig {
-  /** Custom name for this enhancer instance */
-  name?: string;
-}
-
-/**
- * Configuration for QueryRewriter.
- *
- * The rewriter clarifies ambiguous or poorly-formed queries
- * by rephrasing them for clarity while preserving intent.
- */
-export interface QueryRewriterConfig extends BaseEnhancerConfig {
-  /** LLM provider for query rewriting */
-  llmProvider: LLMProvider;
-  /**
-   * Prompt template for rewriting.
-   * Placeholder: {query}
-   *
-   * Default: Instructs LLM to clarify and rephrase.
-   */
-  promptTemplate?: string;
-  /**
-   * System prompt for the LLM.
-   * Default: Query clarification instructions.
-   */
-  systemPrompt?: string;
-  /**
-   * Temperature for generation.
-   * Lower = more conservative rewrites.
-   * Default: 0.3
-   */
-  temperature?: number;
-}
-
-/**
- * Configuration for HyDEEnhancer.
- *
- * HyDE (Hypothetical Document Embeddings) generates a hypothetical
- * answer to the query, then uses its embedding for retrieval.
- * This can find documents similar to what the answer *should* look like.
- *
- * Reference: Gao et al., "Precise Zero-Shot Dense Retrieval without Relevance Labels"
- */
-export interface HyDEConfig extends BaseEnhancerConfig {
-  /** LLM provider for generating hypothetical documents */
-  llmProvider: LLMProvider;
-  /** Embedding provider for embedding hypothetical documents */
-  embeddingProvider: EmbeddingProvider;
-  /**
-   * Number of hypothetical documents to generate.
-   * More = better coverage but higher cost.
-   * Default: 1
-   */
-  numHypothetical?: number;
-  /**
-   * Prompt template for hypothetical document generation.
-   * Placeholder: {query}
-   *
-   * Default: Instructs LLM to write a passage that answers the query.
-   */
-  promptTemplate?: string;
-  /**
-   * System prompt for the LLM.
-   * Default: Document generation instructions.
-   */
-  systemPrompt?: string;
-  /**
-   * Temperature for generation.
-   * Higher = more diverse hypothetical docs.
-   * Default: 0.7
-   */
-  temperature?: number;
-  /**
-   * Maximum tokens for hypothetical document.
-   * Default: 256
-   */
-  maxTokens?: number;
-}
-
-/**
- * Configuration for MultiQueryExpander.
- *
- * Generates multiple query variants from different perspectives
- * to retrieve a broader set of relevant documents.
- */
-export interface MultiQueryConfig extends BaseEnhancerConfig {
-  /** LLM provider for query expansion */
-  llmProvider: LLMProvider;
-  /**
-   * Number of query variants to generate.
-   * Default: 3
-   */
-  numVariants?: number;
-  /**
-   * Prompt template for expansion.
-   * Placeholders: {query}, {numVariants}
-   *
-   * Default: Instructs LLM to generate diverse reformulations.
-   */
-  promptTemplate?: string;
-  /**
-   * System prompt for the LLM.
-   * Default: Query expansion instructions.
-   */
-  systemPrompt?: string;
-  /**
-   * Temperature for generation.
-   * Higher = more diverse variants.
-   * Default: 0.5
-   */
-  temperature?: number;
-}
-
-// ============================================================================
-// Error Types
-// ============================================================================
-
-/**
- * Error codes for query enhancement failures.
- */
-export type QueryEnhancementErrorCode =
-  | 'LLM_ERROR'
-  | 'EMBEDDING_ERROR'
-  | 'INVALID_INPUT'
-  | 'CONFIG_ERROR'
-  | 'PARSE_ERROR';
-
-/**
- * Details about a query enhancement error.
- */
-export interface QueryEnhancementErrorDetails {
-  /** Machine-readable error code */
-  code: QueryEnhancementErrorCode;
-  /** Name of the enhancer that failed */
-  enhancerName: string;
-  /** Underlying cause, if any */
-  cause?: Error;
 }

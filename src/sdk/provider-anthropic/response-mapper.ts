@@ -163,7 +163,7 @@ function mapStopReason(
  * 2. content_block_delta: { partial_json: '...' } (multiple times)
  * 3. content_block_stop: finalize and emit
  */
-export interface StreamingToolCallState {
+interface StreamingToolCallState {
   /** Tool call ID from Anthropic */
   id: string;
   /** Tool/function name */

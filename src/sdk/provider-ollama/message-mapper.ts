@@ -30,7 +30,7 @@ import type {
 /**
  * Maps ContextAI ChatMessage array to Ollama message array.
  */
-export function mapMessages(messages: ChatMessage[]): OllamaMessage[] {
+function mapMessages(messages: ChatMessage[]): OllamaMessage[] {
   return messages.map(mapMessage);
 }
 
@@ -42,7 +42,7 @@ export function mapMessages(messages: ChatMessage[]): OllamaMessage[] {
  * - Tool result messages
  * - Multimodal content (images)
  */
-export function mapMessage(message: ChatMessage): OllamaMessage {
+function mapMessage(message: ChatMessage): OllamaMessage {
   const content = message.content;
 
   // Extract text content
@@ -107,7 +107,7 @@ export function mapMessage(message: ChatMessage): OllamaMessage {
  * Ollama uses OpenAI-compatible tool format:
  * { type: 'function', function: { name, description, parameters } }
  */
-export function mapTools(tools: ToolDefinition[]): OllamaTool[] {
+function mapTools(tools: ToolDefinition[]): OllamaTool[] {
   return tools.map(mapTool);
 }
 
@@ -134,7 +134,7 @@ function mapTool(tool: ToolDefinition): OllamaTool {
  *
  * Note: Ollama uses different parameter names than OpenAI in some cases.
  */
-export function mapOptions(options?: GenerateOptions): OllamaModelOptions {
+function mapOptions(options?: GenerateOptions): OllamaModelOptions {
   if (!options) {
     return {};
   }

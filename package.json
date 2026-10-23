@@ -1,6 +1,6 @@
 {
   "name": "yodaman-ctx",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Cross-project context agent CLI (ctx): semantic search and Q&A across codebases. YodaMan's maintained fork of Context Expert.",
   "type": "module",
   "bin": {
@@ -26,7 +26,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run check:latest && npm run build && npm test",
+    "check:latest": "npm outdated"
   },
   "keywords": [
     "ai",

@@ -82,7 +82,7 @@ export interface OllamaProviderResult {
 export const DEFAULT_OLLAMA_MODEL = 'llama3.2';
 
 /** Default timeout for Ollama - 2 minutes (local models can be slow) */
-export const DEFAULT_OLLAMA_TIMEOUT = 120000;
+const DEFAULT_OLLAMA_TIMEOUT = 120000;
 
 // ============================================================================
 // FACTORY FUNCTION

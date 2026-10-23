@@ -27,7 +27,7 @@ dotenvConfig();
  * This enables "lazy validation" where only the provider you're
  * actually using needs to have its key configured.
  */
-export const EnvSchema = z.object({
+const EnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   OLLAMA_HOST: z.string().default('http://localhost:11434'),

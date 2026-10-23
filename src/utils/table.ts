@@ -10,7 +10,7 @@ import chalk from 'chalk';
 /**
  * Column alignment options
  */
-export type Alignment = 'left' | 'right' | 'center';
+type Alignment = 'left' | 'right' | 'center';
 
 /**
  * Column definition for table

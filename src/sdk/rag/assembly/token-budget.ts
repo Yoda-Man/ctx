@@ -56,7 +56,7 @@ export function estimateTokens(text: string): number {
  * @param formattingOverhead - Extra characters for formatting (default: 50)
  * @returns Estimated total token count
  */
-export function estimateChunkTokens(
+function estimateChunkTokens(
   chunk: Chunk,
   formattingOverhead: number = 50
 ): number {
@@ -208,7 +208,7 @@ export function applyTokenBudget(
  * @param maxChars - Maximum characters (including ellipsis)
  * @returns Truncated text with ellipsis
  */
-export function truncateText(text: string, maxChars: number): string {
+function truncateText(text: string, maxChars: number): string {
   if (text.length <= maxChars) {
     return text;
   }
@@ -230,92 +230,4 @@ export function truncateText(text: string, maxChars: number): string {
   }
 
   return truncated.trimEnd() + ellipsis;
-}
-
-// ============================================================================
-// Budget Analysis
-// ============================================================================
-
-/**
- * Analyze how chunks would fill the token budget.
- *
- * Useful for planning and debugging without modifying chunks.
- *
- * @param chunks - Chunks to analyze
- * @param budget - Token budget
- * @param formattingOverhead - Extra chars per chunk for formatting
- * @returns Analysis of budget usage
- */
-export function analyzeBudget(
-  chunks: Chunk[],
-  budget: number,
-  formattingOverhead: number = 50
-): BudgetAnalysis {
-  let totalTokens = 0;
-  const chunkAnalysis: ChunkTokenAnalysis[] = [];
-
-  for (const chunk of chunks) {
-    const tokens = estimateChunkTokens(chunk, formattingOverhead);
-    const cumulativeTokens = totalTokens + tokens;
-    const fitsInBudget = cumulativeTokens <= budget;
-
-    chunkAnalysis.push({
-      id: chunk.id,
-      tokens,
-      cumulativeTokens,
-      fitsInBudget,
-      percentOfBudget: (tokens / budget) * 100,
-    });
-
-    totalTokens = cumulativeTokens;
-  }
-
-  const includedCount = chunkAnalysis.filter((c) => c.fitsInBudget).length;
-
-  return {
-    budget,
-    totalChunks: chunks.length,
-    totalTokens,
-    includedCount,
-    droppedCount: chunks.length - includedCount,
-    budgetUtilization:
-      (Math.min(totalTokens, budget) / budget) * 100,
-    chunks: chunkAnalysis,
-  };
-}
-
-/**
- * Token analysis for a single chunk.
- */
-export interface ChunkTokenAnalysis {
-  /** Chunk ID */
-  id: string;
-  /** Estimated tokens for this chunk */
-  tokens: number;
-  /** Cumulative tokens including this chunk */
-  cumulativeTokens: number;
-  /** Whether this chunk fits in budget */
-  fitsInBudget: boolean;
-  /** This chunk's percentage of total budget */
-  percentOfBudget: number;
-}
-
-/**
- * Analysis of token budget usage.
- */
-export interface BudgetAnalysis {
-  /** Token budget */
-  budget: number;
-  /** Total number of chunks */
-  totalChunks: number;
-  /** Total tokens across all chunks */
-  totalTokens: number;
-  /** Number of chunks that fit in budget */
-  includedCount: number;
-  /** Number of chunks that exceed budget */
-  droppedCount: number;
-  /** Percentage of budget used by included chunks */
-  budgetUtilization: number;
-  /** Per-chunk analysis */
-  chunks: ChunkTokenAnalysis[];
 }

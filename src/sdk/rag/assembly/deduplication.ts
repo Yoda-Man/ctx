@@ -44,7 +44,7 @@ export const DEFAULT_DEDUPLICATION_CONFIG: Required<DeduplicationConfig> = {
  * jaccardSimilarity('hello', 'goodbye'); // 0.0
  * ```
  */
-export function jaccardSimilarity(textA: string, textB: string): number {
+function jaccardSimilarity(textA: string, textB: string): number {
   const wordsA = tokenize(textA);
   const wordsB = tokenize(textB);
 
@@ -76,7 +76,7 @@ export function jaccardSimilarity(textA: string, textB: string): number {
  * @param text - Text to tokenize
  * @returns Set of normalized words
  */
-export function tokenize(text: string): Set<string> {
+function tokenize(text: string): Set<string> {
   return new Set(
     text
       .toLowerCase()
@@ -105,7 +105,7 @@ export interface DeduplicationResult {
 /**
  * Information about a removed duplicate.
  */
-export interface DuplicateInfo {
+interface DuplicateInfo {
   /** The removed result */
   removed: RerankerResult;
   /** The kept result it was similar to */
@@ -197,126 +197,4 @@ export function deduplicateResults(
     duplicates,
     comparisons,
   };
-}
-
-/**
- * Find all pairs of similar chunks above threshold.
- *
- * Useful for analysis and debugging.
- *
- * @param results - Results to analyze
- * @param threshold - Minimum similarity to report
- * @returns Array of similar pairs
- */
-export function findSimilarPairs(
-  results: RerankerResult[],
-  threshold: number = 0.7
-): SimilarPair[] {
-  const pairs: SimilarPair[] = [];
-
-  for (let i = 0; i < results.length; i++) {
-    for (let j = i + 1; j < results.length; j++) {
-      const resultI = results[i]!;
-      const resultJ = results[j]!;
-      const similarity = jaccardSimilarity(
-        resultI.chunk.content,
-        resultJ.chunk.content
-      );
-
-      if (similarity >= threshold) {
-        pairs.push({
-          idA: resultI.id,
-          idB: resultJ.id,
-          similarity,
-          contentPreviewA: resultI.chunk.content.slice(0, 100),
-          contentPreviewB: resultJ.chunk.content.slice(0, 100),
-        });
-      }
-    }
-  }
-
-  return pairs.sort((a, b) => b.similarity - a.similarity);
-}
-
-/**
- * A pair of similar chunks.
- */
-export interface SimilarPair {
-  /** First chunk ID */
-  idA: string;
-  /** Second chunk ID */
-  idB: string;
-  /** Similarity score */
-  similarity: number;
-  /** Preview of first chunk content */
-  contentPreviewA: string;
-  /** Preview of second chunk content */
-  contentPreviewB: string;
-}
-
-// ============================================================================
-// Similarity Analysis
-// ============================================================================
-
-/**
- * Analyze similarity distribution in a result set.
- *
- * @param results - Results to analyze
- * @returns Analysis of similarity patterns
- */
-export function analyzeSimilarity(results: RerankerResult[]): SimilarityAnalysis {
-  if (results.length <= 1) {
-    return {
-      totalPairs: 0,
-      averageSimilarity: 0,
-      maxSimilarity: 0,
-      minSimilarity: 0,
-      pairsAbove50: 0,
-      pairsAbove70: 0,
-      pairsAbove90: 0,
-    };
-  }
-
-  const similarities: number[] = [];
-
-  for (let i = 0; i < results.length; i++) {
-    for (let j = i + 1; j < results.length; j++) {
-      const resultI = results[i]!;
-      const resultJ = results[j]!;
-      similarities.push(
-        jaccardSimilarity(resultI.chunk.content, resultJ.chunk.content)
-      );
-    }
-  }
-
-  return {
-    totalPairs: similarities.length,
-    averageSimilarity:
-      similarities.reduce((a, b) => a + b, 0) / similarities.length,
-    maxSimilarity: Math.max(...similarities),
-    minSimilarity: Math.min(...similarities),
-    pairsAbove50: similarities.filter((s) => s >= 0.5).length,
-    pairsAbove70: similarities.filter((s) => s >= 0.7).length,
-    pairsAbove90: similarities.filter((s) => s >= 0.9).length,
-  };
-}
-
-/**
- * Analysis of similarity patterns in results.
- */
-export interface SimilarityAnalysis {
-  /** Total number of pairs compared */
-  totalPairs: number;
-  /** Average similarity across all pairs */
-  averageSimilarity: number;
-  /** Maximum similarity found */
-  maxSimilarity: number;
-  /** Minimum similarity found */
-  minSimilarity: number;
-  /** Pairs with similarity >= 0.5 */
-  pairsAbove50: number;
-  /** Pairs with similarity >= 0.7 */
-  pairsAbove70: number;
-  /** Pairs with similarity >= 0.9 */
-  pairsAbove90: number;
 }

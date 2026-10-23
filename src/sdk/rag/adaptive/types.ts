@@ -273,7 +273,7 @@ export interface AdaptiveSearchOptions extends RAGSearchOptions {
 /**
  * A message in the conversation history.
  */
-export interface ConversationMessage {
+interface ConversationMessage {
   /** Role: 'user' or 'assistant' */
   role: 'user' | 'assistant';
   /** Message content */

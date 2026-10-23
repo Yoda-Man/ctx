@@ -35,7 +35,7 @@ import {
 /**
  * Default assembler configuration.
  */
-export const DEFAULT_ASSEMBLER_CONFIG: Required<
+const DEFAULT_ASSEMBLER_CONFIG: Required<
   Omit<AssemblerConfig, 'tokenBudget' | 'deduplication'>
 > & {
   tokenBudget: typeof DEFAULT_TOKEN_BUDGET;

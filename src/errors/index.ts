@@ -28,6 +28,6 @@ export {
   getExitCode,
   handleError,
   createGlobalErrorHandler,
-  type ErrorHandlerOptions,
-  type ErrorOutput,
+  
+  
 } from './handler.js';

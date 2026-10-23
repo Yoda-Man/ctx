@@ -57,7 +57,7 @@ const OpenAICompatibleProviderConfigSchema = z.object({
  * Union of all provider config types.
  * Uses discriminated union on the `type` field for type-safe parsing.
  */
-export const ProviderConfigSchema = z.discriminatedUnion('type', [
+const ProviderConfigSchema = z.discriminatedUnion('type', [
   AnthropicProviderConfigSchema,
   OpenAIProviderConfigSchema,
   OpenAICompatibleProviderConfigSchema,
@@ -71,7 +71,7 @@ export type ConfiguredProviderType = ProviderConfig['type'];
 /**
  * Root schema for providers.json file.
  */
-export const ProvidersFileSchema = z.object({
+const ProvidersFileSchema = z.object({
   /** Name of the default provider (null if none configured) */
   default: z.string().nullable(),
   /** Map of provider name to configuration */

@@ -42,9 +42,9 @@ export {
   createMockEmbeddingProvider,
   getProjectFromDb,
   countChunksInDb,
-  getChunkContents,
+  
   DEFAULT_SAMPLE_FILES,
-  type SampleFile,
+  
 } from '../../cli/__tests__/integration/setup.js';
 
 // ============================================================================
@@ -403,7 +403,7 @@ export function verifyCitations(
  * expect(capture.lines).toEqual(['Hello', 'World']);
  * ```
  */
-export function captureConsoleOutput(): {
+function captureConsoleOutput(): {
   lines: string[];
   restore: () => void;
 } {
@@ -435,7 +435,7 @@ export function captureConsoleOutput(): {
  *
  * @returns Object with captured content string and restore function
  */
-export function captureStdout(): {
+function captureStdout(): {
   getContent: () => string;
   restore: () => void;
 } {
@@ -525,7 +525,7 @@ export async function withStdoutCapture<T>(
  * expect(lines.some(l => l.includes('results'))).toBe(true);
  * ```
  */
-export async function withConsoleCapture<T>(
+async function withConsoleCapture<T>(
   fn: () => T | Promise<T>
 ): Promise<{ result: T; lines: string[] }> {
   const capture = captureConsoleOutput();

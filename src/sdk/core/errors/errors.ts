@@ -230,26 +230,6 @@ export class ToolOutputValidationError extends ToolError {
 }
 
 /**
- * Provider-related errors
- *
- * Thrown when:
- * - LLM API call fails
- * - Rate limit exceeded
- * - Authentication fails
- */
-export class ProviderError extends ContextAIError {
-  readonly provider: string;
-  readonly statusCode?: number;
-
-  constructor(message: string, provider: string, statusCode?: number) {
-    super(message, 'PROVIDER_ERROR');
-    this.name = 'ProviderError';
-    this.provider = provider;
-    this.statusCode = statusCode;
-  }
-}
-
-/**
  * Validation errors (Zod-based)
  *
  * Thrown when:

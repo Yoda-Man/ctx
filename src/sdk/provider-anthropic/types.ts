@@ -86,24 +86,3 @@ export interface RateLimitState {
   /** When the token limit resets (Unix timestamp ms) */
   tokensResetAt: number | null;
 }
-
-/**
- * Anthropic model identifiers for convenience.
- * Use these or pass any valid model string to the provider.
- */
-export const AnthropicModels = {
-  // Claude 4 (latest)
-  CLAUDE_SONNET_4: 'claude-sonnet-4-20250514',
-  CLAUDE_OPUS_4: 'claude-opus-4-20250514',
-
-  // Claude 3.5
-  CLAUDE_3_5_SONNET: 'claude-3-5-sonnet-20241022',
-  CLAUDE_3_5_HAIKU: 'claude-3-5-haiku-20241022',
-
-  // Claude 3
-  CLAUDE_3_OPUS: 'claude-3-opus-20240229',
-  CLAUDE_3_SONNET: 'claude-3-sonnet-20240229',
-  CLAUDE_3_HAIKU: 'claude-3-haiku-20240307',
-} as const;
-
-export type AnthropicModelId = (typeof AnthropicModels)[keyof typeof AnthropicModels];

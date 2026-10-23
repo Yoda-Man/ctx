@@ -24,7 +24,7 @@ export const CTX_DIR = join(homedir(), '.ctx');
  */
 export const MODELS_DIR = join(CTX_DIR, 'models');
 export const DB_PATH = join(CTX_DIR, 'context.db');
-export const CONFIG_PATH = join(CTX_DIR, 'config.toml');
+const CONFIG_PATH = join(CTX_DIR, 'config.toml');
 export const PROVIDERS_PATH = join(CTX_DIR, 'providers.json');
 
 /**

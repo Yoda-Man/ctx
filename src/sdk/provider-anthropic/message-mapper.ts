@@ -41,7 +41,7 @@ type AnthropicToolResultBlock = Anthropic.ToolResultBlockParam;
 /**
  * Result of extracting system messages from the conversation.
  */
-export interface ExtractedMessages {
+interface ExtractedMessages {
   /** Combined system message content (or undefined if none) */
   system: string | undefined;
   /** Non-system messages for the messages array */
@@ -67,7 +67,7 @@ export interface ExtractedMessages {
  * // messages = [{ role: 'user', content: 'Hello' }]
  * ```
  */
-export function extractSystemMessage(messages: ChatMessage[]): ExtractedMessages {
+function extractSystemMessage(messages: ChatMessage[]): ExtractedMessages {
   const systemMessages: string[] = [];
   const nonSystemMessages: ChatMessage[] = [];
 
@@ -99,7 +99,7 @@ export function extractSystemMessage(messages: ChatMessage[]): ExtractedMessages
  * NOTE: Call extractSystemMessage first to separate system messages!
  * This function assumes system messages have already been extracted.
  */
-export function mapMessages(messages: ChatMessage[]): AnthropicMessage[] {
+function mapMessages(messages: ChatMessage[]): AnthropicMessage[] {
   return messages.map(mapMessage);
 }
 
@@ -111,7 +111,7 @@ export function mapMessages(messages: ChatMessage[]): AnthropicMessage[] {
  * - Assistant messages (text or with tool calls)
  * - Tool result messages
  */
-export function mapMessage(message: ChatMessage): AnthropicMessage {
+function mapMessage(message: ChatMessage): AnthropicMessage {
   switch (message.role) {
     case 'user':
       return mapUserMessage(message);
@@ -247,7 +247,7 @@ function mapToolResultMessage(message: ChatMessage): AnthropicMessage {
  * - Image parts (base64 or URL - URLs converted to base64 note)
  * - Document parts (limited support)
  */
-export function mapContentParts(parts: ContentPart[]): AnthropicContentBlock[] {
+function mapContentParts(parts: ContentPart[]): AnthropicContentBlock[] {
   const blocks: AnthropicContentBlock[] = [];
 
   for (const part of parts) {
@@ -351,7 +351,7 @@ function mapImageContent(
  *   input_schema: JSONSchema  // Note: input_schema, not parameters
  * }
  */
-export function mapTools(tools: ToolDefinition[]): AnthropicTool[] {
+function mapTools(tools: ToolDefinition[]): AnthropicTool[] {
   return tools.map(mapTool);
 }
 

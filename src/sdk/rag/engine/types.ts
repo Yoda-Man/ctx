@@ -94,7 +94,7 @@ export interface RAGEngineConfig {
 /**
  * Default values for search options.
  */
-export interface RAGSearchDefaults {
+interface RAGSearchDefaults {
   /** Default topK for retrieval */
   topK?: number;
   /** Default minimum score threshold */

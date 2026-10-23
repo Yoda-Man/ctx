@@ -46,7 +46,7 @@ export const dotProduct = (a: number[], b: number[]): number => {
  * l2Norm([3, 4]); // 5 (Pythagorean: sqrt(9 + 16))
  * ```
  */
-export const l2Norm = (embedding: number[]): number => {
+const l2Norm = (embedding: number[]): number => {
   let sumOfSquares = 0;
   for (const value of embedding) {
     sumOfSquares += value * value;
@@ -150,60 +150,4 @@ export const euclideanDistance = (a: number[], b: number[]): number => {
     sumOfSquares += diff * diff;
   }
   return Math.sqrt(sumOfSquares);
-};
-
-/**
- * Check if a vector is normalized (unit length).
- *
- * @param embedding - Vector to check
- * @param tolerance - Acceptable deviation from 1.0 (default: 1e-6)
- * @returns true if the vector has unit length
- */
-export const isNormalized = (
-  embedding: number[],
-  tolerance: number = 1e-6
-): boolean => {
-  const norm = l2Norm(embedding);
-  return Math.abs(norm - 1) < tolerance;
-};
-
-/**
- * Compute the mean of multiple embedding vectors.
- *
- * Useful for combining embeddings (e.g., averaging sentence embeddings).
- *
- * @param embeddings - Array of embedding vectors
- * @param normalize - Whether to normalize the result (default: true)
- * @returns Mean vector
- * @throws {VectorError} If embeddings array is empty
- * @throws {VectorError} If embeddings have different dimensions
- */
-export const meanEmbedding = (
-  embeddings: number[][],
-  normalize: boolean = true
-): number[] => {
-  if (embeddings.length === 0) {
-    throw VectorError.emptyArray('mean');
-  }
-
-  const firstEmbedding = embeddings[0] as number[];
-  const dimensions = firstEmbedding.length;
-  const mean = new Array(dimensions).fill(0);
-
-  for (const embedding of embeddings) {
-    if (embedding.length !== dimensions) {
-      throw VectorError.dimensionMismatch(dimensions, embedding.length);
-    }
-    for (let i = 0; i < dimensions; i++) {
-      mean[i] += embedding[i];
-    }
-  }
-
-  // Divide by count
-  const count = embeddings.length;
-  for (let i = 0; i < dimensions; i++) {
-    mean[i] /= count;
-  }
-
-  return normalize ? normalizeL2(mean) : mean;
 };

@@ -90,7 +90,7 @@ export interface ChunkerConfig {
  * @param options - Callbacks for progress (onChunk only; errors reported in result)
  * @returns FileChunkResult with success, chunks, and error details
  */
-export async function chunkFileWithResult(
+async function chunkFileWithResult(
   fileInfo: FileInfo,
   config: ChunkerConfig = {},
   options: Pick<ChunkOptions, 'onChunk'> = {}
@@ -381,37 +381,6 @@ export async function chunkFile(
   }
 
   return result.chunks;
-}
-
-/**
- * Chunk multiple files in batch.
- *
- * This is the backward-compatible batch function. It delegates to
- * chunkFilesWithResult() and converts the result to the legacy format.
- *
- * For new code, prefer chunkFilesWithResult() which provides:
- * - Per-file success/failure information
- * - Aggregate statistics
- * - All errors and warnings collected
- *
- * @param files - Array of file info objects
- * @param config - Optional chunker configuration
- * @param options - Callbacks for progress/errors
- * @returns Array of all chunks from all files
- */
-export async function chunkFiles(
-  files: FileInfo[],
-  config: ChunkerConfig = {},
-  options: ChunkOptions = {}
-): Promise<ChunkResult[]> {
-  const allChunks: ChunkResult[] = [];
-
-  for (const file of files) {
-    const chunks = await chunkFile(file, config, options);
-    allChunks.push(...chunks);
-  }
-
-  return allChunks;
 }
 
 /**

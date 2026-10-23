@@ -1,7 +1,7 @@
 /**
  * Chat message role
  */
-export type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
+type MessageRole = 'system' | 'user' | 'assistant' | 'tool';
 
 /**
  * Text content part for multimodal messages
@@ -74,7 +74,7 @@ export interface ToolCall {
 /**
  * Cache information from provider response
  */
-export interface CacheInfo {
+interface CacheInfo {
   /** Whether the response was served from cache */
   hit: boolean;
   /** Number of tokens saved by cache hit */
@@ -203,7 +203,7 @@ export interface ModelInfo {
 /**
  * Configuration for extended thinking/reasoning mode
  */
-export interface ThinkingConfig {
+interface ThinkingConfig {
   /** Enable extended thinking mode */
   enabled: boolean;
   /** Maximum tokens to use for thinking (Claude budgetTokens) */

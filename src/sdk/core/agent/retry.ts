@@ -12,7 +12,7 @@ import { DEFAULT_RETRY_OPTIONS } from './retry-types.js';
 /**
  * Error thrown when all retry attempts are exhausted.
  */
-export class RetryExhaustedError extends ContextAIError {
+class RetryExhaustedError extends ContextAIError {
   constructor(
     message: string,
     public readonly lastError: Error,

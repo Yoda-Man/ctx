@@ -46,7 +46,7 @@ export const EmbeddingConfigSchema = z.object({
  * Search configuration
  * Controls how semantic search behaves
  */
-export const SearchConfigSchema = z.object({
+const SearchConfigSchema = z.object({
   top_k: z.number().int().min(1).max(100).describe('Number of results to return'),
   rerank: z.boolean().describe('Whether to rerank results for better relevance'),
 });
@@ -60,7 +60,7 @@ export const LLMProviderTypeSchema = z.enum(['anthropic', 'openai', 'ollama']);
  * LLM configuration with fallback support
  * This section is optional - defaults work without it
  */
-export const LLMConfigSchema = z.object({
+const LLMConfigSchema = z.object({
   /** Fallback providers in order of preference (omit to use defaults) */
   fallback_providers: z
     .array(LLMProviderTypeSchema)
@@ -77,7 +77,7 @@ export const LLMConfigSchema = z.object({
  * Indexing configuration
  * Controls file discovery behavior during indexing
  */
-export const IndexingConfigSchema = z.object({
+const IndexingConfigSchema = z.object({
   ignore_patterns: z
     .array(z.string())
     .optional()

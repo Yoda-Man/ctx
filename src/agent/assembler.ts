@@ -36,11 +36,11 @@
  */
 
 import { z } from 'zod';
-import { XMLAssembler, type OrderingStrategy } from '../sdk/rag/index.js';
+import { XMLAssembler,  } from '../sdk/rag/index.js';
 
 // Re-export SDK's ordering strategy to avoid type mismatches
 // This ensures our type always matches what the SDK expects
-export type { OrderingStrategy };
+;
 
 // ============================================================================
 // CONFIGURATION SCHEMA

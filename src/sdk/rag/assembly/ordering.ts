@@ -59,7 +59,7 @@ export function applyOrdering(
  * Results are typically already in this order from reranking,
  * but this ensures consistency.
  */
-export function orderByRelevance(results: RerankerResult[]): RerankerResult[] {
+function orderByRelevance(results: RerankerResult[]): RerankerResult[] {
   return [...results].sort((a, b) => b.score - a.score);
 }
 
@@ -85,7 +85,7 @@ export function orderByRelevance(results: RerankerResult[]): RerankerResult[] {
  * @param results - Results sorted by relevance descending
  * @param startCount - Number of top items to place at start (default: half)
  */
-export function orderBySandwich(
+function orderBySandwich(
   results: RerankerResult[],
   startCount?: number
 ): RerankerResult[] {
@@ -125,7 +125,7 @@ export function orderBySandwich(
  *
  * Falls back to relevance order if metadata is missing.
  */
-export function orderChronologically(
+function orderChronologically(
   results: RerankerResult[]
 ): RerankerResult[] {
   return [...results].sort((a, b) => {
@@ -146,70 +146,4 @@ export function orderChronologically(
     // Fallback to relevance if positions are equal
     return b.score - a.score;
   });
-}
-
-/**
- * Analyze the current ordering to provide insights.
- *
- * Useful for debugging and understanding how ordering affects attention.
- *
- * @returns Analysis object with distribution information
- */
-export function analyzeOrdering(results: RerankerResult[]): OrderingAnalysis {
-  if (results.length === 0) {
-    return {
-      totalCount: 0,
-      averageScore: 0,
-      scoreDistribution: { start: 0, middle: 0, end: 0 },
-      highAttentionScoreSum: 0,
-      middleScoreSum: 0,
-    };
-  }
-
-  const scores = results.map((r) => r.score);
-  const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-
-  // Divide into thirds: start, middle, end
-  const third = Math.ceil(results.length / 3);
-  const startScores = scores.slice(0, third);
-  const endScores = scores.slice(-third);
-  const middleScores = scores.slice(third, -third || undefined);
-
-  const sum = (arr: number[]) =>
-    arr.length > 0 ? arr.reduce((a, b) => a + b, 0) : 0;
-  const avg = (arr: number[]) => (arr.length > 0 ? sum(arr) / arr.length : 0);
-
-  return {
-    totalCount: results.length,
-    averageScore: avgScore,
-    scoreDistribution: {
-      start: avg(startScores),
-      middle: avg(middleScores),
-      end: avg(endScores),
-    },
-    // High attention zones: start + end
-    highAttentionScoreSum: sum(startScores) + sum(endScores),
-    // Low attention zone: middle
-    middleScoreSum: sum(middleScores),
-  };
-}
-
-/**
- * Analysis of chunk ordering.
- */
-export interface OrderingAnalysis {
-  /** Total number of chunks */
-  totalCount: number;
-  /** Average relevance score across all chunks */
-  averageScore: number;
-  /** Average scores by position (start/middle/end thirds) */
-  scoreDistribution: {
-    start: number;
-    middle: number;
-    end: number;
-  };
-  /** Sum of scores in high-attention zones (start + end) */
-  highAttentionScoreSum: number;
-  /** Sum of scores in low-attention zone (middle) */
-  middleScoreSum: number;
 }

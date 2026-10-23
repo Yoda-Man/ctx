@@ -34,59 +34,38 @@
 
 // Types
 export {
-  AgentMode,
+  
   AgentPhase,
-  type RegionBounds,
-  type TokenUsageState,
-  type CostState,
-  type ActivityState,
-  type ModelState,
-  type StatusLineState,
-  type MessageRole,
-  type SourceReference,
-  type DisplayMessage,
-  type TUIConfig,
-  DEFAULT_TUI_CONFIG,
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
 } from './types.js';
 
 // Terminal Region Manager
-export {
-  TerminalRegionManager,
-  createTerminalRegionManager,
-  ANSI,
-  type TerminalRegionManagerOptions,
-  type TerminalRegionManagerEvents,
-} from './terminal-regions.js';
+;
 
 // Status Line Renderer
-export {
-  StatusLineRenderer,
-  createStatusLineRenderer,
-  toolToDescription,
-  DEFAULT_STATUS_STATE,
-  type StatusLineRendererOptions,
-} from './status-line.js';
+;
 
 // Chat Area Manager
-export {
-  ChatAreaManager,
-  createChatAreaManager,
-  type ChatAreaManagerOptions,
-} from './chat-area.js';
+;
 
 // Input Manager
-export {
-  InputManager,
-  createInputManager,
-  type Completer,
-  type InputManagerOptions,
-} from './input-manager.js';
+;
 
 // TUI Controller (main integration point)
 export {
   TUIController,
-  startTUI,
+  
   type StreamChunk,
-  type TUIControllerOptions,
-  type TUIControllerEvents,
+  
+  
 } from './controller.js';

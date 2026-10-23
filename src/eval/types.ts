@@ -153,8 +153,6 @@ export const ObservabilityConfigSchema = z.object({
     .describe('Trace sampling rate for local SQLite recording (0.0-1.0)'),
 });
 
-export type ObservabilityConfig = z.infer<typeof ObservabilityConfigSchema>;
-
 // ============================================================================
 // TRACE CAPTURE TYPES (Always-on local recording)
 // ============================================================================
@@ -424,18 +422,6 @@ export interface EvalRunSummary {
   };
 }
 
-/**
- * Trend data across multiple eval runs for a project.
- *
- * Used for plotting metrics over time in `ctx eval report --last N`.
- */
-export interface EvalTrend {
-  /** Project name */
-  project_name: string;
-  /** Run summaries ordered by timestamp (oldest first) */
-  runs: EvalRunSummary[];
-}
-
 // ============================================================================
 // GOLDEN DATASET TYPES
 // ============================================================================
@@ -448,7 +434,7 @@ export interface EvalTrend {
  * - 'generated': Created by LLM from codebase analysis
  * - 'captured': Promoted from positive-feedback traces
  */
-export type GoldenEntrySource = 'manual' | 'generated' | 'captured';
+type GoldenEntrySource = 'manual' | 'generated' | 'captured';
 
 /**
  * Golden dataset file format.

@@ -246,38 +246,6 @@ export interface XMLAssemblerConfig extends AssemblerConfig {
 }
 
 // ============================================================================
-// Markdown Assembler Configuration
-// ============================================================================
-
-/**
- * Configuration specific to Markdown format assembler.
- *
- * Outputs: `[1] content... (source: file:line)`
- */
-export interface MarkdownAssemblerConfig extends AssemblerConfig {
-  /**
-   * Format for source citations.
-   * - 'inline': `[1] content (source: file.md:10)`
-   * - 'footnote': `content [1]` with footnotes at end
-   * - 'header': `### Source 1: file.md\ncontent`
-   * Default: 'inline'
-   */
-  citationStyle?: 'inline' | 'footnote' | 'header';
-
-  /**
-   * Separator between chunks.
-   * Default: '\n\n---\n\n'
-   */
-  chunkSeparator?: string;
-
-  /**
-   * Include section headers if available.
-   * Default: true
-   */
-  includeSectionHeaders?: boolean;
-}
-
-// ============================================================================
 // Assembler Interface
 // ============================================================================
 

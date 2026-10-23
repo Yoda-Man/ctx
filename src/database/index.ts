@@ -25,11 +25,11 @@ export {
   hasPendingMigrations,
   getAppliedMigrations,
   // State tracking (Ticket #52)
-  resetMigrationState,
-  isMigrationInitialized,
-  getMigrationCount,
+  
+  
+  
   // Result type (Ticket #52)
-  type MigrationResult,
+  
 } from './migrate.js';
 
 // Schema types
@@ -48,32 +48,32 @@ export { generateId, embeddingToBlob, blobToEmbedding } from './schema.js';
 // Validation schemas and utilities (Ticket #51)
 export {
   // Full row schemas
-  ProjectRowSchema,
-  ChunkRowSchema,
-  FileHashRowSchema,
+  
+  
+  
   // Partial schemas for store loading
-  ChunkLoadRowSchema,
-  ChunkLoadNoEmbeddingSchema,
+  
+  
   // Types
-  type ProjectRow,
-  type ChunkRow,
-  type FileHashRow,
-  type ChunkLoadRow,
-  type ChunkLoadNoEmbeddingRow,
+  
+  
+  
+  
+  
   // Error class
-  SchemaValidationError,
+  
   // Validation functions
-  validateRow,
-  validateRows,
-  safeValidateRow,
+  
+  
+  
 } from './validation.js';
 
 // High-level database operations
 export {
   getDatabase,
   resetDatabase,
-  DatabaseOperations,
-  type ProjectUpsertInput,
-  type ChunkInsertInput,
-  type ProjectStatsUpdate,
+  
+  
+  
+  
 } from './operations.js';

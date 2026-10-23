@@ -23,7 +23,7 @@ export interface ErrorHandlerOptions {
 /**
  * Structured error for JSON output
  */
-export interface ErrorOutput {
+interface ErrorOutput {
   error: string;
   code: number;
   hint?: string;

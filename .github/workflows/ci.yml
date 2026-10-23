@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Every dependency is at its latest release
+        run: npm run check:latest
+
       - name: Type check
         run: npm run typecheck
 

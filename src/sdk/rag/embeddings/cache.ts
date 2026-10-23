@@ -66,7 +66,7 @@ export interface EmbeddingCache {
 /**
  * Configuration for LRU embedding cache.
  */
-export interface LRUEmbeddingCacheConfig {
+interface LRUEmbeddingCacheConfig {
   /** Maximum number of embeddings to cache (default: 10000) */
   maxSize?: number;
 }
@@ -92,7 +92,7 @@ export interface LRUEmbeddingCacheConfig {
  * await cache.get('hello'); // returns undefined on miss
  * ```
  */
-export class LRUEmbeddingCache implements EmbeddingCache {
+class LRUEmbeddingCache implements EmbeddingCache {
   /** Internal generic cache provider */
   private readonly provider: LRUCacheProvider<number[]>;
 
@@ -155,7 +155,7 @@ export class LRUEmbeddingCache implements EmbeddingCache {
  * Uses a simple hash function for fast key generation.
  * For production with high collision sensitivity, consider using SHA-256.
  */
-export function generateCacheKey(text: string): string {
+function generateCacheKey(text: string): string {
   // Simple djb2 hash - fast and good distribution
   let hash = 5381;
   for (let i = 0; i < text.length; i++) {

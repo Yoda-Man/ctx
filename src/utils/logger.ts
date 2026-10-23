@@ -31,11 +31,3 @@ export const consoleLogger: Logger = {
   warn: (message: string) => console.warn(message),
   debug: (message: string) => console.log(message),
 };
-
-/**
- * Silent logger for tests or when logging should be suppressed.
- */
-export const silentLogger: Logger = {
-  warn: () => {},
-  debug: () => {},
-};

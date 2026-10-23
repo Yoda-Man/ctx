@@ -169,7 +169,7 @@ export interface OllamaStreamChunk {
 /**
  * Ollama model information from /api/tags.
  */
-export interface OllamaModelInfo {
+interface OllamaModelInfo {
   name: string;
   model: string;
   modified_at: string;
@@ -191,32 +191,3 @@ export interface OllamaModelInfo {
 export interface OllamaTagsResponse {
   models: OllamaModelInfo[];
 }
-
-/**
- * Common Ollama model identifiers for convenience.
- */
-export const OllamaModels = {
-  // Llama 3.2
-  LLAMA_3_2_1B: 'llama3.2:1b',
-  LLAMA_3_2_3B: 'llama3.2:3b',
-  LLAMA_3_2: 'llama3.2',
-
-  // Llama 3.1
-  LLAMA_3_1_8B: 'llama3.1:8b',
-  LLAMA_3_1_70B: 'llama3.1:70b',
-
-  // Mistral
-  MISTRAL: 'mistral',
-  MISTRAL_NEMO: 'mistral-nemo',
-
-  // Code models
-  CODELLAMA: 'codellama',
-  DEEPSEEK_CODER: 'deepseek-coder',
-  QWEN_CODER: 'qwen2.5-coder',
-
-  // Small models
-  PHI3: 'phi3',
-  GEMMA2: 'gemma2',
-} as const;
-
-export type OllamaModelId = (typeof OllamaModels)[keyof typeof OllamaModels];

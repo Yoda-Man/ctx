@@ -108,7 +108,7 @@ export interface IndexPipelineResult {
 /**
  * JSON event types for NDJSON output.
  */
-export type ProgressEventType =
+type ProgressEventType =
   | 'stage_start'
   | 'stage_progress'
   | 'stage_complete'

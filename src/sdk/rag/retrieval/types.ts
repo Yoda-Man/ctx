@@ -19,7 +19,7 @@ import type { Chunk, MetadataFilter } from '../vector-store/types.js';
  * - Low dense, high sparse: exact keyword match but different meaning
  * - Both high: strong match on both dimensions
  */
-export interface HybridScore {
+interface HybridScore {
   /** Score from dense (vector) retrieval (0-1, higher = more similar) */
   dense: number;
   /** Score from sparse (BM25) retrieval (normalized 0-1) */
@@ -66,7 +66,7 @@ export interface HybridScore {
  * }
  * ```
  */
-export interface ConfidenceScore {
+interface ConfidenceScore {
   /**
    * Overall confidence in this result (0-1, higher = more confident).
    *
@@ -163,28 +163,6 @@ export interface RetrievalOptions {
   filter?: MetadataFilter;
   /** Include full metadata in results (default: true) */
   includeMetadata?: boolean;
-}
-
-/**
- * Options specific to hybrid retrieval.
- */
-export interface HybridRetrievalOptions extends RetrievalOptions {
-  /**
-   * Balance between dense and sparse retrieval.
-   *
-   * - 0.0 = sparse only (pure BM25)
-   * - 0.5 = balanced (default)
-   * - 1.0 = dense only (pure vector search)
-   *
-   * Values between give weighted combination via RRF.
-   */
-  alpha?: number;
-  /**
-   * Number of candidates to fetch from each retriever before fusion.
-   * Higher values may improve recall but increase latency.
-   * Default: topK * 3
-   */
-  candidateMultiplier?: number;
 }
 
 // ============================================================================
@@ -301,152 +279,6 @@ export interface BM25Document {
 export interface DenseRetrieverConfig {
   /** Name for this retriever instance */
   name?: string;
-}
-
-// ============================================================================
-// Hybrid Retriever Configuration
-// ============================================================================
-
-/**
- * Configuration for hybrid retriever.
- */
-export interface HybridRetrieverConfig {
-  /** Name for this retriever instance */
-  name?: string;
-
-  /**
-   * Default alpha value for retrieval.
-   * Can be overridden per-query via options.
-   * Default: 0.5 (balanced)
-   */
-  defaultAlpha?: number;
-
-  /**
-   * RRF k parameter.
-   * Higher values reduce the impact of rank differences.
-   * Default: 60 (standard value)
-   */
-  rrfK?: number;
-
-  /** BM25 configuration for the sparse component */
-  bm25Config?: BM25Config;
-}
-
-// ============================================================================
-// Graph Hybrid Retrieval Types
-// ============================================================================
-
-/**
- * Extended transparency scores including graph context contribution.
- *
- * Allows users to understand how graph relationships influenced results:
- * - High graph, low dense: Connected but semantically different
- * - High dense, low graph: Semantically similar but not connected
- * - Both high: Strong match on both dimensions
- */
-export interface GraphHybridScore extends HybridScore {
-  /** Score from graph context expansion (0-1, higher = more connected) */
-  graph: number;
-}
-
-/**
- * Configuration for graph context expansion during retrieval.
- *
- * Controls how the retriever traverses the knowledge graph to find
- * related context for retrieved chunks.
- */
-export interface GraphContextConfig {
-  /**
-   * Maximum depth to traverse from matched chunks.
-   * Depth 1 = direct neighbors only.
-   * @default 1
-   */
-  depth?: number;
-
-  /**
-   * Direction for graph traversal.
-   * - 'outgoing': Follow edges from chunk to targets
-   * - 'incoming': Follow edges from sources to chunk
-   * - 'both': Follow edges in either direction
-   * @default 'both'
-   */
-  direction?: 'outgoing' | 'incoming' | 'both';
-
-  /**
-   * Filter by edge types during expansion.
-   * - undefined: All edge types allowed
-   * - empty array: No expansion (disables graph signal)
-   */
-  edgeTypes?: string[];
-
-  /**
-   * Filter by node types during expansion.
-   * Only nodes of these types will be included in graph context.
-   * - undefined: All node types
-   * - Typical: ['chunk', 'concept', 'entity']
-   */
-  nodeTypes?: string[];
-
-  /**
-   * Minimum edge weight threshold for graph expansion.
-   * Edges below this weight are not traversed.
-   * @default 0.0
-   */
-  minWeight?: number;
-
-  /**
-   * Maximum number of graph neighbors to consider per chunk.
-   * Limits traversal to prevent expensive queries on highly-connected nodes.
-   * @default 10
-   */
-  maxNeighborsPerChunk?: number;
-}
-
-/**
- * Options for graph-enhanced hybrid retrieval.
- */
-export interface GraphHybridRetrievalOptions extends HybridRetrievalOptions {
-  /**
-   * Weight for graph signal in 3-way fusion (0-1).
-   *
-   * Higher values give more influence to graph relationships.
-   * - 0: Disable graph signal (equivalent to HybridRetriever)
-   * - 0.3: Moderate graph influence (default)
-   * - 0.5+: Strong graph influence
-   *
-   * @default 0.3
-   */
-  graphWeight?: number;
-
-  /**
-   * Override graph context configuration for this query.
-   * Merged with defaults from retriever config.
-   */
-  graphContext?: GraphContextConfig;
-}
-
-/**
- * Configuration for GraphHybridRetriever.
- */
-export interface GraphHybridRetrieverConfig extends HybridRetrieverConfig {
-  /**
-   * Default graph context configuration.
-   * Can be overridden per-query via options.graphContext.
-   */
-  graphContext?: GraphContextConfig;
-
-  /**
-   * Default weight for graph signal in fusion.
-   * @default 0.3
-   */
-  defaultGraphWeight?: number;
-
-  /**
-   * Property name in chunk metadata that links to graph node ID.
-   * Used to map retrieved chunks to graph nodes for context expansion.
-   * @default 'graphNodeId'
-   */
-  chunkToNodeProperty?: string;
 }
 
 // ============================================================================

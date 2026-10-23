@@ -47,13 +47,13 @@ import {
 // ============================================================================
 
 /** Supported LLM provider types */
-export type ProviderType = 'anthropic' | 'openai' | 'ollama' | 'openai-compatible';
+type ProviderType = 'anthropic' | 'openai' | 'ollama' | 'openai-compatible';
 
 /**
  * Result of creating an LLM provider.
  * Includes the provider instance plus metadata for logging and debugging.
  */
-export interface LLMProviderResult {
+interface LLMProviderResult {
   /** The configured provider instance (implements LLMProvider interface) */
   provider: LLMProvider;
   /** Provider name for identification in logs */
@@ -91,7 +91,7 @@ export interface LLMProviderResultWithFallback extends LLMProviderResult {
 /**
  * Warning about lost capabilities when falling back to a different provider.
  */
-export interface CapabilityWarning {
+interface CapabilityWarning {
   /** Provider we're falling back from */
   fromProvider: ProviderType;
   /** Provider we're falling back to */

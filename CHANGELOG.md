@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-10-23
+## [1.0.0] - 2026-10-23
 
-First release of the YodaMan fork (`yodaman-ctx`). The `ctx` command, the
-`~/.ctx` index, database and configuration are unchanged.
+First release of `yodaman-ctx`, YodaMan's fork of `@contextexpert/cli` 1.4.0
+(the entries below that are its history). The `ctx` command, the `~/.ctx`
+index, database and configuration are unchanged.
 
 ### Fixed
 - **`ctx ask` failed with "Failed to connect to Ollama server: Cannot read

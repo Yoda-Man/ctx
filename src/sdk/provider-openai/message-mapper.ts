@@ -21,14 +21,14 @@ type OpenAIResponseFormat = OpenAI.Chat.Completions.ChatCompletionCreateParams['
 /**
  * Convert ContextAI ChatMessage array to OpenAI message format.
  */
-export function mapMessages(messages: ChatMessage[]): OpenAIMessage[] {
+function mapMessages(messages: ChatMessage[]): OpenAIMessage[] {
   return messages.map(mapMessage);
 }
 
 /**
  * Convert a single ChatMessage to OpenAI format.
  */
-export function mapMessage(message: ChatMessage): OpenAIMessage {
+function mapMessage(message: ChatMessage): OpenAIMessage {
   switch (message.role) {
     case 'system':
       return {
@@ -137,7 +137,7 @@ function extractTextFromContent(content: ChatMessage['content']): string {
 /**
  * Convert ContextAI tools to OpenAI function calling format.
  */
-export function mapTools(tools: ToolDefinition[]): OpenAITool[] {
+function mapTools(tools: ToolDefinition[]): OpenAITool[] {
   return tools.map((tool) => ({
     type: 'function' as const,
     function: {
@@ -151,7 +151,7 @@ export function mapTools(tools: ToolDefinition[]): OpenAITool[] {
 /**
  * Convert ContextAI response format to OpenAI format.
  */
-export function mapResponseFormat(
+function mapResponseFormat(
   format: ResponseFormat
 ): OpenAIResponseFormat {
   switch (format.type) {

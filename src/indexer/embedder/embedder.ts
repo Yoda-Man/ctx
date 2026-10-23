@@ -22,7 +22,7 @@ const DEFAULT_BATCH_SIZE = 32;
 /**
  * Error thrown when an embedding operation times out.
  */
-export class EmbeddingTimeoutError extends Error {
+class EmbeddingTimeoutError extends Error {
   constructor(timeoutMs: number) {
     super(
       `Embedding operation timed out after ${timeoutMs}ms. ` +
