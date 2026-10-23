@@ -147,11 +147,14 @@ export interface OllamaChatResponse {
 export interface OllamaStreamChunk {
   model: string;
   created_at: string;
-  message: {
+  /** Absent on a line that reports an error instead. */
+  message?: {
     role: 'assistant';
     content: string;
     tool_calls?: OllamaToolCall[];
   };
+  /** A failure Ollama reports mid-stream, e.g. "EOF"; such a line has no message. */
+  error?: string;
   done: boolean;
   done_reason?: 'stop' | 'length' | 'load';
   /** Only present when done=true */

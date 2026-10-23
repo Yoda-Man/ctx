@@ -12,6 +12,7 @@
 
 import type { ChatResponse, StreamChunk, ToolCall, TokenUsage } from '../core/index.js';
 import type { OllamaChatResponse, OllamaStreamChunk, OllamaToolCall } from './types.js';
+import { OllamaProviderError } from './errors.js';
 
 // ============================================================================
 // Non-Streaming Response Mapping
@@ -126,7 +127,15 @@ export function mapStreamChunk(
   chunk: OllamaStreamChunk,
   state: StreamingState
 ): StreamChunk | null {
+  // Ollama reports a failure mid-stream as a line with `error` and no
+  // `message`: {"error":"EOF"} when qwen3.5 slips into native tool-call mode.
+  // Reading message.content on it threw a TypeError that was then reported
+  // as "Failed to connect to Ollama server", with Ollama running fine.
+  if (chunk.error) {
+    throw new OllamaProviderError(`Ollama stopped generating: ${chunk.error}`, 'OLLAMA_API_ERROR');
+  }
   const message = chunk.message;
+  if (!message) return null;
 
   // Handle text content
   if (message.content && message.content.length > 0) {

@@ -114,9 +114,11 @@ export class OllamaProviderError extends ContextAIError {
  * @returns A standardized OllamaProviderError
  */
 export function mapOllamaError(error: unknown): OllamaProviderError {
-  // Handle fetch/network errors
-  if (error instanceof TypeError) {
-    // Network errors from fetch (e.g., "Failed to fetch")
+  // fetch reports a network failure as a TypeError: "fetch failed" in Node
+  // (the socket error is its cause), "Failed to fetch" in browsers. Any other
+  // TypeError is a bug in this code, and calling it a connection failure sent
+  // people to debug a healthy Ollama server.
+  if (error instanceof TypeError && /^(fetch failed|failed to fetch)$/i.test(error.message)) {
     return new OllamaProviderError(
       `Failed to connect to Ollama server: ${error.message}`,
       'OLLAMA_CONNECTION_ERROR',

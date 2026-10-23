@@ -13,6 +13,14 @@ First release of the YodaMan fork (`yodaman-ctx`). The `ctx` command, the
 `~/.ctx` index, database and configuration are unchanged.
 
 ### Fixed
+- **`ctx ask` failed with "Failed to connect to Ollama server: Cannot read
+  properties of undefined (reading 'content')" while Ollama was running.**
+  Ollama reports a failure mid-stream as a line with `error` and no `message`
+  (`{"error":"EOF"}`, seen with qwen3.5:9b when a prompt contains
+  `<tool_call>`); reading `message.content` on it threw, and every `TypeError`
+  was reported as a connection failure. The stream now ends with Ollama's own
+  message ("Ollama stopped generating: EOF"), and only fetch's network
+  failures count as connection errors.
 - **ctx crashed on start after a fresh install.** OpenTelemetry api 1.10
   (2026-10-20) made a fresh install resolve telemetry packages that require it
   alongside ones that reject it, and the crash happened at startup even with
