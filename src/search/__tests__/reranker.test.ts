@@ -129,6 +129,46 @@ describe('RerankerService', () => {
     });
   });
 
+  describe('when the model cannot load', () => {
+    // Seen for real: a slow connection cut the model download off and the
+    // whole search failed with "Failed to load model ...: terminated".
+    function failingModel() {
+      const warmup = vi.fn().mockRejectedValue(new Error("Failed to load model 'Xenova/bge-reranker-base': terminated"));
+      const rerank = vi.fn();
+      vi.mocked(BGEReranker).mockImplementationOnce(function () {
+        return { warmup, rerank, isLoaded: vi.fn().mockReturnValue(false) } as never;
+      });
+      return { warmup, rerank };
+    }
+
+    it('the search still returns its results, in their order, cut to top K', async () => {
+      const { rerank } = failingModel();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const service = new RerankerService();
+      const results = createMockResults(6);
+
+      await expect(service.warmup()).resolves.toBeUndefined();
+      const out = await service.rerank('test query', results, 4);
+
+      expect(out).toEqual(results.slice(0, 4));
+      expect(rerank).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0]![0]).toMatch(/Reranking skipped.*terminated/);
+      warn.mockRestore();
+    });
+
+    it('is not retried within the same run', async () => {
+      const { warmup } = failingModel();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const service = new RerankerService();
+      await service.rerank('a', createMockResults(3), 2);
+      await service.rerank('b', createMockResults(3), 2);
+      expect(warmup).toHaveBeenCalledOnce();
+      expect(warn).toHaveBeenCalledOnce();
+      warn.mockRestore();
+    });
+  });
+
   describe('rerank', () => {
     it('should rerank results and return top K', async () => {
       const service = new RerankerService();

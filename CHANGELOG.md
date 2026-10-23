@@ -21,6 +21,10 @@ First release of the YodaMan fork (`yodaman-ctx`). The `ctx` command, the
   was reported as a connection failure. The stream now ends with Ollama's own
   message ("Ollama stopped generating: EOF"), and only fetch's network
   failures count as connection errors.
+- **A reranker model that could not load failed the whole search.** Reranking
+  only refines the order, so when its model cannot load (offline, or a
+  download cut off: "Failed to load model ...: terminated") ctx now warns once
+  and returns results in their search order.
 - **ctx crashed on start after a fresh install.** OpenTelemetry api 1.10
   (2026-10-20) made a fresh install resolve telemetry packages that require it
   alongside ones that reject it, and the crash happened at startup even with
