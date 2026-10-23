@@ -62,7 +62,8 @@ vi.mock('../multi-project-bm25-store.js', () => ({
 }));
 
 vi.mock('../reranker.js', () => ({
-  RerankerService: vi.fn(() => mockRerankerService),
+  // A function, not an arrow: vitest 4+ mocks are only constructible with `new` then.
+  RerankerService: vi.fn(function () { return mockRerankerService; }),
 }));
 
 // Mock fusion.js but keep the actual computeRRF implementation

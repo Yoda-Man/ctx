@@ -111,9 +111,28 @@ export const ConfigSchema = z.object({
  */
 export type Config = z.infer<typeof ConfigSchema>;
 
+/** Every field optional, at every depth. */
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? (T[K] extends unknown[] ? T[K] : DeepPartial<T[K]>) : T[K] };
+
+/**
+ * What zod 3's deepPartial() did (removed in zod 4): every field optional,
+ * nested objects included, and defaults not applied, so a missing field stays
+ * missing and the loader merges in the default.
+ */
+function deepPartial(schema: z.ZodObject): z.ZodObject {
+  const shape = Object.fromEntries(
+    Object.entries(schema.shape).map(([key, field]) => {
+      let inner = field as z.ZodType;
+      while (inner instanceof z.ZodOptional || inner instanceof z.ZodDefault) inner = inner.unwrap() as z.ZodType;
+      return [key, (inner instanceof z.ZodObject ? deepPartial(inner) : inner).optional()];
+    })
+  );
+  return z.object(shape);
+}
+
 /**
  * Partial config for merging user overrides with defaults
  * Every field becomes optional, allowing sparse config files
  */
-export const PartialConfigSchema = ConfigSchema.deepPartial();
-export type PartialConfig = z.infer<typeof PartialConfigSchema>;
+export const PartialConfigSchema = deepPartial(ConfigSchema) as unknown as z.ZodType<DeepPartial<Config>>;
+export type PartialConfig = DeepPartial<Config>;

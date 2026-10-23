@@ -14,8 +14,9 @@ export default defineConfig({
   // Output format - ESM for modern Node.js
   format: ['esm'],
 
-  // Generate TypeScript declaration files
-  dts: true,
+  // Declarations come from `tsc --emitDeclarationOnly` (see the build
+  // script): tsup's dts step needs the compiler API TypeScript 7 dropped.
+  dts: false,
 
   // Enable source maps for debugging
   sourcemap: true,

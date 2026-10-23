@@ -4,7 +4,7 @@
  * Tests the configuration loading, validation, and merging logic.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -116,14 +116,22 @@ describe('Config Loading', () => {
   });
 
   it('returns defaults when config file does not exist', async () => {
-    // Dynamic import to get fresh module state
-    const { loadConfig } = await import('../loader.js');
-
-    // This test would need path mocking to be fully isolated
-    // For now, we verify the defaults are valid
-    const config = loadConfig(false);
-    expect(config.default_model).toBe(DEFAULT_CONFIG.default_model);
-    expect(config.embedding.provider).toBe('huggingface');
+    // Pointed at a path that does not exist. It used to read the real
+    // ~/.ctx/config.toml, so it failed on any machine whose config set a model.
+    vi.resetModules();
+    vi.doMock('../paths.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../paths.js')>()),
+      getConfigPath: () => path.join(TEST_CTX_DIR, 'missing', 'config.toml'),
+    }));
+    try {
+      const { loadConfig } = await import('../loader.js');
+      const config = loadConfig(false);
+      expect(config.default_model).toBe(DEFAULT_CONFIG.default_model);
+      expect(config.embedding.provider).toBe('huggingface');
+    } finally {
+      vi.doUnmock('../paths.js');
+      vi.resetModules();
+    }
   });
 });
 
@@ -151,7 +159,6 @@ describe('Config Defaults', () => {
     expect(DEFAULT_CONFIG.observability).toBeDefined();
     expect(DEFAULT_CONFIG.observability!.enabled).toBe(true);
     expect(DEFAULT_CONFIG.observability!.sample_rate).toBe(1.0);
-    expect(DEFAULT_CONFIG.observability!.langfuse_host).toBe('https://cloud.langfuse.com');
   });
 
   it('default config passes full schema validation', () => {

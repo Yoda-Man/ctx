@@ -14,7 +14,7 @@
 export type {
   EmbeddingProvider,
   EmbeddingResult,
-} from '@contextaisdk/rag';
+} from '../../sdk/rag/index.js';
 
 import type { ChunkResult } from '../chunker/types.js';
 import type { Logger } from '../../utils/index.js';
@@ -137,7 +137,7 @@ export interface ProviderOptions {
  */
 export interface EmbeddingProviderResult {
   /** The embedding provider instance (wrapped with caching) */
-  provider: import('@contextaisdk/rag').EmbeddingProvider;
+  provider: import('../../sdk/rag/index.js').EmbeddingProvider;
   /** The model name that was actually used (may differ from config if fallback activated) */
   model: string;
   /** The embedding dimensions for this model (e.g., 1024 for BGE-large) */

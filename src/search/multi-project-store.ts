@@ -42,8 +42,8 @@
  * ```
  */
 
-import type { InMemoryVectorStore, SearchOptions, MetadataFilter } from '@contextaisdk/rag';
-import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '@contextaisdk/rag';
+import type { InMemoryVectorStore, SearchOptions, MetadataFilter } from '../sdk/rag/index.js';
+import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '../sdk/rag/index.js';
 
 import { getDatabase, type DatabaseOperations } from '../database/operations.js';
 import type { Project } from '../database/schema.js';

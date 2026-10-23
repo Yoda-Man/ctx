@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { BM25Retriever, RetrievalResult } from '@contextaisdk/rag';
+import type { BM25Retriever, RetrievalResult } from '../../sdk/rag/index.js';
 
 import {
   MultiProjectBM25StoreManager,

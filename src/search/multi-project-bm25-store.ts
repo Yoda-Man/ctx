@@ -38,8 +38,8 @@
  * ```
  */
 
-import type { BM25Retriever } from '@contextaisdk/rag';
-import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '@contextaisdk/rag';
+import type { BM25Retriever } from '../sdk/rag/index.js';
+import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '../sdk/rag/index.js';
 
 import { getDatabase, type DatabaseOperations } from '../database/operations.js';
 import { getBM25StoreManager, type BM25StoreManager } from './bm25-store.js';

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-23
+
+First release of the YodaMan fork (`yodaman-ctx`). The `ctx` command, the
+`~/.ctx` index, database and configuration are unchanged.
+
+### Fixed
+- **ctx crashed on start after a fresh install.** OpenTelemetry api 1.10
+  (2026-10-20) made a fresh install resolve telemetry packages that require it
+  alongside ones that reject it, and the crash happened at startup even with
+  tracing off. Fixed by removing cloud tracing (below).
+- **Models were re-downloaded after every reinstall.** They are now stored in
+  `~/.ctx/models`, not inside the package folder.
+- A config test read the real `~/.ctx/config.toml` and failed on any machine
+  whose config set a model.
+
+### Removed
+- **Langfuse cloud tracing** and its dependencies (`@langfuse/otel`,
+  `@langfuse/tracing`, `@opentelemetry/sdk-node`). Traces are recorded to
+  local SQLite only. Langfuse keys in an existing config are ignored with a
+  warning; the `langfuse_trace_id` column stays, so no migration is needed.
+- The Anthropic provider no longer sends `temperature`, `top_p` or `top_k`,
+  which the Messages API removed.
+
+### Changed
+- **Every dependency is at its latest version**: zod 4, commander 15, chalk 6,
+  ora 9, marked 18, dotenv 18, better-sqlite3 13, tree-sitter 0.25.1, openai 7,
+  `@anthropic-ai/sdk` 1, TypeScript 7, vitest 5, tsup 9.
+- **`@huggingface/transformers` replaces `@xenova/transformers`** for local
+  embeddings and reranking, with the same quantized weights (`q8`) so existing
+  indexes stay comparable.
+- **The ContextAI SDK parts ctx uses are included** in `src/sdk/` (MIT, same
+  author), replacing the unmaintained `@contextaisdk/*` packages.
+- Requires Node.js 22.12 or later. Builds and tests with npm instead of pnpm.
+
 ## [1.4.0] - 2026-02-17
 
 ### Added

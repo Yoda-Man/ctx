@@ -10,7 +10,7 @@
  * - Supports offline operation (NFR-015)
  */
 
-import { OllamaProvider } from '@contextaisdk/provider-ollama';
+import { OllamaProvider } from '../sdk/provider-ollama/index.js';
 import { validateOllamaHostUrl } from './validation.js';
 import { getOllamaHost } from '../config/env.js';
 

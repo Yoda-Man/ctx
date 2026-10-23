@@ -12,7 +12,7 @@
  * - Tests should be deterministic and fast
  */
 
-import type { ChatMessage, TokenUsage, StreamChunk } from '@contextaisdk/core';
+import type { ChatMessage, TokenUsage, StreamChunk } from '../../sdk/core/index.js';
 import type { RAGSource } from '../../agent/types.js';
 
 // Re-export types needed by test files

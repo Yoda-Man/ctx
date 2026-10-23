@@ -10,7 +10,7 @@
  * - Matching exact phrases in documentation
  */
 
-import type { BM25Retriever } from '@contextaisdk/rag';
+import type { BM25Retriever } from '../sdk/rag/index.js';
 
 import { getBM25StoreManager } from './bm25-store.js';
 import { formatSearchResult, matchesFilters } from './shared-formatting.js';

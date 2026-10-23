@@ -12,8 +12,8 @@
  * - Progress reporting during load
  */
 
-import { BM25Retriever } from '@contextaisdk/rag';
-import type { Chunk, BM25Document } from '@contextaisdk/rag';
+import { BM25Retriever } from '../sdk/rag/index.js';
+import type { Chunk, BM25Document } from '../sdk/rag/index.js';
 import type Database from 'better-sqlite3';
 
 import { getDb } from '../database/connection.js';

@@ -44,7 +44,7 @@ import {
   type LLMProvider,
   type ReActTrace,
   type Tool,
-} from '@contextaisdk/core';
+} from '../sdk/core/index.js';
 import type { RoutingRAGEngine } from './routing-rag-engine.js';
 import type { ProjectMetadata } from './query-router.js';
 import type { RAGSource } from './types.js';
@@ -88,7 +88,7 @@ export interface ChatAgentConfig {
  * Designed for UI consumption — each event type maps to a specific
  * display action in both REPL and TUI modes.
  *
- * Also carries enough data for future observability (Langfuse tracing).
+ * Also carries enough data for local trace recording.
  */
 export type ChatAgentEvent =
   | {

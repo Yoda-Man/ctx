@@ -21,7 +21,7 @@
  * ```
  */
 
-import { BGEReranker, type RetrievalResult } from '@contextaisdk/rag';
+import { BGEReranker, type RetrievalResult } from '../sdk/rag/index.js';
 import type { SearchResultWithContext, RerankConfig } from './types.js';
 
 /**

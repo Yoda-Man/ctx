@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { LLMProvider, ChatMessage, StreamChunk, ChatResponse, GenerateOptions } from '@contextaisdk/core';
+import type { LLMProvider, ChatMessage, StreamChunk, ChatResponse, GenerateOptions } from '../../sdk/core/index.js';
 import { ChatAgent, type ChatAgentEvent, type ChatAgentConfig } from '../../agent/chat-agent.js';
 import type { RoutingRAGEngine } from '../../agent/routing-rag-engine.js';
 import type { ProjectMetadata } from '../../agent/query-router.js';

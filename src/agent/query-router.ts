@@ -24,7 +24,7 @@
  */
 
 import { z } from 'zod';
-import type { LLMProvider } from '@contextaisdk/core';
+import type { LLMProvider } from '../sdk/core/index.js';
 
 // ============================================================================
 // TYPES

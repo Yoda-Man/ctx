@@ -36,7 +36,7 @@
  */
 
 import { z } from 'zod';
-import { XMLAssembler, type OrderingStrategy } from '@contextaisdk/rag';
+import { XMLAssembler, type OrderingStrategy } from '../sdk/rag/index.js';
 
 // Re-export SDK's ordering strategy to avoid type mismatches
 // This ensures our type always matches what the SDK expects
@@ -65,9 +65,7 @@ export const AssemblerOptionsSchema = z.object({
 
   ordering: z
     .enum(['relevance', 'sandwich', 'chronological'], {
-      errorMap: () => ({
-        message: "ordering must be 'relevance', 'sandwich', or 'chronological'",
-      }),
+      error: "ordering must be 'relevance', 'sandwich', or 'chronological'",
     })
     .optional(),
 

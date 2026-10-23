@@ -1,8 +1,30 @@
-# Context Expert
+# Context Expert (ctx), YodaMan fork
 
-[![npm version](https://img.shields.io/npm/v/@contextexpert/cli.svg)](https://www.npmjs.com/package/@contextexpert/cli)
+[![npm version](https://img.shields.io/npm/v/yodaman-ctx.svg)](https://www.npmjs.com/package/yodaman-ctx)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/node/v/@contextexpert/cli.svg)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/node/v/yodaman-ctx.svg)](https://nodejs.org)
+
+A maintained fork of [Context Expert](https://github.com/draco28/ContextExpert)
+by draco, used by [YodaMan](https://github.com/Yoda-Man/yodaman). The command,
+the `~/.ctx` index and the configuration are unchanged, so an existing index
+keeps working. What the fork changes:
+
+- **Starts reliably.** Upstream's optional Langfuse cloud tracing pulled in
+  OpenTelemetry packages that, since OpenTelemetry api 1.10 (October 2026),
+  resolve to incompatible versions on a fresh install and crash `ctx` on
+  start, even with tracing off. The fork removes cloud tracing: traces are
+  recorded locally only, and nothing leaves the machine.
+- **Current dependencies**, all at their latest versions, including
+  `@huggingface/transformers` in place of the retired `@xenova/transformers`,
+  zod 4, and current OpenAI and Anthropic SDKs.
+- **No unmaintained SDK packages.** The parts of the ContextAI SDK
+  (`@contextaisdk/*`, MIT, same author) that ctx uses are included in
+  `src/sdk/`, so their dependencies are kept current here too.
+- **Models survive reinstalls.** Embedding and reranker models are stored in
+  `~/.ctx/models` instead of inside the package folder, where every reinstall
+  re-downloaded them.
+
+A cross-project context agent CLI for unified semantic search and RAG-powered Q&A across multiple codebases.
 
 A cross-project context agent CLI for unified semantic search and RAG-powered Q&A across multiple codebases.
 
@@ -23,15 +45,18 @@ A cross-project context agent CLI for unified semantic search and RAG-powered Q&
 - **TUI chat mode** — Three-region terminal UI with status bar and scroll regions
 - **Result caching** — LRU cache for repeated queries, reducing latency
 - **Evaluation suite** — Batch retrieval quality testing with golden datasets, 6 IR metrics (MRR, Hit Rate, P@K, R@K, NDCG, MAP), trend tracking, and regression detection
-- **Observability** — Always-on local trace recording with optional Langfuse v4 cloud sync via OpenTelemetry
+- **Observability** — Always-on local trace recording; nothing is sent off the machine
 
 ## Installation
 
 ```bash
-npm install -g @contextexpert/cli
+npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,onnxruntime-node
 ```
 
-**Requirements:** Node.js 20.0.0 or higher
+`--allow-scripts` lets npm 11.20 and later build ctx's native parts (SQLite,
+tree-sitter parsers); earlier npm runs them anyway and ignores the flag.
+
+**Requirements:** Node.js 22.12.0 or higher
 
 ## Quick Start
 
@@ -241,11 +266,6 @@ export OPENAI_API_KEY=sk-...            # For GPT models
 export OLLAMA_HOST=http://localhost:11434  # Custom Ollama URL
 export CTX_CONFIG_PATH=~/.ctx/config.toml  # Override config location
 export CTX_DB_PATH=~/.ctx/context.db       # Override database location
-
-# Langfuse observability (optional)
-export LANGFUSE_PUBLIC_KEY=pk-lf-...       # Langfuse cloud sync
-export LANGFUSE_SECRET_KEY=sk-lf-...       # Langfuse cloud sync
-export LANGFUSE_BASE_URL=https://cloud.langfuse.com  # Self-hosted override
 ```
 
 ### Config File
@@ -297,9 +317,6 @@ precision_at_k = 0.6
 [observability]
 enabled = true
 sample_rate = 1.0
-# langfuse_public_key = "pk-lf-..."
-# langfuse_secret_key = "sk-lf-..."
-# langfuse_host = "https://cloud.langfuse.com"
 ```
 
 ## Providers
@@ -342,18 +359,18 @@ ctx config set default_model llama3.2
 
 ```bash
 # Clone and install
-git clone https://github.com/draco28/ContextExpert.git
-cd ContextExpert
-pnpm install
+git clone https://github.com/Yoda-Man/ctx.git
+cd ctx
+npm install
 
 # Build
-pnpm build
+npm run build
 
 # Run tests
-pnpm test
+npm test
 
 # Run CLI locally
-pnpm dev -- index ./test-project
+npm run start -- index ./test-project
 ```
 
 ### Project Structure
@@ -366,7 +383,7 @@ src/
 ├── indexer/        # File scanning, chunking (Tree-sitter), embedding pipeline
 ├── database/       # SQLite schema, operations, migrations
 ├── eval/           # Golden datasets, batch evaluation, metrics, RAGAS bridge
-├── observability/  # Tracer abstraction, Langfuse v4, local trace recording
+├── observability/  # Tracer abstraction, local trace recording
 ├── providers/      # LLM providers: Anthropic, OpenAI, Ollama
 ├── config/         # TOML config loading with Zod validation
 ├── errors/         # Custom error classes and handler

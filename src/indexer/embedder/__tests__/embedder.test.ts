@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { EmbeddingProvider, EmbeddingResult } from '@contextaisdk/rag';
+import type { EmbeddingProvider, EmbeddingResult } from '../../../sdk/rag/index.js';
 
 import { embedChunks, embedChunk, estimateEmbeddingMemory } from '../embedder.js';
 import { getModelDimensions } from '../provider.js';

@@ -9,8 +9,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { SearchResultWithContext, RerankConfig } from '../types.js';
 
 // Mock the ContextAI SDK before importing RerankerService
-vi.mock('@contextaisdk/rag', () => ({
-  BGEReranker: vi.fn().mockImplementation(() => ({
+vi.mock('../../sdk/rag/index.js', () => ({
+  // A function, not an arrow: vitest 4+ mocks are only constructible with `new` then.
+  BGEReranker: vi.fn().mockImplementation(function () { return {
     warmup: vi.fn().mockResolvedValue(undefined),
     isLoaded: vi.fn().mockReturnValue(true),
     rerank: vi.fn().mockImplementation(
@@ -37,11 +38,11 @@ vi.mock('@contextaisdk/rag', () => ({
         }));
       }
     ),
-  })),
+  }; }),
 }));
 
 import { RerankerService } from '../reranker.js';
-import { BGEReranker } from '@contextaisdk/rag';
+import { BGEReranker } from '../../sdk/rag/index.js';
 
 /**
  * Helper to create mock search results for testing.

@@ -16,7 +16,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { EmbeddingProvider } from '@contextaisdk/rag';
+import type { EmbeddingProvider } from '../sdk/rag/index.js';
 
 import { scanDirectory, type ScanResult } from './scanner.js';
 import { chunkFilesWithResult, type ChunkerConfig } from './chunker/index.js';

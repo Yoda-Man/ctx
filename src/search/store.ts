@@ -7,7 +7,7 @@
  * - Memory-efficient batch loading
  */
 
-import { InMemoryVectorStore } from '@contextaisdk/rag';
+import { InMemoryVectorStore } from '../sdk/rag/index.js';
 import type Database from 'better-sqlite3';
 
 import { getDb } from '../database/connection.js';

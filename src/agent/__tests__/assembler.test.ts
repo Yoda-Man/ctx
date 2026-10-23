@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { ZodError } from 'zod';
-import { XMLAssembler } from '@contextaisdk/rag';
+import { XMLAssembler } from '../../sdk/rag/index.js';
 import {
   createAssembler,
   DEFAULT_ASSEMBLER_CONFIG,
@@ -153,7 +153,7 @@ describe('createAssembler', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(ZodError);
         const zodError = error as ZodError;
-        expect(zodError.errors[0].message).toContain('100');
+        expect(zodError.issues[0]?.message).toContain('100');
       }
     });
   });

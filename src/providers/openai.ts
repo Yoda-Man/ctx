@@ -8,7 +8,7 @@
  * Never logs or exposes the key in error messages.
  */
 
-import { OpenAIProvider } from '@contextaisdk/provider-openai';
+import { OpenAIProvider } from '../sdk/provider-openai/index.js';
 import { validateOpenAIKey, getProviderKeyUnsafe } from './validation.js';
 
 // ============================================================================

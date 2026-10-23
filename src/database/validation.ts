@@ -165,7 +165,7 @@ export const TraceInputSchema = z.object({
   answer: z.string().optional(),
   retrieval_method: z.enum(['dense', 'bm25', 'fusion']),
   feedback: z.enum(['positive', 'negative']).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
   langfuse_trace_id: z.string().optional(),
   trace_type: z.enum(['ask', 'search', 'chat']).optional(),
 });
@@ -202,7 +202,7 @@ export const EvalRunInputSchema = z.object({
     ndcg: z.number().min(0).max(1),
     map: z.number().min(0).max(1),
   }),
-  config: z.record(z.unknown()),
+  config: z.record(z.string(), z.unknown()),
   notes: z.string().optional(),
 });
 

@@ -11,7 +11,7 @@
  * 4. Report progress for long-running operations
  */
 
-import type { EmbeddingProvider } from '@contextaisdk/rag';
+import type { EmbeddingProvider } from '../../sdk/rag/index.js';
 
 import type { ChunkResult } from '../chunker/types.js';
 import type { EmbeddedChunk, EmbedderOptions } from './types.js';

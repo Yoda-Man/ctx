@@ -418,7 +418,7 @@ export interface RoutingRAGEngineConfig {
    * Used to embed queries before searching with MultiProjectFusionService.
    * Must match the provider used during indexing.
    */
-  embeddingProvider: import('@contextaisdk/rag').EmbeddingProvider;
+  embeddingProvider: import('../sdk/rag/index.js').EmbeddingProvider;
 
   /**
    * Embedding dimensions.
@@ -450,7 +450,7 @@ export interface RoutingRAGEngineConfig {
    *
    * Default: null (heuristic-only routing)
    */
-  llmProvider?: import('@contextaisdk/core').LLMProvider | null;
+  llmProvider?: import('../sdk/core/index.js').LLMProvider | null;
 
   /**
    * Configuration for the underlying router.

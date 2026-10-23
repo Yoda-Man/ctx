@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { InMemoryVectorStore } from '@contextaisdk/rag';
+import { InMemoryVectorStore } from '../../sdk/rag/index.js';
 
 import {
   MultiProjectVectorStoreManager,

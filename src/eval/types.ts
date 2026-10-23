@@ -80,7 +80,8 @@ export const EvalConfigSchema = z.object({
       /** Precision at k target (0-1, higher = better). Default: 0.6 */
       precision_at_k: z.number().min(0).max(1).default(0.6),
     })
-    .default({}),
+    // prefault, not default: {} goes through the schema, so the field defaults apply.
+    .prefault({}),
 
   /**
    * Python executable path for RAGAS/DeepEval integration.
@@ -134,40 +135,6 @@ export const ObservabilityConfigSchema = z.object({
    * Default: true
    */
   enabled: z.boolean().default(true).describe('Enable trace recording'),
-
-  /**
-   * Langfuse public API key.
-   *
-   * Required for cloud sync. Get from https://cloud.langfuse.com/settings
-   * Can also be set via LANGFUSE_PUBLIC_KEY environment variable.
-   */
-  langfuse_public_key: z
-    .string()
-    .optional()
-    .describe('Langfuse public API key for cloud sync'),
-
-  /**
-   * Langfuse secret API key.
-   *
-   * Required for cloud sync. Get from https://cloud.langfuse.com/settings
-   * Can also be set via LANGFUSE_SECRET_KEY environment variable.
-   */
-  langfuse_secret_key: z
-    .string()
-    .optional()
-    .describe('Langfuse secret API key for cloud sync'),
-
-  /**
-   * Langfuse API host URL.
-   *
-   * Override for self-hosted Langfuse instances.
-   * Default: 'https://cloud.langfuse.com'
-   */
-  langfuse_host: z
-    .string()
-    .url()
-    .default('https://cloud.langfuse.com')
-    .describe('Langfuse API host URL'),
 
   /**
    * Trace sampling rate for local SQLite recording.

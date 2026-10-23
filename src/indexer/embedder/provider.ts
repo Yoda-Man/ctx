@@ -19,7 +19,7 @@ import {
   OllamaEmbeddingProvider,
   CachedEmbeddingProvider,
   type EmbeddingProvider,
-} from '@contextaisdk/rag';
+} from '../../sdk/rag/index.js';
 
 import type {
   EmbeddingConfig,

@@ -25,8 +25,8 @@ import {
   type Chunk,
   type Document,
   type EmbeddingProvider,
-} from '@contextaisdk/rag';
-import { SemanticChunker } from '@contextaisdk/rag/chunking';
+} from '../../sdk/rag/index.js';
+import { SemanticChunker } from '../../sdk/rag/index.js';
 
 import type { FileInfo } from '../types.js';
 import type {

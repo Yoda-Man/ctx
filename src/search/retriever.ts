@@ -5,8 +5,8 @@
  * Handles query embedding, metadata filtering, and result formatting.
  */
 
-import { DenseRetriever } from '@contextaisdk/rag';
-import type { EmbeddingProvider } from '@contextaisdk/rag';
+import { DenseRetriever } from '../sdk/rag/index.js';
+import type { EmbeddingProvider } from '../sdk/rag/index.js';
 
 import { getVectorStoreManager } from './store.js';
 import { formatSearchResult } from './shared-formatting.js';

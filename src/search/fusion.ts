@@ -15,12 +15,12 @@
  * "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods"
  */
 
-import type { EmbeddingProvider } from '@contextaisdk/rag';
+import type { EmbeddingProvider } from '../sdk/rag/index.js';
 import {
   reciprocalRankFusion,
   DEFAULT_RRF_K,
   type RankingList,
-} from '@contextaisdk/rag';
+} from '../sdk/rag/index.js';
 
 import { SearchService, createSearchService } from './retriever.js';
 import { BM25SearchService, createBM25SearchService } from './bm25-retriever.js';

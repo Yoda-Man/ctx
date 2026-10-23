@@ -8,7 +8,7 @@
  * Never logs or exposes the key in error messages.
  */
 
-import { AnthropicProvider } from '@contextaisdk/provider-anthropic';
+import { AnthropicProvider } from '../sdk/provider-anthropic/index.js';
 import { validateAnthropicKey, getProviderKeyUnsafe } from './validation.js';
 
 // ============================================================================

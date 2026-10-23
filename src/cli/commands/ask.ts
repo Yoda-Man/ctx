@@ -19,7 +19,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import { existsSync } from 'node:fs';
 import type { CommandContext } from '../types.js';
-import type { ChatMessage, StreamChunk, TokenUsage } from '@contextaisdk/core';
+import type { ChatMessage, StreamChunk, TokenUsage } from '../../sdk/core/index.js';
 import { getDb, runMigrations } from '../../database/index.js';
 import { loadConfig } from '../../config/loader.js';
 import { createRAGEngine } from '../../agent/rag-engine.js';
