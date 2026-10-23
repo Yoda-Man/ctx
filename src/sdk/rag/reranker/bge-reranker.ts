@@ -21,7 +21,7 @@ import type { RetrievalResult } from '../retrieval/types.js';
 import type { BGERerankerConfig, RerankerOptions } from './types.js';
 import { BaseReranker, type InternalRerankerResult } from './base-reranker.js';
 import { RerankerError } from './errors.js';
-import { loadTransformers } from '../transformers.js';
+import { loadTransformers, withModelDownloadLock } from '../transformers.js';
 
 // Transformers.js types (dynamically imported)
 type Pipeline = (
@@ -136,11 +136,11 @@ export class BGEReranker extends BaseReranker {
 
       // Create the text-classification pipeline for reranking
       // BGE rerankers use the 'text-classification' task
-      const pipe = await pipeline('text-classification', this.modelName, {
+      const pipe = await withModelDownloadLock(this.modelName, () => pipeline('text-classification', this.modelName, {
         ...(this.device === 'auto' ? {} : { device: this.device }),
         // Quantized models for faster inference
         dtype: 'q8',
-      }) as unknown as (
+      })) as unknown as (
         text: string,
         options?: { text_pair?: string; padding?: boolean; truncation?: boolean; max_length?: number }
       ) => Promise<Array<{ label: string; score: number }>>;

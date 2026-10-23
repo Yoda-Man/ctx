@@ -10,7 +10,7 @@
 import type { EmbeddingResult } from './types.js';
 import { BaseEmbeddingProvider } from './base-provider.js';
 import { EmbeddingError } from './errors.js';
-import { loadTransformers } from '../transformers.js';
+import { loadTransformers, withModelDownloadLock } from '../transformers.js';
 
 // ============================================================================
 // Types
@@ -156,11 +156,13 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
 
       // q8: the quantized weights @xenova/transformers loaded by default, so
       // embeddings stay comparable with indexes built before the upgrade.
-      const pipe = await pipeline('feature-extraction', this.model, {
-        dtype: 'q8',
-        ...(this.device === 'cpu' ? { device: 'cpu' as const } : {}),
-        progress_callback: this.onProgress,
-      });
+      const pipe = await withModelDownloadLock(this.model, () =>
+        pipeline('feature-extraction', this.model, {
+          dtype: 'q8',
+          ...(this.device === 'cpu' ? { device: 'cpu' as const } : {}),
+          progress_callback: this.onProgress,
+        })
+      );
 
       return pipe as TransformersPipeline;
     } catch (error) {

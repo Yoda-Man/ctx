@@ -22,6 +22,12 @@ index, database and configuration are unchanged.
   was reported as a connection failure. The stream now ends with Ollama's own
   message ("Ollama stopped generating: EOF"), and only fetch's network
   failures count as connection errors.
+- **Several ctx processes started together each downloaded the same model.**
+  Every one fetched hundreds of MB into its own temp file; five at once split
+  the bandwidth and none finished. The first now downloads while the others
+  wait and then load it from disk, via a per-model lock in
+  `~/.ctx/models/.locks` (taken over if its process has exited). A model
+  already on disk takes no lock, so parallel searches never wait.
 - **A reranker model that could not load failed the whole search.** Reranking
   only refines the order, so when its model cannot load (offline, or a
   download cut off: "Failed to load model ...: terminated") ctx now warns once
