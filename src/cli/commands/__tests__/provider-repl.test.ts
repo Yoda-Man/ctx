@@ -16,7 +16,7 @@ vi.mock('../../../providers/anthropic.js', () => ({
     name: 'anthropic',
     model: options.model,
   })),
-  DEFAULT_ANTHROPIC_MODEL: 'claude-sonnet-4-20250514',
+  DEFAULT_ANTHROPIC_MODEL: 'claude-opus-5-5',
 }));
 
 vi.mock('../../../providers/openai.js', () => ({
@@ -73,19 +73,19 @@ describe('provider-repl', () => {
     it('creates anthropic provider with apiKey', async () => {
       const config: ProviderConfig = {
         type: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
         apiKey: 'sk-ant-test-key',
       };
 
       const result = await createProviderFromConfig('my-claude', config);
 
       expect(createAnthropicProvider).toHaveBeenCalledWith({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
         apiKey: 'sk-ant-test-key',
         skipAvailabilityCheck: true,
       });
       expect(result.displayName).toBe('my-claude');
-      expect(result.model).toBe('claude-sonnet-4-20250514');
+      expect(result.model).toBe('claude-opus-5-5');
     });
 
     it('creates openai provider with apiKey', async () => {
@@ -128,7 +128,7 @@ describe('provider-repl', () => {
     it('uses custom display name from parameter', async () => {
       const config: ProviderConfig = {
         type: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
         apiKey: 'sk-ant-test',
       };
 
@@ -140,7 +140,7 @@ describe('provider-repl', () => {
     it('returns provider object with streamChat method', async () => {
       const config: ProviderConfig = {
         type: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
         apiKey: 'sk-ant-test',
       };
 
@@ -252,7 +252,7 @@ describe('provider-repl', () => {
         vi.mocked(providersConfig.listProviders).mockReturnValue([
           {
             name: 'my-claude',
-            config: { type: 'anthropic', model: 'claude-sonnet-4-20250514', apiKey: 'key1' },
+            config: { type: 'anthropic', model: 'claude-opus-5-5', apiKey: 'key1' },
             isDefault: true,
           },
           {
@@ -329,7 +329,7 @@ describe('provider-repl', () => {
       it('switches to provider and updates state', async () => {
         vi.mocked(providersConfig.getProvider).mockReturnValue({
           type: 'anthropic',
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-opus-5-5',
           apiKey: 'key',
         });
 

@@ -23,7 +23,7 @@ import { validateAnthropicKey, getProviderKeyUnsafe } from './validation.js';
 export interface AnthropicProviderOptions {
   /**
    * Model to use for chat completions.
-   * @default 'claude-sonnet-4-20250514'
+   * @default 'claude-opus-5-5'
    */
   model?: string;
 
@@ -72,7 +72,7 @@ export interface AnthropicProviderResult {
 // ============================================================================
 
 /** Default model for Anthropic - Claude Sonnet 4 (current best balance of speed/quality) */
-export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
+export const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-5-5';
 
 // ============================================================================
 // FACTORY FUNCTION
@@ -97,7 +97,7 @@ export const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
  *
  * // With custom model
  * const { provider } = await createAnthropicProvider({
- *   model: 'claude-3-opus-20240229',
+ *   model: 'claude-sonnet-5-5',
  * });
  *
  * // Use the provider

@@ -7,7 +7,7 @@ import type { GenerateOptions, LLMProviderConfig } from '../core/index.js';
  * ```typescript
  * const provider = new AnthropicProvider({
  *   apiKey: process.env.ANTHROPIC_API_KEY!,
- *   model: 'claude-sonnet-4-20250514',
+ *   model: 'claude-opus-5-5',
  * });
  * ```
  */
@@ -20,7 +20,7 @@ export interface AnthropicProviderConfig extends LLMProviderConfig {
 
   /**
    * Model identifier.
-   * Examples: 'claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'
+   * Examples: 'claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'
    */
   model: string;
 

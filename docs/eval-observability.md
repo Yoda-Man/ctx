@@ -133,7 +133,7 @@ Metric         Value    Target   Status
   NDCG           0.830        -      -
   MAP            0.790        -      -
 
-  All 3 threshold metrics passing
+  ✓ All 3 threshold metrics passing
 ```
 
 When there's a previous run to compare against, you'll also see **Change** and **Trend** columns with delta values and directional arrows.
@@ -185,7 +185,7 @@ precision_at_k = 0.6  # Minimum precision to pass
 
 **Prerequisites:**
 
-- Python 3.8+ installed
+- Python 3 installed
 - RAGAS package: `pip install ragas`
 - OpenAI API key (RAGAS uses it as the judge model): `export OPENAI_API_KEY=sk-...`
 
@@ -503,6 +503,12 @@ Promote real usage traces to golden dataset entries.
 ctx eval golden capture --project <name> [--limit <N>] [--since <duration>]
 ```
 
+| Option | Description |
+|--------|-------------|
+| `--project, -p` | Project name (required) |
+| `--limit, -l` | Maximum traces to show (default: 20) |
+| `--since, -s` | Show traces since: `7d`, `24h`, `2w` |
+
 Shows a numbered list of recent traces. Select which to promote by entering comma-separated numbers. Deduplicates against existing golden entries.
 
 ---
@@ -514,6 +520,11 @@ Generate golden entries using your configured LLM.
 ```bash
 ctx eval golden generate --project <name> [--count <N>]
 ```
+
+| Option | Description |
+|--------|-------------|
+| `--project, -p` | Project name (required) |
+| `--count, -n` | Number of entries to generate (default: 5) |
 
 Samples random indexed chunks, asks the LLM to generate test questions, and presents them for review before saving. Default count: 5.
 
@@ -601,7 +612,7 @@ The project includes `.github/workflows/eval.yml` which:
 
 ## Database Schema
 
-Three tables are created automatically via migration 004:
+Three tables are created automatically by migration 004; migration 005 adds `langfuse_trace_id` and 006 adds `trace_type` to `eval_traces`:
 
 ### `eval_traces`
 
@@ -620,7 +631,7 @@ One row per `ctx ask`/`ctx search`/`ctx chat` interaction.
 | `retrieval_method` | TEXT | dense, bm25, or fusion |
 | `feedback` | TEXT | positive/negative (nullable) |
 | `metadata` | TEXT | JSON metadata (nullable) |
-| `langfuse_trace_id` | TEXT | Langfuse link (nullable) |
+| `langfuse_trace_id` | TEXT | Unused since yodaman-ctx 1.0 (nullable) |
 | `trace_type` | TEXT | ask, search, or chat (nullable) |
 
 ### `eval_runs`

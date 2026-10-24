@@ -86,7 +86,7 @@ export interface StatusLineRendererOptions {
  *
  * Example output:
  * ```
- * claude-3.5-sonnet │ ~/projects/my-project main* │ ████░░░░░░ 42% │ $0.02 │ 3 turns │ ⚡ Reading src/index.ts
+ * claude-opus-5-5 │ ~/projects/my-project main* │ ████░░░░░░ 42% │ $0.02 │ 3 turns │ ⚡ Reading src/index.ts
  * ```
  */
 export class StatusLineRenderer {

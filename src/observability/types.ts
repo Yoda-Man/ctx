@@ -48,7 +48,7 @@ export interface SpanOptions {
 export interface GenerationOptions {
   /** Generation name (e.g., 'answer-generation') */
   name: string;
-  /** Model name (e.g., 'claude-sonnet-4-20250514') */
+  /** Model name (e.g., 'claude-opus-5-5') */
   model?: string;
   /** Input messages/prompt */
   input?: unknown;

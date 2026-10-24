@@ -15,7 +15,7 @@ import { z } from 'zod';
 
 // Load .env file (for local development)
 // No-op if .env doesn't exist - production uses real env vars
-dotenvConfig();
+dotenvConfig({ quiet: true }); // dotenv otherwise announces itself on every run
 
 // ============================================================================
 // SCHEMA DEFINITIONS

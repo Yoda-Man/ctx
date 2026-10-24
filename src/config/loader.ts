@@ -270,7 +270,7 @@ function parseValue(value: string): unknown {
 
 /**
  * List all config values in a flat format
- * Returns entries like ['default_model', 'claude-sonnet-4-20250514']
+ * Returns entries like ['default_model', 'claude-opus-5-5']
  */
 export function listConfig(): Array<[string, unknown]> {
   const config = loadConfig();

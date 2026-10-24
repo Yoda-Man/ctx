@@ -57,7 +57,7 @@ export function createRemoveCommand(
     .alias('rm')
     .argument('<name>', 'Name of the project to remove')
     .description('Remove an indexed project and all its data')
-    .option('-f, --force', 'Skip confirmation prompt')
+    .option('-f, --force', 'Confirm the removal (required)')
     .action(async (name: string, options: RemoveOptions) => {
       const ctx = getContext();
       ctx.debug(`Remove command called for project: ${name}`);

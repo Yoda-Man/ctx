@@ -56,7 +56,7 @@ ${chalk.dim('Examples:')}
   ${chalk.cyan('ctx config set search.top_k 20')} Change a setting
 
 ${chalk.dim('Documentation:')}
-  https://github.com/your-org/context-expert
+  https://github.com/Yoda-Man/ctx#readme
 `);
 
 /**

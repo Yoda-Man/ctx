@@ -58,7 +58,7 @@ interface LLMProviderResult {
   provider: LLMProvider;
   /** Provider name for identification in logs */
   name: ProviderType;
-  /** Model being used (e.g., 'claude-sonnet-4-20250514', 'gpt-4o', 'llama3.2') */
+  /** Model being used (e.g., 'claude-opus-5-5', 'gpt-4o', 'llama3.2') */
   model: string;
 }
 

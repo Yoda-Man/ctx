@@ -52,7 +52,7 @@ describe('validateStartupConfig', () => {
     it('returns valid result', () => {
       vi.mocked(loadConfig).mockReturnValue({
         default_provider: 'anthropic',
-        default_model: 'claude-sonnet-4-20250514',
+        default_model: 'claude-opus-5-5',
         embedding: {
           provider: 'huggingface',
           model: 'bge-small',
@@ -73,7 +73,7 @@ describe('validateStartupConfig', () => {
     it('returns error for anthropic', () => {
       vi.mocked(loadConfig).mockReturnValue({
         default_provider: 'anthropic',
-        default_model: 'claude-sonnet-4-20250514',
+        default_model: 'claude-opus-5-5',
         embedding: {
           provider: 'huggingface',
           model: 'bge-small',
@@ -157,7 +157,7 @@ describe('validateStartupConfig', () => {
     it('skips LLM validation when skipLLM is true', () => {
       vi.mocked(loadConfig).mockReturnValue({
         default_provider: 'anthropic',
-        default_model: 'claude-sonnet-4-20250514',
+        default_model: 'claude-opus-5-5',
         embedding: {
           provider: 'huggingface',
           model: 'bge-small',

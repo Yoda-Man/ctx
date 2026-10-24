@@ -22,6 +22,16 @@ index, database and configuration are unchanged.
   was reported as a connection failure. The stream now ends with Ollama's own
   message ("Ollama stopped generating: EOF"), and only fetch's network
   failures count as connection errors.
+- **`ctx ask` cited every source at line 0**, with no language and file type
+  "unknown", in its answers and in `--context-only` JSON, and the XML context
+  had no line range. The line range, language and file type were dropped on
+  the way from search results to sources; sources now carry them, and each
+  `<source>` has `location="lines 42-67"`.
+- **`ctx config reset --json` deleted the configuration without `--force`.**
+  It now requires `--force` in every mode, as `ctx remove` does, and without
+  it reports `confirmation_required`.
+- Every command printed `◇ injected env (0) from .env` (dotenv's notice) to
+  stderr, and `ctx --help` linked to a placeholder repository.
 - **Several ctx processes started together each downloaded the same model.**
   Every one fetched hundreds of MB into its own temp file; five at once split
   the bandwidth and none finished. The first now downloads while the others
@@ -47,9 +57,12 @@ index, database and configuration are unchanged.
   local SQLite only. Langfuse keys in an existing config are ignored with a
   warning; the `langfuse_trace_id` column stays, so no migration is needed.
 - The Anthropic provider no longer sends `temperature`, `top_p` or `top_k`,
-  which the Messages API removed.
+  which the Messages API removed, and asks for adaptive thinking rather than a
+  fixed thinking budget, which current Claude models reject.
 
 ### Changed
+- The default Claude model is `claude-opus-5-5`, replacing the deprecated
+  `claude-sonnet-4-20250514`. A model set in your config is kept.
 - **Every dependency is at its latest version**: zod 4, commander 15, chalk 6,
   ora 9, marked 18, dotenv 18, better-sqlite3 13, tree-sitter 0.25.1, openai 7,
   `@anthropic-ai/sdk` 1, TypeScript 7, vitest 5, tsup 9.

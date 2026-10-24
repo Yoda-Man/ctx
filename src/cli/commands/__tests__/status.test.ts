@@ -72,7 +72,7 @@ describe('createStatusCommand', () => {
     // Set up mock config
     vi.mocked(configLoader.loadConfig).mockReturnValue({
       default_provider: 'anthropic',
-      default_model: 'claude-sonnet-4-20250514',
+      default_model: 'claude-opus-5-5',
       embedding: {
         provider: 'huggingface',
         model: 'BAAI/bge-large-en-v1.5',
@@ -204,7 +204,7 @@ describe('createStatusCommand', () => {
 
       const output = logOutput.join('\n');
       expect(output).toContain('anthropic');
-      expect(output).toContain('claude-sonnet-4-20250514');
+      expect(output).toContain('claude-opus-5-5');
     });
 
     it('does not show empty state hint when projects exist', async () => {
@@ -291,7 +291,7 @@ describe('createStatusCommand', () => {
       const jsonOutput = JSON.parse(consoleLogSpy.mock.calls[0][0]);
       expect(jsonOutput.llm).toBeDefined();
       expect(jsonOutput.llm.provider).toBe('anthropic');
-      expect(jsonOutput.llm.model).toBe('claude-sonnet-4-20250514');
+      expect(jsonOutput.llm.model).toBe('claude-opus-5-5');
     });
 
     it('includes config path', async () => {

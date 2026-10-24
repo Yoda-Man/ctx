@@ -27,7 +27,7 @@ import { getProvidersPath, getCtxDir } from './paths.js';
  */
 const AnthropicProviderConfigSchema = z.object({
   type: z.literal('anthropic'),
-  model: z.string().describe('Model identifier (e.g., claude-sonnet-4-20250514)'),
+  model: z.string().describe('Model identifier (e.g., claude-opus-5-5)'),
   apiKey: z.string().describe('Anthropic API key'),
 });
 

@@ -141,7 +141,7 @@ describe('createSearchCommand', () => {
     // Set up mock config
     vi.mocked(configLoader.loadConfig).mockReturnValue({
       default_provider: 'anthropic',
-      default_model: 'claude-sonnet-4-20250514',
+      default_model: 'claude-opus-5-5',
       embedding: {
         provider: 'huggingface',
         model: 'BAAI/bge-large-en-v1.5',

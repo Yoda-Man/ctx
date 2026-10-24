@@ -65,7 +65,7 @@ describe('providers', () => {
         providers: {
           'test-provider': {
             type: 'anthropic',
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-opus-5-5',
             apiKey: 'sk-ant-test',
           },
         },
@@ -142,7 +142,7 @@ describe('providers', () => {
     it('adds a new provider', () => {
       const config: ProviderConfig = {
         type: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
         apiKey: 'sk-ant-test',
       };
 
@@ -269,7 +269,7 @@ describe('providers', () => {
     it('returns provider config by name', () => {
       const config: ProviderConfig = {
         type: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
         apiKey: 'sk-ant-test',
       };
       addProvider('my-claude', config);

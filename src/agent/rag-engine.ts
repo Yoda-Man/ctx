@@ -371,8 +371,9 @@ export class ContextExpertRAGEngine {
    */
   private toRAGSearchResult(result: RAGResult, totalMs: number): RAGSearchResult {
     // Convert SDK sources to our format
+    const chunks = new Map(result.retrievalResults.map((r) => [r.chunk.id, r.chunk]));
     const sources: RAGSource[] = result.sources.map((s, idx) =>
-      this.toRAGSource(s, idx)
+      this.toRAGSource(s, idx, chunks.get(s.chunkId)?.metadata ?? {})
     );
 
     // Extract raw results for debugging
@@ -399,10 +400,13 @@ export class ContextExpertRAGEngine {
   /**
    * Convert SDK SourceAttribution to our RAGSource.
    */
-  private toRAGSource(source: SourceAttribution, index: number): RAGSource {
-    // Extract from metadata (we put it there in adapter)
-    // Note: metadata is added by our adapter but not in SDK type definition
-    const metadata = (source as SourceAttribution & { metadata?: Record<string, unknown> }).metadata ?? {};
+  private toRAGSource(
+    source: SourceAttribution,
+    index: number,
+    metadata: Record<string, unknown>
+  ): RAGSource {
+    // `metadata` is the chunk's, as the adapter set it: the SDK's attribution
+    // carries only the chunk ID, not the line range, language or file type.
 
     return {
       index: index + 1, // 1-indexed for human-readable citations

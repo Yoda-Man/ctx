@@ -193,15 +193,6 @@ describe('EvalError', () => {
     });
   });
 
-  describe('factory: langfuseError', () => {
-    it('creates error with correct code', () => {
-      const error = EvalError.langfuseError('401 unauthorized');
-
-      expect(error.code).toBe(EvalErrorCodes.LANGFUSE_ERROR);
-      expect(error.message).toContain('401 unauthorized');
-    });
-  });
-
   describe('factory: ragasError', () => {
     it('creates error with correct code', () => {
       const error = EvalError.ragasError('python not found');

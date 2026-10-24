@@ -12,7 +12,7 @@ import type { Config } from '../../config/schema.js';
 // Mock the individual provider factories
 vi.mock('../anthropic.js', () => ({
   createAnthropicProvider: vi.fn(),
-  DEFAULT_ANTHROPIC_MODEL: 'claude-sonnet-4-20250514',
+  DEFAULT_ANTHROPIC_MODEL: 'claude-opus-5-5',
 }));
 
 vi.mock('../openai.js', () => ({
@@ -64,7 +64,7 @@ function createMockProvider(name: string): LLMProvider {
 function createTestConfig(overrides: Partial<Config> = {}): Config {
   return {
     default_provider: 'anthropic',
-    default_model: 'claude-sonnet-4-20250514',
+    default_model: 'claude-opus-5-5',
     embedding: {
       provider: 'huggingface',
       model: 'BAAI/bge-small-en-v1.5',
@@ -97,7 +97,7 @@ describe('createLLMProvider', () => {
       (createAnthropicProvider as Mock).mockResolvedValue({
         provider: mockProvider,
         name: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
       });
 
       const config = createTestConfig({ default_provider: 'anthropic' });
@@ -128,7 +128,7 @@ describe('createLLMProvider', () => {
       (createAnthropicProvider as Mock).mockResolvedValue({
         provider: mockProvider,
         name: 'anthropic',
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-opus-5-5',
       });
 
       const onFallback = vi.fn();

@@ -16,7 +16,7 @@ import type { Config } from './schema.js';
  */
 export const DEFAULT_CONFIG: Config = {
   // LLM settings - Claude as default for quality
-  default_model: 'claude-sonnet-4-20250514',
+  default_model: 'claude-opus-5-5',
   default_provider: 'anthropic',
 
   // Embedding settings - BGE-large via Huggingface (local, no API cost)

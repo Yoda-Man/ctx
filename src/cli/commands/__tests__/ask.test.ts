@@ -150,7 +150,7 @@ describe('createAskCommand', () => {
     // Mock config
     vi.mocked(configLoader.loadConfig).mockReturnValue({
       default_provider: 'anthropic',
-      default_model: 'claude-sonnet-4-20250514',
+      default_model: 'claude-opus-5-5',
       embedding: {
         provider: 'huggingface',
         model: 'BAAI/bge-small-en-v1.5',
@@ -183,7 +183,7 @@ describe('createAskCommand', () => {
     vi.mocked(llmProvider.createLLMProvider).mockResolvedValue({
       provider: mockLLMProvider as unknown as ReturnType<typeof llmProvider.createLLMProvider> extends Promise<infer T> ? T extends { provider: infer P } ? P : never : never,
       name: 'anthropic',
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-5-5',
       usedFallback: false,
       requestedProvider: 'anthropic',
       failedAttempts: [],
@@ -436,7 +436,7 @@ describe('createAskCommand', () => {
       const output = JSON.parse(consoleLogSpy.mock.calls[0][0]);
       expect(output.metadata).toBeDefined();
       expect(output.metadata.projectSearched).toBe('test-project');
-      expect(output.metadata.model).toBe('claude-sonnet-4-20250514');
+      expect(output.metadata.model).toBe('claude-opus-5-5');
       expect(output.metadata.provider).toBe('anthropic');
     });
 

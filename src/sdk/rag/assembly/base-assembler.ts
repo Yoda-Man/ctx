@@ -260,7 +260,9 @@ export abstract class BaseAssembler implements ContextAssembler {
 
       // Build location string from available metadata
       let location: string | undefined;
-      if (metadata.pageNumber !== undefined) {
+      if (metadata.startLine !== undefined && metadata.endLine !== undefined) {
+        location = `lines ${metadata.startLine}-${metadata.endLine}`;
+      } else if (metadata.pageNumber !== undefined) {
         location = `page ${metadata.pageNumber}`;
       } else if (metadata.startIndex !== undefined) {
         location = `char ${metadata.startIndex}`;

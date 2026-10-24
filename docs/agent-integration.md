@@ -27,10 +27,11 @@ The `--context-only` flag on `ctx ask` returns XML-formatted code context withou
 ### Requirements
 
 1. Install: `npm install -g yodaman-ctx`
-2. Set an API key for the LLM provider:
+2. Choose the LLM that answers `ctx ask` (search and `--context-only` need none):
    ```bash
-   export ANTHROPIC_API_KEY=sk-ant-...   # or
-   export OPENAI_API_KEY=sk-...
+   export ANTHROPIC_API_KEY=sk-ant-...   # the default provider, or
+   export OPENAI_API_KEY=sk-...          # or run Ollama locally, with no key:
+   ctx config set default_provider ollama && ctx config set default_model qwen3.5:9b
    ```
 3. Index at least one project:
    ```bash
@@ -64,8 +65,8 @@ System health and version info.
 
 ```json
 {
-  "version": "1.0.2",
-  "nodeVersion": "v20.11.0",
+  "version": "1.0.0",
+  "nodeVersion": "v22.12.0",
   "platform": "darwin",
   "projects": 3,
   "totalChunks": 5432,
@@ -80,7 +81,7 @@ System health and version info.
   },
   "llm": {
     "provider": "anthropic",
-    "model": "claude-sonnet-4-20250514"
+    "model": "claude-opus-5-5"
   },
   "config": {
     "path": "/Users/you/.ctx/config.toml"
@@ -235,7 +236,7 @@ ctx ask "How does authentication work?" --project backend-api --json
       "completionTokens": 150,
       "totalTokens": 950
     },
-    "model": "claude-sonnet-4-20250514",
+    "model": "claude-opus-5-5",
     "provider": "anthropic"
   }
 }
@@ -313,13 +314,13 @@ ctx search "authentication middleware" --project backend-api --json
       "lineEnd": 67,
       "content": "export function authenticate(req, res, next) { ... }",
       "language": "typescript",
-      "fileType": "code",
-      "projectId": "uuid-1",
-      "projectName": "backend-api"
+      "fileType": "code"
     }
   ]
 }
 ```
+
+When more than one project is searched (no `--project`), each result also has `projectId` and `projectName`.
 
 | Option | Description |
 |--------|-------------|
@@ -374,15 +375,18 @@ ctx remove old-project --force --json
 ### `ctx config` subcommands
 
 ```bash
-ctx config get default_model --json     # {"key":"default_model","value":"claude-sonnet-4-20250514"}
+ctx config get default_model --json     # {"key":"default_model","value":"claude-opus-5-5"}
 ctx config set search.top_k 20 --json   # {"success":true,"key":"search.top_k","value":20}
 ctx config list --json                  # {"default_model":"...","embedding.provider":"..."}
 ctx config path --json                  # {"path":"/Users/you/.ctx/config.toml"}
+ctx config reset --force --json         # {"success":true,"message":"Configuration reset to defaults"}
 ```
+
+`config reset` deletes your configuration, so like `remove` it requires `--force`; without it, it exits 1 with `{"error":"confirmation_required",...}` on stderr.
 
 ---
 
-## Eval Commands (v1.4.0+)
+## Eval Commands
 
 Eval commands follow the same `--json` pattern. Use them for quality gates in agent workflows.
 

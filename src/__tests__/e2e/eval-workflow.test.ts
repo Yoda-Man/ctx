@@ -308,7 +308,7 @@ function setupLLMMock(): void {
   vi.mocked(llmProvider.createLLMProvider).mockResolvedValue({
     provider: mockLLM,
     name: 'anthropic',
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-opus-5-5',
   });
 }
 

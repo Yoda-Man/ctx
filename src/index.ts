@@ -23,7 +23,7 @@
  *
  * @example Database access
  * ```typescript
- * import { getDb, runMigrations } from 'context-expert';
+ * import { getDb, runMigrations } from 'yodaman-ctx';
  *
  * runMigrations();
  * const db = getDb();
@@ -32,8 +32,8 @@
  *
  * @example Type-safe project queries
  * ```typescript
- * import type { Project, Chunk } from 'context-expert';
- * import { getDb } from 'context-expert';
+ * import type { Project, Chunk } from 'yodaman-ctx';
+ * import { getDb } from 'yodaman-ctx';
  *
  * const db = getDb();
  * const project = db.prepare('SELECT * FROM projects WHERE name = ?').get('my-project') as Project;

@@ -131,35 +131,41 @@ export function createConfigCommand(getContext: () => CommandContext): Command {
   configCmd
     .command('reset')
     .description('Reset configuration to defaults')
-    .option('-f, --force', 'Skip confirmation prompt')
+    .option('-f, --force', 'Confirm the reset (required)')
     .action(async (options: { force?: boolean }) => {
       const ctx = getContext();
 
-      if (!options.force && !ctx.options.json) {
-        ctx.log(chalk.yellow('This will reset all configuration to defaults.'));
-        ctx.log(`Run with ${chalk.cyan('--force')} to confirm.`);
+      // Always requires --force, as `ctx remove` does: JSON mode is how agents
+      // call ctx, and they must not wipe the configuration by accident.
+      if (!options.force) {
+        if (ctx.options.json) {
+          console.error(JSON.stringify({
+            error: 'confirmation_required',
+            action: 'config_reset',
+            hint: 'Use --force to confirm the reset',
+          }));
+        } else {
+          ctx.log(chalk.yellow('This will reset all configuration to defaults.'));
+          ctx.log(`Run with ${chalk.cyan('--force')} to confirm.`);
+        }
         process.exitCode = 1;
         return;
       }
 
-      try {
-        const fs = await import('node:fs');
-        const configPath = getConfigPath();
+      const fs = await import('node:fs');
+      const configPath = getConfigPath();
 
-        if (fs.existsSync(configPath)) {
-          fs.unlinkSync(configPath);
-        }
+      if (fs.existsSync(configPath)) {
+        fs.unlinkSync(configPath);
+      }
 
-        // Reload to create fresh config
-        loadConfig(true);
+      // Reload to create fresh config
+      loadConfig(true);
 
-        if (ctx.options.json) {
-          console.log(JSON.stringify({ success: true, message: 'Configuration reset to defaults' }));
-        } else {
-          ctx.log(`${chalk.green('✓')} Configuration reset to defaults`);
-        }
-      } catch (error) {
-        throw error;
+      if (ctx.options.json) {
+        console.log(JSON.stringify({ success: true, message: 'Configuration reset to defaults' }));
+      } else {
+        ctx.log(`${chalk.green('✓')} Configuration reset to defaults`);
       }
     });
 

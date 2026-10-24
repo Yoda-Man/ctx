@@ -1323,7 +1323,7 @@ function createGoldenGenerateSubcommand(
       const db = getDb();
 
       // Step 2: Sample random chunks (exclude embedding BLOB for efficiency)
-      // Schema: src/database/migrations/001-initial.sql — chunks table
+      // Schema: the 001-initial migration in src/database/migrate.ts, chunks table
       const sampleSize = targetCount * 3; // Over-sample to account for LLM variance
       const chunks = db
         .prepare(

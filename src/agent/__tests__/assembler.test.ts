@@ -201,6 +201,19 @@ describe('createAssembler', () => {
       expect(result.content).toContain('</sources>');
     });
 
+    it('should give each source its line range', async () => {
+      const result = await createAssembler().assemble([
+        {
+          id: 'test-1',
+          chunk: { id: 'test-1', content: 'Test content', metadata: { filePath: 'test.ts', startLine: 42, endLine: 67 } },
+          score: 0.9,
+        },
+      ]);
+
+      expect(result.content).toContain('location="lines 42-67"');
+      expect(result.sources[0]!.location).toBe('lines 42-67');
+    });
+
     it('should create assembler with "source" tags for each chunk', async () => {
       const assembler = createAssembler();
 

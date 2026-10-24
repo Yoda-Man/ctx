@@ -272,7 +272,7 @@ Configuration is stored in `~/.ctx/config.toml`. The database is stored in `~/.c
 ### Environment Variables
 
 ```bash
-# Required for LLM providers (set at least one)
+# For `ctx ask` and `ctx chat` with a hosted model (search and Ollama need none)
 export ANTHROPIC_API_KEY=sk-ant-...    # For Claude models
 export OPENAI_API_KEY=sk-...            # For GPT models
 
@@ -286,7 +286,7 @@ export OLLAMA_HOST=http://localhost:11434  # Custom Ollama URL
 # ~/.ctx/config.toml
 
 # LLM settings
-default_model = "claude-sonnet-4-20250514"
+default_model = "claude-opus-5-5"
 default_provider = "anthropic"  # anthropic, openai, or ollama
 
 # Embedding settings (local by default)
@@ -296,7 +296,7 @@ model = "BAAI/bge-large-en-v1.5"
 batch_size = 32
 timeout_ms = 120000              # Embedding timeout (default: 2 min)
 # fallback_provider = "ollama"   # Fallback if primary fails
-# fallback_model = "nomic-embed-text"
+# fallback_model = "mxbai-embed-large"  # must also give 1024 dimensions
 
 # Search settings
 [search]
@@ -340,7 +340,7 @@ Claude models offer excellent code understanding and reasoning.
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ctx config set default_provider anthropic
-ctx config set default_model claude-sonnet-4-20250514
+ctx config set default_model claude-opus-5-5
 ```
 
 ### OpenAI
@@ -358,7 +358,7 @@ ctx config set default_model gpt-4o
 Run completely offline with local models. No API key required.
 
 ```bash
-# Install Ollama: https://ollama.ai
+# Install Ollama: https://ollama.com
 ollama pull llama3.2
 
 ctx config set default_provider ollama
@@ -397,6 +397,7 @@ src/
 ├── eval/           # Golden datasets, batch evaluation, metrics, RAGAS bridge
 ├── observability/  # Tracer abstraction, local trace recording
 ├── providers/      # LLM providers: Anthropic, OpenAI, Ollama
+├── sdk/            # The parts of the ContextAI SDK ctx uses (vendored)
 ├── config/         # TOML config loading with Zod validation
 ├── errors/         # Custom error classes and handler
 └── utils/          # Logging, path validation, table formatting
@@ -425,15 +426,7 @@ Issues and pull requests are welcome at
 against `dev`; CI runs the type check, tests and build on Node 22, 24 and 26,
 and fails if any dependency is behind its latest release.
 
-## Credits
-
-ctx began as [Context Expert](https://github.com/draco28/ContextExpert) by
-draco, and includes the parts it uses of the
-[ContextAI SDK](https://github.com/draco28/contextai) by the same author. This
-fork is maintained by YodaMan: current dependencies, local-only tracing, and
-the fixes listed in the [changelog](CHANGELOG.md).
-
 ## License
 
-[MIT](LICENSE). Copyright (c) 2026 draco, 2025 ContextAI, 2026 YodaMan.
+[MIT](LICENSE). Copyright (c) 2026 YodaMan.
 

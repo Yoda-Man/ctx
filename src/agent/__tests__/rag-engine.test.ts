@@ -81,16 +81,12 @@ function createMockRAGEngineImpl(): {
 function createMockRAGResult(overrides: Partial<RAGResult> = {}): RAGResult {
   const defaultSources: SourceAttribution[] = [
     {
+      // As the SDK builds it: no chunk metadata, only the chunk's ID.
+      index: 1,
+      chunkId: 'chunk-1',
       source: 'src/auth/handler.ts',
       location: 'lines 42-67',
       score: 0.95,
-      metadata: {
-        filePath: 'src/auth/handler.ts',
-        fileType: 'code',
-        language: 'typescript',
-        startLine: 42,
-        endLine: 67,
-      },
     },
   ];
 

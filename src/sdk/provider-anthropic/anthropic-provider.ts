@@ -10,7 +10,7 @@
  *
  * const provider = new AnthropicProvider({
  *   apiKey: process.env.ANTHROPIC_API_KEY!,
- *   model: 'claude-sonnet-4-20250514',
+ *   model: 'claude-opus-5-5',
  * });
  *
  * // Non-streaming
@@ -59,7 +59,7 @@ export class AnthropicProvider implements LLMProvider {
   /** Provider identifier */
   readonly name = 'anthropic';
 
-  /** Model being used (e.g., 'claude-sonnet-4-20250514') */
+  /** Model being used (e.g., 'claude-opus-5-5') */
   readonly model: string;
 
   /** Anthropic SDK client */

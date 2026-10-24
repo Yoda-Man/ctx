@@ -414,14 +414,10 @@ export function buildRequestParams(
       params.tools = mapTools(options.tools);
     }
 
-    // Extended thinking support
+    // Extended thinking: current models only accept adaptive thinking (a
+    // fixed `budget_tokens` is rejected), so the budget option is not sent.
     if (options.thinking?.enabled) {
-      // Anthropic's extended thinking uses a different parameter
-      // The thinking block appears in the response content
-      (params as unknown as Record<string, unknown>).thinking = {
-        type: 'enabled',
-        budget_tokens: options.thinking.budgetTokens ?? 10000,
-      };
+      (params as unknown as Record<string, unknown>).thinking = { type: 'adaptive' };
     }
   }
 

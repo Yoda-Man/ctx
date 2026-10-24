@@ -558,8 +558,6 @@ export const EvalErrorCodes = {
   DATASET_INVALID: 'DATASET_INVALID',
   /** Batch evaluation run failed */
   EVAL_RUN_FAILED: 'EVAL_RUN_FAILED',
-  /** Langfuse API communication error */
-  LANGFUSE_ERROR: 'LANGFUSE_ERROR',
   /** Python/RAGAS subprocess error */
   RAGAS_ERROR: 'RAGAS_ERROR',
 } as const;
@@ -608,15 +606,6 @@ export class EvalError extends Error {
     return new EvalError(
       EvalErrorCodes.EVAL_RUN_FAILED,
       `Evaluation run failed: ${reason}`,
-      cause
-    );
-  }
-
-  /** Factory: Langfuse API error */
-  static langfuseError(reason: string, cause?: Error): EvalError {
-    return new EvalError(
-      EvalErrorCodes.LANGFUSE_ERROR,
-      `Langfuse API error: ${reason}`,
       cause
     );
   }
