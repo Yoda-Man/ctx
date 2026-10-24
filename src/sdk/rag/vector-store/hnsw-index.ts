@@ -374,44 +374,12 @@ export class HNSWIndex {
   };
 
   /**
-   * Get the number of vectors in the index.
-   */
-  size = (): number => {
-    return this.nodes.size;
-  };
-
-  /**
-   * Check if a vector exists in the index.
-   *
-   * @param id - Vector identifier
-   */
-  has = (id: string): boolean => {
-    return this.nodes.has(id);
-  };
-
-  /**
    * Clear all vectors from the index.
    */
   clear = (): void => {
     this.nodes.clear();
     this.entryPointId = null;
     this.currentMaxLayer = -1;
-  };
-
-  /**
-   * Get the current configuration (for debugging/logging).
-   */
-  getConfig = (): Readonly<ResolvedHNSWConfig> => {
-    return { ...this.config };
-  };
-
-  /**
-   * Update the search ef parameter (can be adjusted per-search).
-   *
-   * @param efSearch - New efSearch value
-   */
-  setEfSearch = (efSearch: number): void => {
-    this.config.efSearch = efSearch;
   };
 
   // ==========================================================================

@@ -40,7 +40,6 @@ import type {
   ChatResponse,
   StreamChunk,
   GenerateOptions,
-  ModelInfo,
 } from '../core/index.js';
 
 import type { OllamaProviderConfig, OllamaTagsResponse } from './types.js';
@@ -105,7 +104,7 @@ export class OllamaProvider implements LLMProvider {
     }
 
     this.model = config.model;
-    this.host = (config.host || config.baseURL || DEFAULT_HOST).replace(
+    this.host = (config.host || DEFAULT_HOST).replace(
       /\/$/,
       ''
     );
@@ -342,52 +341,6 @@ export class OllamaProvider implements LLMProvider {
       }
     } catch {
       return false;
-    }
-  };
-
-  // ==========================================================================
-  // LLMProvider Interface: listModels() (Optional)
-  // ==========================================================================
-
-  /**
-   * Lists all models available on the Ollama server.
-   *
-   * @returns Array of model information
-   *
-   * @example
-   * ```typescript
-   * const models = await provider.listModels();
-   * console.log('Available models:', models.map(m => m.id));
-   * ```
-   */
-  listModels = async (): Promise<ModelInfo[]> => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      try {
-        const response = await fetch(`${this.host}/api/tags`, {
-          method: 'GET',
-          headers: this.headers,
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw await createErrorFromResponse(response);
-        }
-
-        const data = (await response.json()) as OllamaTagsResponse;
-
-        return data.models.map((model) => ({
-          id: model.name,
-          name: model.model,
-          contextLength: undefined, // Ollama doesn't report this in /api/tags
-        }));
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch (error) {
-      throw mapOllamaError(error);
     }
   };
 }

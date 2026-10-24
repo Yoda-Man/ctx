@@ -123,21 +123,6 @@ export class ContextAIError extends Error {
 }
 
 /**
- * Agent-related errors
- *
- * Thrown when:
- * - Agent execution fails
- * - Max iterations exceeded
- * - Agent aborted
- */
-export class AgentError extends ContextAIError {
-  constructor(message: string) {
-    super(message, 'AGENT_ERROR');
-    this.name = 'AgentError';
-  }
-}
-
-/**
  * Tool-related errors
  *
  * Thrown when:
@@ -243,14 +228,5 @@ export class ValidationError extends ContextAIError {
     super(message, 'VALIDATION_ERROR');
     this.name = 'ValidationError';
     this.issues = issues;
-  }
-
-  /**
-   * Format issues as a human-readable string
-   */
-  formatIssues(): string {
-    return this.issues
-      .map((issue) => `  - ${issue.path.join('.')}: ${issue.message}`)
-      .join('\n');
   }
 }

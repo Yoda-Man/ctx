@@ -70,35 +70,6 @@ export class VectorStoreError extends ContextAIError {
   }
 
   /**
-   * Create an error for chunk not found.
-   */
-  static chunkNotFound(storeName: string, ids: string[]): VectorStoreError {
-    const idList =
-      ids.length <= 3 ? ids.join(', ') : `${ids.slice(0, 3).join(', ')}...`;
-    return new VectorStoreError(
-      `Chunk(s) not found: ${idList}`,
-      'CHUNK_NOT_FOUND',
-      storeName
-    );
-  }
-
-  /**
-   * Create an error for store unavailable.
-   */
-  static storeUnavailable(
-    storeName: string,
-    reason: string,
-    cause?: Error
-  ): VectorStoreError {
-    return new VectorStoreError(
-      `Store unavailable: ${reason}`,
-      'STORE_UNAVAILABLE',
-      storeName,
-      cause
-    );
-  }
-
-  /**
    * Create an error for invalid query.
    */
   static invalidQuery(storeName: string, reason: string): VectorStoreError {
@@ -106,49 +77,6 @@ export class VectorStoreError extends ContextAIError {
       `Invalid query: ${reason}`,
       'INVALID_QUERY',
       storeName
-    );
-  }
-
-  /**
-   * Create an error for invalid filter.
-   */
-  static invalidFilter(storeName: string, reason: string): VectorStoreError {
-    return new VectorStoreError(
-      `Invalid filter: ${reason}`,
-      'INVALID_FILTER',
-      storeName
-    );
-  }
-
-  /**
-   * Create an error for insert failure.
-   */
-  static insertFailed(
-    storeName: string,
-    reason: string,
-    cause?: Error
-  ): VectorStoreError {
-    return new VectorStoreError(
-      `Insert failed: ${reason}`,
-      'INSERT_FAILED',
-      storeName,
-      cause
-    );
-  }
-
-  /**
-   * Create an error for delete failure.
-   */
-  static deleteFailed(
-    storeName: string,
-    reason: string,
-    cause?: Error
-  ): VectorStoreError {
-    return new VectorStoreError(
-      `Delete failed: ${reason}`,
-      'DELETE_FAILED',
-      storeName,
-      cause
     );
   }
 }

@@ -2,7 +2,7 @@
 
 How to use Context Expert (`ctx`) as a tool from AI agents (Claude Code, Codex, OpenCode, etc.).
 
-All commands support `--json` for structured output. Always use `--json` when calling `ctx` programmatically.
+Every command supports `--json` for structured output except the interactive ones (`ctx chat` and `ctx eval golden capture`). Always use `--json` when calling `ctx` programmatically.
 
 > **Note:** `ctx chat` is designed for interactive human use. Agents should use `ctx ask --json` or `ctx search --json` for programmatic access.
 
@@ -14,7 +14,7 @@ ctx status --json                                                      # 2. Veri
 ctx index /path/to/project --name "my-project" --json                  # 3. Index a project
 ctx list --json                                                        # 4. Discover indexed projects
 ctx check my-project --json                                            # 5. Validate readiness
-ctx ask "How does auth work?" --context-only --project my-project --json  # 6. Get RAG context (no LLM cost)
+ctx ask "How does auth work?" --context-only --project my-project --json  # 6. Get RAG context (no model call)
 ctx search "auth middleware" --project my-project --json               # 7. Raw hybrid search
 ```
 
@@ -27,11 +27,12 @@ The `--context-only` flag on `ctx ask` returns XML-formatted code context withou
 ### Requirements
 
 1. Install: `npm install -g yodaman-ctx`
-2. Choose the LLM that answers `ctx ask` (search and `--context-only` need none):
+2. For `ctx ask` answers, run [Ollama](https://ollama.com) with a model pulled
+   (search and `--context-only` need none). ctx uses local models only, so no
+   code or question leaves the machine:
    ```bash
-   export ANTHROPIC_API_KEY=sk-ant-...   # the default provider, or
-   export OPENAI_API_KEY=sk-...          # or run Ollama locally, with no key:
-   ctx config set default_provider ollama && ctx config set default_model qwen3.5:9b
+   ollama pull qwen3.5:9b
+   ctx config set default_model qwen3.5:9b
    ```
 3. Index at least one project:
    ```bash
@@ -52,7 +53,7 @@ Returns version, database stats, and provider config. If this works, you're read
 1. ctx status --json          # System health
 2. ctx list --json            # Available projects
 3. ctx check <project> --json # Pre-flight validation
-4. ctx ask "..." --context-only --json --project <name>  # Get context (no LLM cost)
+4. ctx ask "..." --context-only --json --project <name>  # Get context (no model call)
    # or
    ctx ask "..." --json --project <name>  # Full RAG + LLM answer
 ```
@@ -80,8 +81,8 @@ System health and version info.
     "model": "BAAI/bge-large-en-v1.5"
   },
   "llm": {
-    "provider": "anthropic",
-    "model": "claude-opus-5-5"
+    "provider": "ollama",
+    "model": "qwen3.5:9b"
   },
   "config": {
     "path": "/Users/you/.ctx/config.toml"
@@ -236,8 +237,8 @@ ctx ask "How does authentication work?" --project backend-api --json
       "completionTokens": 150,
       "totalTokens": 950
     },
-    "model": "claude-opus-5-5",
-    "provider": "anthropic"
+    "model": "qwen3.5:9b",
+    "provider": "ollama"
   }
 }
 ```
@@ -287,7 +288,7 @@ ctx ask "How does authentication work?" --context-only --project backend-api --j
 Key differences from full `ctx ask`:
 - No `answer` field — returns `context` (XML-formatted) instead
 - No `generationMs`, `tokensUsed`, `model`, or `provider` in metadata
-- No LLM API call — only costs are local embedding for query
+- No model call: only the query is embedded, locally
 
 The `context` field contains XML that can be injected directly into your own LLM prompt.
 
@@ -375,7 +376,7 @@ ctx remove old-project --force --json
 ### `ctx config` subcommands
 
 ```bash
-ctx config get default_model --json     # {"key":"default_model","value":"claude-opus-5-5"}
+ctx config get default_model --json     # {"key":"default_model","value":"qwen3.5:9b"}
 ctx config set search.top_k 20 --json   # {"success":true,"key":"search.top_k","value":20}
 ctx config list --json                  # {"default_model":"...","embedding.provider":"..."}
 ctx config path --json                  # {"path":"/Users/you/.ctx/config.toml"}
@@ -415,8 +416,7 @@ Run batch evaluation against a golden dataset. Use as a quality gate after modif
     "metric_changes": { "mrr": 0.050, "hit_rate": -0.020 }
   },
   "regressions": [],
-  "improvements": ["MRR"],
-  "ragas": null
+  "improvements": ["MRR"]
 }
 ```
 

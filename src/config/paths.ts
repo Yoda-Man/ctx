@@ -8,7 +8,7 @@
  * ~/.ctx/
  * ├── context.db      (SQLite database)
  * ├── config.toml     (User configuration)
- * └── providers.json  (LLM provider configs)
+ * └── models/         (Downloaded embedding and reranker models)
  */
 
 import { join } from 'node:path';
@@ -20,12 +20,11 @@ export const CTX_DIR = join(homedir(), '.ctx');
 /**
  * Downloaded embedding and reranker models. Kept here, beside the index,
  * rather than in transformers.js's default (inside its own package folder),
- * where every reinstall or Node version change threw away a ~1.3 GB download.
+ * where every reinstall or Node version change threw away a ~600 MB download.
  */
 export const MODELS_DIR = join(CTX_DIR, 'models');
 export const DB_PATH = join(CTX_DIR, 'context.db');
 const CONFIG_PATH = join(CTX_DIR, 'config.toml');
-export const PROVIDERS_PATH = join(CTX_DIR, 'providers.json');
 
 /**
  * Get the ctx directory path (~/.ctx)
@@ -49,12 +48,4 @@ export function getDbPath(): string {
  */
 export function getConfigPath(): string {
   return CONFIG_PATH;
-}
-
-/**
- * Get the providers file path (~/.ctx/providers.json)
- * @returns Absolute path to the providers JSON file
- */
-export function getProvidersPath(): string {
-  return PROVIDERS_PATH;
 }

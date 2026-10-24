@@ -194,7 +194,7 @@ export class AdaptiveRAG implements IAdaptiveRAG {
     const features = this.classifier.extractFeatures(query);
 
     // Generate recommendation for the override type
-    const recommendation = this.getRecommendationForType(type as 'simple' | 'factual' | 'complex' | 'conversational', features);
+    const recommendation = this.getRecommendationForType(type as 'simple' | 'factual' | 'complex' | 'conversational');
 
     return {
       type: type as 'simple' | 'factual' | 'complex' | 'conversational',
@@ -208,40 +208,30 @@ export class AdaptiveRAG implements IAdaptiveRAG {
    * Get default recommendation for a query type.
    */
   private getRecommendationForType(
-    type: 'simple' | 'factual' | 'complex' | 'conversational',
-    features: ClassificationResult['features']
+    type: 'simple' | 'factual' | 'complex' | 'conversational'
   ): ClassificationResult['recommendation'] {
     switch (type) {
       case 'simple':
         return {
           skipRetrieval: true,
-          enableEnhancement: false,
-          enableReranking: false,
           suggestedTopK: 0,
           needsConversationContext: false,
         };
       case 'factual':
         return {
           skipRetrieval: false,
-          enableEnhancement: false,
-          enableReranking: true,
           suggestedTopK: 5,
           needsConversationContext: false,
         };
       case 'complex':
         return {
           skipRetrieval: false,
-          enableEnhancement: true,
-          suggestedStrategy: features.wordCount > 20 ? 'multi-query' : 'rewrite',
-          enableReranking: true,
           suggestedTopK: 10,
           needsConversationContext: false,
         };
       case 'conversational':
         return {
           skipRetrieval: false,
-          enableEnhancement: false,
-          enableReranking: true,
           suggestedTopK: 5,
           needsConversationContext: true,
         };
@@ -263,8 +253,6 @@ export class AdaptiveRAG implements IAdaptiveRAG {
 
       // Apply recommendations (user options can override)
       topK: userOptions?.topK ?? recommendation.suggestedTopK,
-      enhance: userOptions?.enhance ?? recommendation.enableEnhancement,
-      rerank: userOptions?.rerank ?? recommendation.enableReranking,
     };
   }
 

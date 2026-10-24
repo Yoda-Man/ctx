@@ -63,7 +63,7 @@ describe('Config Schema', () => {
   it('validates config with eval section', () => {
     const config = {
       ...DEFAULT_CONFIG,
-      eval: { golden_path: '/custom', default_k: 10, thresholds: { mrr: 0.8, hit_rate: 0.9, precision_at_k: 0.7 }, python_path: 'python3', ragas_model: 'gpt-4o' },
+      eval: { golden_path: '/custom', default_k: 10, thresholds: { mrr: 0.8, hit_rate: 0.9, precision_at_k: 0.7 } },
     };
     const result = ConfigSchema.safeParse(config);
     expect(result.success).toBe(true);
@@ -133,11 +133,51 @@ describe('Config Loading', () => {
       vi.resetModules();
     }
   });
+
+  it.each([
+    ['anthropic', 'claude-sonnet-4-20250514'],
+    ['openai', 'gpt-4o'],
+  ])('ignores a cloud provider (%s) and its model, with a warning', async (provider, model) => {
+    fs.writeFileSync(TEST_CONFIG_PATH, `default_provider = "${provider}"\ndefault_model = "${model}"\n`);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.resetModules();
+    vi.doMock('../paths.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../paths.js')>()),
+      getConfigPath: () => TEST_CONFIG_PATH,
+    }));
+    try {
+      const { loadConfig } = await import('../loader.js');
+      const config = loadConfig(false);
+      expect(config.default_provider).toBe('ollama');
+      expect(config.default_model).toBe(DEFAULT_CONFIG.default_model);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(`default_provider = "${provider}" is ignored`));
+    } finally {
+      warn.mockRestore();
+      vi.doUnmock('../paths.js');
+      vi.resetModules();
+    }
+  });
+
+  it('keeps an Ollama model', async () => {
+    fs.writeFileSync(TEST_CONFIG_PATH, 'default_provider = "ollama"\ndefault_model = "qwen3.5:9b"\n');
+    vi.resetModules();
+    vi.doMock('../paths.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../paths.js')>()),
+      getConfigPath: () => TEST_CONFIG_PATH,
+    }));
+    try {
+      const { loadConfig } = await import('../loader.js');
+      expect(loadConfig(false).default_model).toBe('qwen3.5:9b');
+    } finally {
+      vi.doUnmock('../paths.js');
+      vi.resetModules();
+    }
+  });
 });
 
 describe('Config Defaults', () => {
   it('has valid default values', () => {
-    expect(DEFAULT_CONFIG.default_provider).toBe('anthropic');
+    expect(DEFAULT_CONFIG.default_provider).toBe('ollama');
     expect(DEFAULT_CONFIG.embedding.provider).toBe('huggingface');
     expect(DEFAULT_CONFIG.embedding.model).toBe('BAAI/bge-large-en-v1.5');
     expect(DEFAULT_CONFIG.embedding.fallback_provider).toBe('ollama');

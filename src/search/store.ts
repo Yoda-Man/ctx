@@ -250,13 +250,6 @@ export class VectorStoreManager {
   clearAll(): void {
     this.stores.clear();
   }
-
-  /**
-   * Get the number of cached stores.
-   */
-  get cacheSize(): number {
-    return this.stores.size;
-  }
 }
 
 // ============================================================================

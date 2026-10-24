@@ -15,9 +15,9 @@
 
 `ctx` indexes your projects once, then answers questions about them: find code
 by what it does, not by what it is called, and ask questions that come back
-with the files and lines they are based on. Embeddings run locally, so your
-code stays on your machine, and answers can come from a local model through
-Ollama or from Anthropic or OpenAI.
+with the files and lines they are based on. Everything runs on your machine:
+local embeddings for search, and a local model through Ollama for answers. No
+code, question or answer is ever sent to a cloud service.
 
 It is the search engine behind [YodaMan](https://github.com/Yoda-Man/yodaman),
 and works just as well on its own.
@@ -32,11 +32,11 @@ and works just as well on its own.
 |---|---|
 | **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion, then reranked by a BGE cross-encoder. |
 | **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
-| **Across projects** | Index any number of codebases and search one, several, or all of them at once. |
+| **Across projects** | Index any number of codebases and search one of them or all at once; `ctx chat` routes each question to the projects it is about. |
 | **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, not by line count. |
 | **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
-| **Any model** | Anthropic, OpenAI, or Ollama for fully offline use, with automatic fallback between them. |
-| **Built to be scripted** | Every command has `--json` output, made for agents and tools such as YodaMan. |
+| **Private** | Answers come from a local Ollama model; ctx has no cloud provider and needs no API key. |
+| **Built to be scripted** | Every command except the interactive `ctx chat` has `--json` output, made for agents and tools such as YodaMan. |
 | **Measured, not guessed** | `ctx eval` scores retrieval against a golden dataset (MRR, hit rate, precision, NDCG) and tracks regressions. |
 | **Current** | Every dependency is on its latest release, checked in CI and before every publish. |
 
@@ -69,8 +69,8 @@ ctx ask "How does the authentication flow work?" -p my-app
 ctx chat
 ```
 
-For answers, set up one model provider: run Ollama locally (no key needed), or
-set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Search needs no provider at all.
+For answers, run [Ollama](https://ollama.com) with a model pulled (see
+[Local models only](#local-models-only)). Search needs no model at all.
 
 <p align="center">
   <img src="docs/assets/screenshot-ask.svg" alt="ctx ask: an answer with numbered sources" width="820">
@@ -84,7 +84,7 @@ set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`. Search needs no provider at all.
  search  query ──┬─► dense vectors ─┐
                  └─► BM25 keywords ─┴─► rank fusion ──► BGE reranker ──► results
 
- ask     results ──► context assembly ──► your model ──► answer with sources
+ ask     results ──► context assembly ──► local model (Ollama) ──► answer with sources
 ```
 
 ## Commands
@@ -102,8 +102,8 @@ ctx index . --force  # Re-index, replacing existing data
 | Option | Description |
 |--------|-------------|
 | `--name, -n` | Project name (defaults to directory name) |
-| `--tags, -t` | Comma-separated tags for filtering |
-| `--force, -f` | Replace existing index for this project |
+| `--tags, -t` | Comma-separated tags, shown by `ctx list` and used by `ctx chat` to route questions |
+| `--force` | Replace existing index for this project |
 | `--ignore` | Comma-separated gitignore-style patterns to exclude |
 
 ### `ctx list`
@@ -114,7 +114,7 @@ List all indexed projects with statistics.
 ctx list
 ```
 
-Shows project name, file count, chunk count, and index date.
+Shows each project's name, path, file and chunk counts, and when it was last updated.
 
 ### `ctx search <query>`
 
@@ -130,7 +130,7 @@ ctx search "authentication" --top 20 --rerank
 |--------|-------------|
 | `--project, -p` | Limit search to specific project |
 | `--top, -k` | Number of results (default: 10) |
-| `--rerank, -r` | Apply BGE cross-encoder reranking |
+| `--rerank, -r` | Rerank with the BGE cross-encoder (on by default through `search.rerank`) |
 
 ### `ctx ask <question>`
 
@@ -165,11 +165,10 @@ ctx chat
 | `/focus <project>` | Focus RAG search on a specific project |
 | `/unfocus` | Clear project focus |
 | `/projects` | List all indexed projects |
-| `/describe <name>` | Add description/tags for smart routing |
+| `/describe <name> ["description"] [--tags a,b]` | Add a description and tags that `ctx chat` uses to route questions |
 | `/clear` | Clear conversation history |
 | `/share [path]` | Export conversation to markdown |
-| `/index <path>` | Index a project within the chat session |
-| `/provider <sub>` | Manage LLM providers (add, list, use, remove, test) |
+| `/index <path> [-n name] [--force]` | Index a project within the chat session (`/index status` shows progress) |
 | `/exit` | Exit the chat |
 
 #### TUI Mode
@@ -179,7 +178,7 @@ On TTY terminals, `ctx chat` launches in **TUI mode** by default: a three-region
 | Region | Description |
 |--------|-------------|
 | **Chat area** | Scrollable message history and streaming LLM responses |
-| **Status bar** | Model name, working directory, git branch, turn counter, session cost |
+| **Status bar** | Model name, working directory and git branch, context gauge, turn counter, current activity |
 | **Input area** | readline-powered input with tab completion |
 
 Use `--no-tui` to fall back to the classic readline REPL (also used automatically when stdout is not a TTY, e.g., piping):
@@ -195,7 +194,7 @@ Manage configuration settings.
 ```bash
 ctx config list              # Show all settings
 ctx config get default_model # Get specific setting
-ctx config set default_model gpt-4o  # Update setting
+ctx config set default_model qwen3.5:9b  # Update setting
 ```
 
 ### `ctx status`
@@ -248,7 +247,6 @@ ctx eval golden list --project my-project
 
 # Run evaluation
 ctx eval run --project my-project
-ctx eval run --project my-project --ragas
 
 # View results
 ctx eval report --project my-project
@@ -272,12 +270,8 @@ Configuration is stored in `~/.ctx/config.toml`. The database is stored in `~/.c
 ### Environment Variables
 
 ```bash
-# For `ctx ask` and `ctx chat` with a hosted model (search and Ollama need none)
-export ANTHROPIC_API_KEY=sk-ant-...    # For Claude models
-export OPENAI_API_KEY=sk-...            # For GPT models
-
-# Optional
-export OLLAMA_HOST=http://localhost:11434  # Custom Ollama URL
+# Optional: where Ollama runs (default http://localhost:11434)
+export OLLAMA_HOST=http://localhost:11434
 ```
 
 ### Config File
@@ -286,8 +280,8 @@ export OLLAMA_HOST=http://localhost:11434  # Custom Ollama URL
 # ~/.ctx/config.toml
 
 # LLM settings
-default_model = "claude-opus-5-5"
-default_provider = "anthropic"  # anthropic, openai, or ollama
+default_model = "llama3.2"     # any model you have pulled in Ollama
+default_provider = "ollama"     # always ollama: ctx uses local models only
 
 # Embedding settings (local by default)
 [embedding]
@@ -305,10 +299,8 @@ rerank = true  # Use BGE cross-encoder
 
 # RAG pipeline settings (optional - these are defaults)
 [rag]
-max_tokens = 4000       # Max tokens for LLM context
-retrieve_k = 20         # Chunks to retrieve before reranking
-final_k = 5             # Chunks to include after reranking
-enhance_query = false   # Use LLM to enhance search query
+max_tokens = 4000       # Max tokens of code context given to the model
+final_k = 5             # Chunks included in the context
 ordering = "sandwich"   # Context ordering: sandwich, chronological, relevance
 
 # Indexing settings (optional)
@@ -331,41 +323,20 @@ enabled = true
 sample_rate = 1.0
 ```
 
-## Providers
+## Local models only
 
-### Anthropic (Default)
-
-Claude models offer excellent code understanding and reasoning.
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-ctx config set default_provider anthropic
-ctx config set default_model claude-opus-5-5
-```
-
-### OpenAI
-
-GPT models as an alternative provider.
+ctx is private by design: your code, questions and answers never leave your
+machine. Embeddings and reranking run in process, and answers come from a
+local model through [Ollama](https://ollama.com). There is no cloud provider
+to configure and no API key to set.
 
 ```bash
-export OPENAI_API_KEY=sk-...
-ctx config set default_provider openai
-ctx config set default_model gpt-4o
+ollama pull qwen3.5:9b
+ctx config set default_model qwen3.5:9b
 ```
 
-### Ollama (Local/Offline)
-
-Run completely offline with local models. No API key required.
-
-```bash
-# Install Ollama: https://ollama.com
-ollama pull llama3.2
-
-ctx config set default_provider ollama
-ctx config set default_model llama3.2
-```
-
-**Note:** Local models may have reduced quality compared to Claude or GPT-4 for complex code questions.
+Any model you have pulled works; `ollama list` shows them. Set `OLLAMA_HOST` if
+Ollama is not at `http://localhost:11434`.
 
 ## Development
 
@@ -394,9 +365,9 @@ src/
 ├── search/         # Hybrid search: dense, BM25, fusion, reranking
 ├── indexer/        # File scanning, chunking (Tree-sitter), embedding pipeline
 ├── database/       # SQLite schema, operations, migrations
-├── eval/           # Golden datasets, batch evaluation, metrics, RAGAS bridge
-├── observability/  # Tracer abstraction, local trace recording
-├── providers/      # LLM providers: Anthropic, OpenAI, Ollama
+├── eval/           # Golden datasets, batch evaluation, metrics
+├── observability/  # Whether to record an interaction locally
+├── providers/      # The local Ollama model
 ├── sdk/            # The parts of the ContextAI SDK ctx uses (vendored)
 ├── config/         # TOML config loading with Zod validation
 ├── errors/         # Custom error classes and handler
@@ -413,7 +384,7 @@ searchable there.
 
 ## Agent Integration
 
-All commands support `--json` for structured output, making ctx a first-class tool for AI agents (Claude Code, Codex, OpenCode, etc.). See the [Agent Integration Guide](./docs/agent-integration.md) for JSON response schemas, recommended workflows, and error handling.
+Every command except the interactive `ctx chat` supports `--json` for structured output, making ctx a first-class tool for AI agents (Claude Code, Codex, OpenCode, etc.). See the [Agent Integration Guide](./docs/agent-integration.md) for JSON response schemas, recommended workflows, and error handling.
 
 ## Evaluation & Observability
 

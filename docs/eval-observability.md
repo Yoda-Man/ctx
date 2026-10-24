@@ -11,7 +11,6 @@ Measure and improve your RAG pipeline's retrieval quality with batch evaluations
   - [Viewing Reports](#viewing-reports)
   - [Metrics Reference](#metrics-reference)
   - [Regression Detection](#regression-detection)
-  - [RAGAS Integration (Optional)](#ragas-integration-optional)
 - [Observability System](#observability-system)
   - [Local Traces](#local-traces)
   - [Trace Sampling](#trace-sampling)
@@ -58,14 +57,6 @@ ctx eval report --project my-project
 # 6. View interaction traces
 ctx eval traces
 ctx eval traces --project my-project --since 7d
-```
-
-**Optional RAGAS answer quality metrics:**
-
-```bash
-pip install ragas
-export OPENAI_API_KEY=sk-...  # RAGAS uses OpenAI as the judge model
-ctx eval run --project my-project --ragas
 ```
 
 ---
@@ -179,41 +170,6 @@ hit_rate = 0.85     # Minimum hit rate to pass
 precision_at_k = 0.6  # Minimum precision to pass
 ```
 
-### RAGAS Integration (Optional)
-
-[RAGAS](https://docs.ragas.io/) provides **answer quality** metrics that go beyond retrieval — measuring whether the generated answer is faithful to the context and relevant to the question.
-
-**Prerequisites:**
-
-- Python 3 installed
-- RAGAS package: `pip install ragas`
-- OpenAI API key (RAGAS uses it as the judge model): `export OPENAI_API_KEY=sk-...`
-
-**Usage:**
-
-```bash
-ctx eval run --project my-project --ragas
-```
-
-This runs retrieval metrics first, then exports the data and invokes RAGAS via a Python subprocess. Four answer quality metrics are computed:
-
-| Metric | What It Measures |
-|--------|-----------------|
-| **Faithfulness** | Is the answer grounded in the retrieved context? (no hallucination) |
-| **Answer Relevancy** | Does the answer address the actual question? |
-| **Context Precision** | Are the retrieved chunks relevant to the question? |
-| **Context Recall** | Does the retrieved context contain the information needed to answer? |
-
-**Configuration:**
-
-```toml
-[eval]
-python_path = "python3"       # Python executable (default: python3)
-ragas_model = "gpt-4o-mini"   # Judge model for RAGAS (default: gpt-4o-mini)
-```
-
-**Graceful degradation:** If Python is not found or RAGAS is not installed, the command skips answer quality with a warning and still reports retrieval metrics.
-
 ---
 
 ## Observability System
@@ -260,6 +216,7 @@ sample_rate = 1.0   # Default: record everything
 ```
 
 This controls local SQLite recording, which is the only recording ctx does.
+To turn it off entirely, set `enabled = false` under `[observability]`.
 
 ---
 
@@ -276,12 +233,6 @@ golden_path = "~/.ctx/eval"
 # Default k for Precision@K, Recall@K, NDCG@K (default: 5)
 # Common values: 5 (focused), 10 (comprehensive), 20 (recall-heavy)
 default_k = 5
-
-# Python executable path for RAGAS integration (default: python3)
-python_path = "python3"
-
-# LLM model for RAGAS answer evaluation (default: gpt-4o-mini)
-ragas_model = "gpt-4o-mini"
 
 [eval.thresholds]
 # Quality thresholds for pass/fail (all 0-1)
@@ -309,21 +260,20 @@ accepted are ignored (with a warning) since yodaman-ctx 1.0, which removed cloud
 
 ## CLI Command Reference
 
-All commands support `--json` for structured output.
+Every eval command except the interactive `golden capture` supports `--json` for structured output.
 
 ### `ctx eval run`
 
 Run batch evaluation against a golden dataset.
 
 ```bash
-ctx eval run --project <name> [--top-k <N>] [--ragas] [--json]
+ctx eval run --project <name> [--top-k <N>] [--json]
 ```
 
 | Option | Description |
 |--------|-------------|
 | `--project, -p` | Project to evaluate (required) |
 | `--top-k, -k` | Override retrieval top-k (1-100, default from config) |
-| `--ragas` | Include RAGAS answer quality (requires Python + ragas) |
 | `--json` | Output structured JSON |
 
 **JSON output:**
@@ -349,8 +299,7 @@ ctx eval run --project <name> [--top-k <N>] [--ragas] [--json]
     "metric_changes": { "mrr": 0.050, "hit_rate": -0.020 }
   },
   "regressions": [],
-  "improvements": ["MRR"],
-  "ragas": null
+  "improvements": ["MRR"]
 }
 ```
 
@@ -532,7 +481,7 @@ Samples random indexed chunks, asks the LLM to generate test questions, and pres
 
 ## Agent-to-Agent Communication
 
-All eval commands support `--json`, making them consumable by other AI agents (Claude Code, Codex, OpenCode, etc.).
+Eval commands support `--json` (all but the interactive `golden capture`), making them consumable by other AI agents (Claude Code, Codex, OpenCode, etc.).
 
 ### Quality Gate Workflow
 
@@ -675,8 +624,6 @@ All tables have **CASCADE DELETE** on their foreign keys. Deleting a project rem
 | "Golden dataset not found for project" | Create entries: `ctx eval golden add --project X` |
 | "Project not found" | Check name: `ctx list` |
 | "Project has no indexed chunks" | Index first: `ctx index <path> --name X` |
-| Python not found (RAGAS) | Set `[eval] python_path` in config.toml or install Python |
-| RAGAS package not installed | Run `pip install ragas` |
 | "No traces found" | Use `ctx ask` or `ctx search` first to generate traces |
 | Low metrics after re-indexing | Golden file paths are relative -- ensure your project path hasn't changed |
 | "Invalid --top-k value" | Must be an integer between 1 and 100 |

@@ -167,29 +167,4 @@ export class CircuitBreaker {
   getState = (): CircuitBreakerState => {
     return this.state;
   };
-
-  /**
-   * Get current failure count.
-   */
-  getFailureCount = (): number => {
-    return this.failureCount;
-  };
-
-  /**
-   * Manually reset the circuit breaker to closed state.
-   */
-  reset = (): void => {
-    this.state = 'CLOSED';
-    this.failureCount = 0;
-    this.halfOpenSuccesses = 0;
-    this.lastFailureTime = 0;
-  };
-
-  /**
-   * Force the circuit open (useful for testing or manual intervention).
-   */
-  trip = (): void => {
-    this.state = 'OPEN';
-    this.lastFailureTime = Date.now();
-  };
 }

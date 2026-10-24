@@ -82,8 +82,6 @@ describe('Eval Runner', () => {
     golden_path: '~/.ctx/eval',
     default_k: 5,
     thresholds: { mrr: 0.7, hit_rate: 0.85, precision_at_k: 0.6 },
-    python_path: 'python3',
-    ragas_model: 'gpt-4o-mini',
   };
 
   /** Test project ID in the database */
@@ -188,7 +186,6 @@ describe('Eval Runner', () => {
       expect(summary.timestamp).toBeDefined();
       expect(summary.config).toEqual({
         top_k: 5,
-        include_generation: false,
         tags: [],
       });
     });
@@ -736,29 +733,4 @@ describe('Eval Runner', () => {
     });
   });
 
-  // ============================================================================
-  // INCLUDEGENERATION OPTION
-  // ============================================================================
-
-  describe('includeGeneration option', () => {
-    it('records includeGeneration in config snapshot', async () => {
-      const entries = [
-        makeEntry({ query: 'q1', expectedFilePaths: ['a.ts'] }),
-      ];
-
-      const search = makeSearch({ q1: ['a.ts'] });
-
-      const deps = makeDeps({
-        search,
-        loadGoldenDataset: () => makeDataset(entries),
-      });
-
-      const summary = await runEval(
-        { projectName: 'test-project', includeGeneration: true },
-        deps,
-      );
-
-      expect(summary.config).toHaveProperty('include_generation', true);
-    });
-  });
 });

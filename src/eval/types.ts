@@ -21,16 +21,13 @@ import { z } from 'zod';
 /**
  * Evaluation configuration schema for config.toml [eval] section.
  *
- * Controls golden dataset location, retrieval quality thresholds, and
- * optional Python/RAGAS integration for answer quality metrics.
+ * Controls golden dataset location and retrieval quality thresholds.
  *
  * @example config.toml
  * ```toml
  * [eval]
  * golden_path = "~/.ctx/eval"
  * default_k = 5
- * python_path = "/usr/bin/python3"
- * ragas_model = "gpt-4o-mini"
  *
  * [eval.thresholds]
  * mrr = 0.7
@@ -82,30 +79,6 @@ export const EvalConfigSchema = z.object({
     })
     // prefault, not default: {} goes through the schema, so the field defaults apply.
     .prefault({}),
-
-  /**
-   * Python executable path for RAGAS/DeepEval integration.
-   *
-   * Used for answer quality evaluation (faithfulness, relevancy).
-   * Only needed if running `ctx eval run --ragas`.
-   * Default: 'python3' (assumes available in PATH)
-   */
-  python_path: z
-    .string()
-    .default('python3')
-    .describe('Python executable path for RAGAS integration'),
-
-  /**
-   * LLM model for RAGAS answer evaluation.
-   *
-   * Used as the judge model for faithfulness/relevancy scoring.
-   * Requires an OpenAI-compatible API key.
-   * Default: 'gpt-4o-mini' (fast, low cost)
-   */
-  ragas_model: z
-    .string()
-    .default('gpt-4o-mini')
-    .describe('LLM model for RAGAS answer evaluation'),
 });
 
 export type EvalConfig = z.infer<typeof EvalConfigSchema>;
@@ -113,17 +86,13 @@ export type EvalConfig = z.infer<typeof EvalConfigSchema>;
 /**
  * Observability configuration schema for config.toml [observability] section.
  *
- * Controls always-on local trace recording and optional Langfuse cloud sync.
- * Local SQLite traces are always captured; Langfuse sync requires API keys.
+ * Controls local trace recording to SQLite; nothing is sent anywhere.
  *
  * @example config.toml
  * ```toml
  * [observability]
  * enabled = true
  * sample_rate = 1.0
- * langfuse_public_key = "pk-lf-..."
- * langfuse_secret_key = "sk-lf-..."
- * langfuse_host = "https://cloud.langfuse.com"
  * ```
  */
 export const ObservabilityConfigSchema = z.object({
@@ -142,7 +111,6 @@ export const ObservabilityConfigSchema = z.object({
    * Controls what fraction of interactions are recorded to eval_traces.
    * 1.0 = all interactions (default), 0.5 = 50%, 0.0 = none.
    * Reduces SQLite disk usage on high-traffic deployments.
-   * Langfuse cloud sync has its own sampling via the Langfuse SDK.
    * Default: 1.0
    */
   sample_rate: z
@@ -189,7 +157,7 @@ export interface EvalTrace {
   feedback: string | null;
   /** JSON-serialized custom metadata */
   metadata: string | null;
-  /** Langfuse trace ID for cross-referencing local and cloud traces */
+  /** Always null: the column held Langfuse cloud trace IDs before 1.0 */
   langfuse_trace_id: string | null;
   /** Command type that created this trace: 'ask', 'search', or 'chat' (null for legacy traces) */
   trace_type: string | null;
@@ -211,8 +179,6 @@ export interface TraceInput {
   retrieval_method: 'dense' | 'bm25' | 'fusion';
   feedback?: 'positive' | 'negative';
   metadata?: Record<string, unknown>;
-  /** Langfuse trace ID for cross-referencing local and cloud traces */
-  langfuse_trace_id?: string;
   /** Command type that created this trace: 'ask', 'search', or 'chat' */
   trace_type?: 'ask' | 'search' | 'chat';
 }
@@ -464,7 +430,7 @@ export interface GoldenEntry {
   query: string;
   /** Expected file paths that should be retrieved (for retrieval metrics) */
   expectedFilePaths?: string[];
-  /** Expected answer text (for answer quality metrics via RAGAS) */
+  /** Expected answer text */
   expectedAnswer?: string;
   /** Tags for filtering subsets (e.g., ['api', 'auth', 'critical']) */
   tags?: string[];
@@ -475,76 +441,6 @@ export interface GoldenEntry {
 // ============================================================================
 // ERROR TYPES
 // ============================================================================
-
-// ============================================================================
-// PYTHON BRIDGE TYPES
-// ============================================================================
-
-/**
- * Result of checking whether Python and eval packages are available.
- *
- * Returned by PythonEvalBridge.checkAvailability() — never throws,
- * always returns a result so callers can decide how to degrade gracefully.
- */
-export interface PythonAvailability {
-  /** Whether the python executable was found and runs */
-  pythonFound: boolean;
-  /** Python version string (e.g., "3.11.5") or null if not found */
-  pythonVersion: string | null;
-  /** Whether the ragas package is importable */
-  ragasAvailable: boolean;
-  /** RAGAS version string or null */
-  ragasVersion: string | null;
-  /** Whether the deepeval package is importable */
-  deepevalAvailable: boolean;
-  /** DeepEval version string or null */
-  deepevalVersion: string | null;
-}
-
-/**
- * RAGAS evaluation results returned from the Python subprocess.
- *
- * The Python script runs ragas.evaluate() and writes this JSON structure
- * to a temp file, which the bridge reads back and validates with Zod.
- */
-export interface RagasResults {
-  /** Aggregate scores per metric (0-1 range). Keys are metric names like "faithfulness", "answer_relevancy" */
-  scores: Record<string, number>;
-  /** Per-row detailed results for each question in the dataset */
-  details: Array<{
-    question: string;
-    scores: Record<string, number>;
-  }>;
-  /** Execution metadata for logging and debugging */
-  metadata: {
-    duration_seconds: number;
-    model_used: string;
-    metrics_evaluated: string[];
-  };
-}
-
-/**
- * DeepEval evaluation results returned from the Python subprocess.
- *
- * Same structure as RagasResults but includes per-metric reasoning
- * strings that DeepEval generates for each test case.
- */
-export interface DeepEvalResults {
-  /** Aggregate scores per metric (0-1 range) */
-  scores: Record<string, number>;
-  /** Per-row detailed results with reasoning */
-  details: Array<{
-    input: string;
-    scores: Record<string, number>;
-    reasons: Record<string, string>;
-  }>;
-  /** Execution metadata */
-  metadata: {
-    duration_seconds: number;
-    model_used: string;
-    metrics_evaluated: string[];
-  };
-}
 
 /**
  * Error codes for eval/observability failures.
@@ -558,8 +454,6 @@ export const EvalErrorCodes = {
   DATASET_INVALID: 'DATASET_INVALID',
   /** Batch evaluation run failed */
   EVAL_RUN_FAILED: 'EVAL_RUN_FAILED',
-  /** Python/RAGAS subprocess error */
-  RAGAS_ERROR: 'RAGAS_ERROR',
 } as const;
 
 export type EvalErrorCode = (typeof EvalErrorCodes)[keyof typeof EvalErrorCodes];
@@ -606,15 +500,6 @@ export class EvalError extends Error {
     return new EvalError(
       EvalErrorCodes.EVAL_RUN_FAILED,
       `Evaluation run failed: ${reason}`,
-      cause
-    );
-  }
-
-  /** Factory: Python/RAGAS integration error */
-  static ragasError(reason: string, cause?: Error): EvalError {
-    return new EvalError(
-      EvalErrorCodes.RAGAS_ERROR,
-      `RAGAS integration error: ${reason}`,
       cause
     );
   }

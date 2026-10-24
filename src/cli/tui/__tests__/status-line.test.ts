@@ -32,7 +32,6 @@ describe('StatusLineRenderer', () => {
       expect(state.mode).toBe(AgentMode.PLANNING);
       expect(state.phase).toBe(AgentPhase.IDLE);
       expect(state.tokens.used).toBe(0);
-      expect(state.cost.totalUsd).toBe(0);
       expect(state.turnCount).toBe(0);
       expect(state.gitDirty).toBe(false);
       expect(state.workingDirectory).toBeNull();
@@ -41,14 +40,12 @@ describe('StatusLineRenderer', () => {
     it('should merge initial state with defaults', () => {
       renderer = new StatusLineRenderer({
         project: 'test-project',
-        cost: { totalUsd: 1.5 },
         turnCount: 5,
       });
 
       const state = renderer.getState();
 
       expect(state.project).toBe('test-project');
-      expect(state.cost.totalUsd).toBe(1.5);
       expect(state.turnCount).toBe(5);
       expect(state.mode).toBe(AgentMode.PLANNING); // Default preserved
     });
@@ -56,10 +53,10 @@ describe('StatusLineRenderer', () => {
 
   describe('render', () => {
     it('should include model name when set', () => {
-      renderer.update({ model: { name: 'claude-3.5-sonnet', provider: 'anthropic' } });
+      renderer.update({ model: { name: 'qwen3.5:9b', provider: 'ollama' } });
       const stripped = stripAnsi(renderer.render());
 
-      expect(stripped).toContain('claude-3.5-sonnet');
+      expect(stripped).toContain('qwen3.5:9b');
     });
 
     it('should not include model name when set to Unknown', () => {
@@ -71,12 +68,12 @@ describe('StatusLineRenderer', () => {
 
     it('should not include model name when showModel is false', () => {
       const r = new StatusLineRenderer(
-        { model: { name: 'claude-3.5-sonnet', provider: 'anthropic' } },
+        { model: { name: 'qwen3.5:9b', provider: 'ollama' } },
         { showModel: false, terminalWidth: 120 }
       );
       const stripped = stripAnsi(r.render());
 
-      expect(stripped).not.toContain('claude-3.5-sonnet');
+      expect(stripped).not.toContain('qwen3.5:9b');
     });
 
     it('should include context gauge', () => {
@@ -87,12 +84,8 @@ describe('StatusLineRenderer', () => {
       expect(stripped).toContain('50%');
     });
 
-    it('should include cost display with 2 decimal places', () => {
-      renderer.update({ cost: { totalUsd: 0.1234 } });
-      const output = renderer.render();
-      const stripped = stripAnsi(output);
-
-      expect(stripped).toContain('$0.12');
+    it('shows no cost: local models are free', () => {
+      expect(stripAnsi(renderer.render())).not.toContain('$');
     });
 
     it('should include location when project is set', () => {
@@ -250,7 +243,7 @@ describe('StatusLineRenderer', () => {
       // Very narrow terminal — force overflow
       const narrow = new StatusLineRenderer(
         {
-          model: { name: 'claude-3.5-sonnet', provider: 'anthropic' },
+          model: { name: 'qwen3.5:9b', provider: 'ollama' },
           workingDirectory: '~/projects/my-long-project-name',
           gitBranch: 'feature/very-long-branch-name',
           phase: AgentPhase.TOOL_USE,
@@ -263,7 +256,7 @@ describe('StatusLineRenderer', () => {
       const stripped = stripAnsi(output);
 
       // Model name (leftmost, highest priority) should always be present
-      expect(stripped).toContain('claude-3.5-sonnet');
+      expect(stripped).toContain('qwen3.5:9b');
 
       // Output should not exceed terminal width
       expect(stripped.length).toBeLessThanOrEqual(40);
@@ -272,7 +265,7 @@ describe('StatusLineRenderer', () => {
     it('should preserve model name when segments are dropped', () => {
       const narrow = new StatusLineRenderer(
         {
-          model: { name: 'claude-3.5-sonnet', provider: 'anthropic' },
+          model: { name: 'qwen3.5:9b', provider: 'ollama' },
           workingDirectory: '~/projects/my-long-project-name',
           phase: AgentPhase.TOOL_USE,
           activity: { tool: 'read_file', description: 'Reading very long file path' },
@@ -285,7 +278,7 @@ describe('StatusLineRenderer', () => {
       const stripped = stripAnsi(output);
 
       // Model name should be preserved (first segment, highest priority)
-      expect(stripped).toContain('claude-3.5-sonnet');
+      expect(stripped).toContain('qwen3.5:9b');
 
       // Activity or indexing (rightmost segments) should be dropped
       expect(stripped).not.toContain('Reading very long file path');
@@ -314,12 +307,11 @@ describe('StatusLineRenderer', () => {
     it('should render complete Claude Code-style layout', () => {
       const r = new StatusLineRenderer(
         {
-          model: { name: 'claude-3.5-sonnet', provider: 'anthropic' },
+          model: { name: 'qwen3.5:9b', provider: 'ollama' },
           workingDirectory: '~/projects/my-app',
           gitBranch: 'main',
           gitDirty: true,
           tokens: { used: 84000, total: 200000, warningThreshold: 0.8, dangerThreshold: 0.95 },
-          cost: { totalUsd: 0.05 },
           turnCount: 3,
         },
         { terminalWidth: 120 }
@@ -328,19 +320,18 @@ describe('StatusLineRenderer', () => {
       const stripped = stripAnsi(r.render());
 
       // All segments should be present in order
-      expect(stripped).toContain('claude-3.5-sonnet');
+      expect(stripped).toContain('qwen3.5:9b');
       expect(stripped).toContain('~/projects/my-app');
       expect(stripped).toContain('main*');
       expect(stripped).toContain('42%');
-      expect(stripped).toContain('$0.05');
       expect(stripped).toContain('3 turns');
 
       // Model name should come first
-      const modelIdx = stripped.indexOf('claude-3.5-sonnet');
+      const modelIdx = stripped.indexOf('qwen3.5:9b');
       const pathIdx = stripped.indexOf('~/projects/my-app');
-      const costIdx = stripped.indexOf('$0.05');
+      const turnsIdx = stripped.indexOf('3 turns');
       expect(modelIdx).toBeLessThan(pathIdx);
-      expect(pathIdx).toBeLessThan(costIdx);
+      expect(pathIdx).toBeLessThan(turnsIdx);
     });
   });
 });
@@ -385,7 +376,6 @@ describe('DEFAULT_STATUS_STATE', () => {
     expect(DEFAULT_STATUS_STATE.phase).toBe(AgentPhase.IDLE);
     expect(DEFAULT_STATUS_STATE.tokens.total).toBe(200000);
     expect(DEFAULT_STATUS_STATE.tokens.warningThreshold).toBe(0.8);
-    expect(DEFAULT_STATUS_STATE.cost.totalUsd).toBe(0);
     expect(DEFAULT_STATUS_STATE.turnCount).toBe(0);
     expect(DEFAULT_STATUS_STATE.gitDirty).toBe(false);
     expect(DEFAULT_STATUS_STATE.workingDirectory).toBeNull();

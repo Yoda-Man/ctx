@@ -48,21 +48,4 @@ export class AdaptiveRAGError extends Error {
       Error.captureStackTrace(this, AdaptiveRAGError);
     }
   }
-
-  /**
-   * Create a user-friendly error message with context.
-   */
-  toDetailedString(): string {
-    let msg = `[${this.code}] ${this.message}`;
-    if (this.componentName) {
-      msg += ` (component: ${this.componentName})`;
-    }
-    if (this.queryType) {
-      msg += ` (queryType: ${this.queryType})`;
-    }
-    if (this.cause) {
-      msg += `\nCaused by: ${this.cause.message}`;
-    }
-    return msg;
-  }
 }

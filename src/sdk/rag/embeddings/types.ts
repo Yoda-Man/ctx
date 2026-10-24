@@ -53,9 +53,8 @@ export interface EmbeddingProviderConfig {
  *
  * @example
  * ```typescript
- * const provider: EmbeddingProvider = new OpenAIEmbeddingProvider({
- *   model: 'text-embedding-3-small',
- *   dimensions: 1536
+ * const provider: EmbeddingProvider = new HuggingFaceEmbeddingProvider({
+ *   model: 'Xenova/bge-large-en-v1.5',
  * });
  *
  * if (await provider.isAvailable()) {

@@ -42,7 +42,7 @@ describe('share-handler', () => {
     // Create mock state with conversation history
     mockState = {
       currentProject: { id: 1, name: 'test-project', path: '/test/path' },
-      providerInfo: { name: 'anthropic', model: 'claude-3-5-sonnet' },
+      providerInfo: { name: 'ollama', model: 'qwen3.5:9b' },
       conversationContext: {
         getMessages: () => [
           { role: 'user', content: 'Hello, how does auth work?' },
@@ -73,7 +73,7 @@ describe('share-handler', () => {
       const content = readFileSync(outputPath, 'utf-8');
       expect(content).toContain('# Context Expert Conversation');
       expect(content).toContain('test-project');
-      expect(content).toContain('anthropic/claude-3-5-sonnet');
+      expect(content).toContain('ollama/qwen3.5:9b');
     });
 
     it('includes all messages in export', async () => {

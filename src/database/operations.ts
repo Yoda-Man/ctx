@@ -435,37 +435,6 @@ export class DatabaseOperations {
   }
 
   /**
-   * Get all projects.
-   *
-   * Uses Zod validation to ensure all database rows match the expected schema.
-   */
-  getAllProjects(): Project[] {
-    const rows = this.db.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all();
-    return validateRows(ProjectRowSchema, rows, 'projects');
-  }
-
-  /**
-   * Get storage statistics for all projects.
-   */
-  getStorageStats(): {
-    projectCount: number;
-    totalChunks: number;
-    totalFiles: number;
-    databaseSize: number;
-  } {
-    const projectCount = (this.db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number }).count;
-    const totalChunks = (this.db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number }).count;
-    const totalFiles = (this.db.prepare('SELECT SUM(file_count) as total FROM projects').get() as { total: number | null }).total ?? 0;
-
-    return {
-      projectCount,
-      totalChunks,
-      totalFiles,
-      databaseSize: this.getDatabaseSize(),
-    };
-  }
-
-  /**
    * Update project metadata (description and tags).
    *
    * Only updates fields that are provided - doesn't overwrite others.
@@ -516,7 +485,7 @@ export class DatabaseOperations {
       retrievalMethod: trace.retrieval_method,
       feedback: trace.feedback ?? null,
       metadata: trace.metadata ? JSON.stringify(trace.metadata) : null,
-      langfuseTraceId: trace.langfuse_trace_id ?? null,
+      langfuseTraceId: null, // the column is kept for existing databases; nothing fills it
       traceType: trace.trace_type ?? null,
     });
 

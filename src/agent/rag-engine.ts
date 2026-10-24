@@ -81,7 +81,6 @@ import {
   type RAGSearchResult,
   type RAGSource,
 } from './types.js';
-import type { TraceHandle } from '../observability/types.js';
 
 // ============================================================================
 // ADAPTER: FusionService → SDK Retriever Interface
@@ -231,7 +230,7 @@ export class ContextExpertRAGEngine {
    */
   async search(
     query: string,
-    options?: RAGEngineOptions & { trace?: TraceHandle }
+    options?: RAGEngineOptions
   ): Promise<RAGSearchResult> {
     const startTime = performance.now();
 
@@ -240,76 +239,20 @@ export class ContextExpertRAGEngine {
     const maxTokens = options?.maxTokens ?? this.config.max_tokens;
     const ordering = options?.ordering ?? this.config.ordering;
 
-    // Create child span for SDK-internal search timing (no-op if no trace)
-    const span = options?.trace?.span({
-      name: 'rag-engine-search',
-      input: { query, topK, maxTokens },
-    });
-
     try {
       // Delegate to SDK's RAGEngineImpl
       const result = await this.engine.search(query, {
         topK,
         maxTokens,
         ordering: ordering as SDKOrderingStrategy,
-        rerank: !options?.skipRerank,
-        enhance: options?.enhanceQuery ?? this.config.enhance_query,
       });
 
-      const endTime = performance.now();
-      const searchResult = this.toRAGSearchResult(result, endTime - startTime);
-
-      // Update span with results (fire-and-forget)
-      span?.update({
-        output: {
-          sourceCount: searchResult.sources.length,
-          estimatedTokens: searchResult.estimatedTokens,
-          fromCache: searchResult.metadata.fromCache,
-        },
-        metadata: {
-          retrievalMs: searchResult.metadata.retrievalMs,
-          assemblyMs: searchResult.metadata.assemblyMs,
-          totalMs: searchResult.metadata.totalMs,
-        },
-      });
-      span?.end();
-
-      return searchResult;
+      return this.toRAGSearchResult(result, performance.now() - startTime);
     } catch (error) {
-      // End span with error metadata
-      span?.update({
-        metadata: { error: error instanceof Error ? error.message : String(error) },
-      });
-      span?.end();
-
       // Wrap SDK errors in our error type, preserving full context
       const originalError =
         error instanceof Error ? error : new Error(String(error));
       throw new RetrievalError(originalError.message, originalError);
-    }
-  }
-
-  /**
-   * Pre-warm the engine (load indexes, models, etc.).
-   *
-   * Call during application startup to avoid first-request latency.
-   * Both the fusion service and SDK engine are warmed up.
-   *
-   * @throws {RAGEngineError} If warm-up fails (with EMBEDDING_UNAVAILABLE code)
-   */
-  async warmUp(): Promise<void> {
-    try {
-      await Promise.all([
-        this.fusionService.ensureInitialized(),
-        this.engine.warmUp(),
-      ]);
-    } catch (error) {
-      const originalError =
-        error instanceof Error ? error : new Error(String(error));
-      throw RAGEngineError.embeddingUnavailable(
-        `Warm-up failed: ${originalError.message}`,
-        originalError
-      );
     }
   }
 
@@ -461,9 +404,7 @@ export class ContextExpertRAGEngine {
  */
 const DEFAULT_RAG_CONFIG: RAGConfig = {
   max_tokens: 4000,
-  retrieve_k: 20,
   final_k: 5,
-  enhance_query: false,
   ordering: 'sandwich',
 };
 
@@ -490,9 +431,6 @@ const DEFAULT_RAG_CONFIG: RAGConfig = {
  * const config = await loadConfig();
  * const engine = await createRAGEngine(config, 'my-project');
  *
- * // Optionally pre-warm for faster first search
- * await engine.warmUp();
- *
  * // Search
  * const result = await engine.search('How does the auth flow work?');
  * console.log(result.content);  // XML context
@@ -518,9 +456,7 @@ export async function createRAGEngine(
   const ragConfig: RAGConfig = {
     ...parsedConfigRag,
     max_tokens: options?.maxTokens ?? parsedConfigRag.max_tokens,
-    retrieve_k: options?.retrieveK ?? parsedConfigRag.retrieve_k,
     final_k: options?.finalK ?? parsedConfigRag.final_k,
-    enhance_query: options?.enhanceQuery ?? parsedConfigRag.enhance_query,
     ordering: options?.ordering ?? parsedConfigRag.ordering,
   };
 
@@ -590,8 +526,6 @@ export async function createRAGEngine(
     cache,
     defaults: {
       topK: ragConfig.final_k,
-      rerank: false, // FusionService already does reranking
-      enhance: ragConfig.enhance_query,
     },
   });
 

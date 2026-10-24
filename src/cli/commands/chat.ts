@@ -65,8 +65,6 @@ import {
   EmbeddingMismatchError,
 } from '../../search/index.js';
 import type { Project } from '../../database/schema.js';
-import { handleProviderCommand, createProviderFromConfig } from './provider-repl.js';
-import { getDefaultProvider } from '../../config/providers.js';
 import { completeDirectoryPath, contractTilde } from '../utils/path-completer.js';
 import { getGitInfo } from '../utils/git-status.js';
 import { completeFileNames } from '../utils/file-completer.js';
@@ -90,7 +88,7 @@ import {
   renderAgentEventsREPL,
   adaptAgentEventsForTUI,
 } from '../utils/agent-event-renderer.js';
-import { createTracer, shouldRecord, type Tracer } from '../../observability/index.js';
+import { shouldRecord } from '../../observability/index.js';
 
 // ============================================================================
 // Types
@@ -109,7 +107,6 @@ interface ChatCommandOptions {
 /**
  * Mutable state for the chat REPL session.
  * Persists across user inputs within a single session.
- * Exported for use by provider-repl.ts handlers.
  */
 export interface ChatState {
   /** Currently focused project (null = no RAG, pure LLM mode) */
@@ -160,8 +157,6 @@ export interface ChatState {
   chatAgent?: ChatAgent;
   /** AbortController for cancelling in-flight agent work (Ctrl+C support) */
   agentAbortController?: AbortController;
-  /** Tracer for observability (local only) */
-  tracer: Tracer;
 }
 
 /**
@@ -192,7 +187,7 @@ interface REPLCommand {
  * - RAG engine (which clears vector store and BM25 caches)
  * - Conversation context
  */
-function cleanupChatState(state: ChatState, ctx: CommandContext): void {
+function cleanupChatState(state: ChatState): void {
   // Dispose routing engine (clears all cached single-project engines)
   if (state.routingEngine) {
     state.routingEngine.dispose();
@@ -208,8 +203,6 @@ function cleanupChatState(state: ChatState, ctx: CommandContext): void {
   // Clear conversation context
   state.conversationContext.clear();
 
-  // Shut down tracer
-  state.tracer.shutdown().catch((err) => ctx.debug(`[tracer] shutdown error: ${err}`));
 }
 
 // ============================================================================
@@ -962,8 +955,8 @@ const REPL_COMMANDS: REPLCommand[] = [
           // Add actionable hints based on error code
           switch (error.code) {
             case RAGErrorCodes.EMBEDDING_UNAVAILABLE:
-              ctx.log(chalk.dim('Hint: Check your API keys with: ctx config get embedding.provider'));
-              ctx.log(chalk.dim('      Run: ctx config set embedding.provider ollama  for local embeddings'));
+              ctx.log(chalk.dim('Hint: Check the embedding provider with: ctx config get embedding.provider'));
+              ctx.log(chalk.dim('      Or embed through Ollama: ctx config set embedding.provider ollama'));
               break;
             case RAGErrorCodes.PROJECT_NOT_INDEXED:
               ctx.log(chalk.dim(`Hint: Run: ctx index "${project.path}"  to index this project`));
@@ -1145,21 +1138,12 @@ const REPL_COMMANDS: REPLCommand[] = [
     },
   },
   {
-    name: 'provider',
-    aliases: ['prov'],
-    description: 'Manage LLM providers (add, list, use, remove, test)',
-    usage: '<subcommand>',
-    handler: async (args, state, ctx) => {
-      return handleProviderCommand(args, state, ctx);
-    },
-  },
-  {
     name: 'exit',
     aliases: ['quit', 'q'],
     description: 'Exit the chat',
     handler: async (_args, state, ctx) => {
       ctx.log(chalk.dim('Goodbye!'));
-      cleanupChatState(state, ctx);
+      cleanupChatState(state);
       return false; // Signal to exit REPL
     },
   },
@@ -1426,7 +1410,7 @@ async function handleQuestionWithAgent(
       fileReferenceContext: fileReferenceContext || undefined,
       signal: state.agentAbortController.signal,
     });
-    const { content, sources, langfuseTraceId } = await renderAgentEventsREPL(events, ctx);
+    const { content, sources } = await renderAgentEventsREPL(events, ctx);
 
     ctx.log('');
 
@@ -1438,7 +1422,7 @@ async function handleQuestionWithAgent(
     }
 
     // Always-on local trace recording for chat turn (fire-and-forget, respects sample_rate)
-    if (state.currentProject && shouldRecord(state.config.observability?.sample_rate ?? 1.0)) {
+    if (state.currentProject && shouldRecord(state.config.observability)) {
       try {
         const dbOps = getDatabase();
         dbOps.insertTrace({
@@ -1449,7 +1433,6 @@ async function handleQuestionWithAgent(
           latency_ms: Math.round(performance.now() - turnStart),
           answer: content || undefined,
           retrieval_method: 'fusion',
-          langfuse_trace_id: langfuseTraceId,
           trace_type: 'chat',
           metadata: { mode: 'chat-repl' },
         });
@@ -1508,7 +1491,7 @@ async function handleQuestionTUIWithAgent(
     fileReferenceContext: fileReferenceContext || undefined,
     signal: state.agentAbortController.signal,
   });
-  const { stream: tuiStream, getSources, getLangfuseTraceId } = adaptAgentEventsForTUI(events, tui);
+  const { stream: tuiStream, getSources } = adaptAgentEventsForTUI(events, tui);
 
   try {
     const responseContent = await tui.streamResponse(tuiStream);
@@ -1528,7 +1511,7 @@ async function handleQuestionTUIWithAgent(
     }
 
     // Always-on local trace recording for chat turn (fire-and-forget, respects sample_rate)
-    if (state.currentProject && shouldRecord(state.config.observability?.sample_rate ?? 1.0)) {
+    if (state.currentProject && shouldRecord(state.config.observability)) {
       try {
         const dbOps = getDatabase();
         dbOps.insertTrace({
@@ -1539,7 +1522,6 @@ async function handleQuestionTUIWithAgent(
           latency_ms: Math.round(performance.now() - turnStart),
           answer: responseContent || undefined,
           retrieval_method: 'fusion',
-          langfuse_trace_id: getLangfuseTraceId(),
           trace_type: 'chat',
           metadata: { mode: 'chat-tui' },
         });
@@ -1925,7 +1907,6 @@ function displayWelcome(state: ChatState, ctx: CommandContext): void {
  *
  * Supports:
  * - /focus <TAB> → project names
- * - /provider <TAB> → subcommands
  * - /index <TAB> → directory paths
  * - @<TAB> → file names from focused project
  *
@@ -1948,18 +1929,6 @@ export function createCompleter(
       const matches = projectNames
         .filter((name) => name.toLowerCase().startsWith(partial))
         .map((name) => `/${prefix} ${name}`);
-      return [matches, line];
-    }
-
-    // Check for /provider or /prov command with at least one space after
-    const providerMatch = line.match(/^\/(provider|prov)\s+(.*)$/i);
-    if (providerMatch) {
-      const prefix = providerMatch[1] ?? 'provider';
-      const partial = (providerMatch[2] ?? '').toLowerCase();
-      const subcommands = ['add', 'list', 'use', 'remove', 'test', 'help'];
-      const matches = subcommands
-        .filter((cmd) => cmd.startsWith(partial))
-        .map((cmd) => `/${prefix} ${cmd}`);
       return [matches, line];
     }
 
@@ -2011,7 +1980,7 @@ export function createCompleter(
  *
  * Uses TUIController to manage:
  * - Scrollable chat area (messages)
- * - Fixed status bar (mode, context gauge, cost)
+ * - Fixed status bar (mode, context gauge, turns)
  * - Fixed input area (readline with tab completion)
  *
  * Reuses all existing REPL command handlers and question logic.
@@ -2076,7 +2045,7 @@ async function runChatTUI(
     const cleanup = () => {
       if (!cleanedUp) {
         cleanedUp = true;
-        cleanupChatState(state, ctx);
+        cleanupChatState(state);
         tui.shutdown();
       }
     };
@@ -2390,7 +2359,7 @@ async function runChatREPL(
     const cleanup = () => {
       if (!cleanedUp) {
         cleanedUp = true;
-        cleanupChatState(state, ctx);
+        cleanupChatState(state);
       }
     };
 
@@ -2524,9 +2493,6 @@ export function createChatCommand(getContext: () => CommandContext): Command {
       const config = loadConfig();
       ctx.debug(`LLM: ${config.default_model ?? 'default'}`);
 
-      // Create tracer for the chat session (local only)
-      const tracer = createTracer(config);
-      ctx.debug(`Tracer: ${tracer.isRemote ? 'Langfuse' : 'noop'}`);
 
       // ─────────────────────────────────────────────────────────────────────
       // 2. Resolve initial project (optional)
@@ -2570,51 +2536,7 @@ export function createChatCommand(getContext: () => CommandContext): Command {
 
       // provider is the full LLMProvider (chat + streamChat). ChatState.llmProvider
       // narrows it structurally for legacy consumers that only need streamChat.
-      let provider: LLMProvider;
-      let providerName: string;
-      let model: string;
-
-      // First, check for a stored default provider from /provider add
-      const storedProvider = getDefaultProvider();
-      if (storedProvider) {
-        ctx.debug(`Using stored provider: ${storedProvider.name}`);
-        try {
-          const result = await createProviderFromConfig(
-            storedProvider.name,
-            storedProvider.config
-          );
-          provider = result.provider;
-          providerName = result.displayName;
-          model = result.model;
-        } catch (error) {
-          // If stored provider fails, fall back to config-based
-          ctx.debug(
-            `Stored provider failed, falling back: ${error instanceof Error ? error.message : String(error)}`
-          );
-          const result = await createLLMProvider(config, {
-            fallback: {
-              onFallback: (from, to, reason) => {
-                ctx.debug(`LLM fallback: ${from} → ${to} (${reason})`);
-              },
-            },
-          });
-          provider = result.provider;
-          providerName = result.name;
-          model = result.model;
-        }
-      } else {
-        // No stored provider, use config-based with fallback chain
-        const result = await createLLMProvider(config, {
-          fallback: {
-            onFallback: (from, to, reason) => {
-              ctx.debug(`LLM fallback: ${from} → ${to} (${reason})`);
-            },
-          },
-        });
-        provider = result.provider;
-        providerName = result.name;
-        model = result.model;
-      }
+      const { provider, name: providerName, model } = await createLLMProvider(config);
 
       ctx.debug(`Using: ${providerName}/${model}`);
 
@@ -2704,7 +2626,6 @@ export function createChatCommand(getContext: () => CommandContext): Command {
           currentProject,
           maxContextTokens: MAX_CONTEXT_TOKENS,
           maxIterations: 5,
-          tracer,
         });
         ctx.debug('ChatAgent created successfully (ReAct agent enabled)');
       } catch (error) {
@@ -2726,7 +2647,6 @@ export function createChatCommand(getContext: () => CommandContext): Command {
         routingEngine,
         fullProvider: provider,
         chatAgent,
-        tracer,
       };
 
       // TUI is default on TTY; --no-tui falls back to classic readline REPL

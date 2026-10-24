@@ -139,7 +139,6 @@ export const TraceInputSchema = z.object({
   retrieval_method: z.enum(['dense', 'bm25', 'fusion']),
   feedback: z.enum(['positive', 'negative']).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-  langfuse_trace_id: z.string().optional(),
   trace_type: z.enum(['ask', 'search', 'chat']).optional(),
 });
 

@@ -384,57 +384,6 @@ export class InMemoryVectorStore extends BaseVectorStore {
   };
 
   // ==========================================================================
-  // Memory Management API (NFR-103)
-  // ==========================================================================
-
-  /**
-   * Get current memory usage for embedding storage.
-   *
-   * @returns Memory usage in bytes
-   */
-  memoryUsage = (): number => {
-    return this.currentMemoryBytes;
-  };
-
-  /**
-   * Get memory usage statistics.
-   *
-   * @returns Object with usage details
-   */
-  getMemoryStats = (): {
-    usedBytes: number;
-    maxBytes: number;
-    chunkCount: number;
-    bytesPerChunk: number;
-    percentUsed: number;
-    useFloat32: boolean;
-  } => {
-    const chunkCount = this.store.size;
-    const bytesPerChunk =
-      chunkCount > 0 ? this.currentMemoryBytes / chunkCount : 0;
-    const percentUsed =
-      this.maxMemoryBytes > 0
-        ? (this.currentMemoryBytes / this.maxMemoryBytes) * 100
-        : 0;
-
-    return {
-      usedBytes: this.currentMemoryBytes,
-      maxBytes: this.maxMemoryBytes,
-      chunkCount,
-      bytesPerChunk,
-      percentUsed,
-      useFloat32: this.useFloat32,
-    };
-  };
-
-  /**
-   * Check if storage is using Float32Array format.
-   */
-  isUsingFloat32 = (): boolean => {
-    return this.useFloat32;
-  };
-
-  // ==========================================================================
   // Private Memory Helpers
   // ==========================================================================
 

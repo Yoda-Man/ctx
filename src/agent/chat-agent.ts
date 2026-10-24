@@ -50,7 +50,6 @@ import type { ProjectMetadata } from './query-router.js';
 import type { RAGSource } from './types.js';
 import type { Project } from '../database/schema.js';
 import { createRetrieveKnowledgeTool, type RetrieveKnowledgeOutput } from './tools/index.js';
-import type { Tracer, TraceHandle, SpanHandle } from '../observability/types.js';
 
 // ============================================================================
 // Types
@@ -78,8 +77,6 @@ export interface ChatAgentConfig {
   /** Maximum ReAct iterations per question. Default: 5 */
   maxIterations?: number;
 
-  /** Tracer for observability (NoopTracer if not configured). Creates per-turn traces. */
-  tracer?: Tracer;
 }
 
 /**
@@ -125,8 +122,6 @@ export type ChatAgentEvent =
       content: string;
       trace: ReActTrace;
       sources: RAGSource[];
-      /** Langfuse trace ID for cross-referencing with local SQLite traces */
-      langfuseTraceId?: string;
     }
   | {
       /** Error during agent execution */
@@ -199,7 +194,6 @@ export class ChatAgent {
   private conversationContext: ConversationContext;
   private readonly systemPrompt: string;
   private readonly maxIterations: number;
-  private readonly tracer?: Tracer;
 
   // Mutable state for dynamic reconfiguration via /focus
   private routingEngine: RoutingRAGEngine | null | undefined;
@@ -209,17 +203,12 @@ export class ChatAgent {
   // Collected sources from tool results during a question
   private pendingSources: RAGSource[] = [];
 
-  // Per-question trace state (set in streamQuestion, used by event handlers)
-  private currentTrace?: TraceHandle;
-  private activeToolSpan?: SpanHandle;
-
   constructor(config: ChatAgentConfig) {
     this.routingEngine = config.routingEngine;
     this.allProjects = config.allProjects;
     this.currentProject = config.currentProject;
     this.systemPrompt = SYSTEM_PROMPT;
     this.maxIterations = config.maxIterations ?? DEFAULT_MAX_ITERATIONS;
-    this.tracer = config.tracer;
 
     // Create conversation context with sliding window
     this.conversationContext = new ConversationContext({
@@ -251,17 +240,6 @@ export class ChatAgent {
   ): AsyncGenerator<ChatAgentEvent, void, unknown> {
     // Reset per-question state
     this.pendingSources = [];
-    this.activeToolSpan = undefined;
-
-    // Create per-question trace (no-op if tracer not provided)
-    this.currentTrace = this.tracer?.trace({
-      name: 'ctx-chat-turn',
-      input: question,
-      metadata: {
-        project: this.currentProject?.name ?? 'unfocused',
-        maxIterations: this.maxIterations,
-      },
-    });
 
     // Add user message to conversation context
     const userMessage: ChatMessage = { role: 'user', content: question };
@@ -299,13 +277,8 @@ export class ChatAgent {
             };
             break;
 
-          // Agent decided to call a tool — start a span
+          // Agent decided to call a tool
           case 'action':
-            this.activeToolSpan = this.currentTrace?.span({
-              name: `tool:${event.tool}`,
-              input: event.input,
-              metadata: { iteration: event.iteration },
-            });
             yield {
               type: 'tool_start',
               tool: event.tool,
@@ -314,15 +287,8 @@ export class ChatAgent {
             };
             break;
 
-          // Tool execution completed — end span, collect sources
+          // Tool execution completed — collect sources
           case 'observation':
-            this.activeToolSpan?.update({
-              output: event.result,
-              metadata: { success: event.success, durationMs: event.durationMs },
-            });
-            this.activeToolSpan?.end();
-            this.activeToolSpan = undefined;
-
             this.collectSources(event);
             yield {
               type: 'tool_result',
@@ -338,25 +304,9 @@ export class ChatAgent {
           case 'toolCall':
             break;
 
-          // Final answer — end trace, update conversation context
+          // Final answer — update conversation context
           case 'done':
             finalOutput = event.output;
-
-            // Capture traceId before ending (same pattern as error handler below)
-            const traceId = this.currentTrace?.traceId;
-
-            // End trace with final output and ReAct metadata
-            this.currentTrace?.update({
-              output: finalOutput,
-              metadata: {
-                iterations: event.trace.iterations,
-                totalTokens: event.trace.totalTokens,
-                durationMs: event.trace.durationMs,
-                sourceCount: this.pendingSources.length,
-              },
-            });
-            this.currentTrace?.end();
-            this.currentTrace = undefined;
 
             // Add assistant response to conversation
             this.conversationContext.addMessage({
@@ -372,28 +322,15 @@ export class ChatAgent {
               content: finalOutput,
               trace: event.trace,
               sources: [...this.pendingSources],
-              langfuseTraceId: traceId,
             };
             break;
 
           // Error during execution
           case 'error':
-            // End any in-flight tool span
-            this.activeToolSpan?.end();
-            this.activeToolSpan = undefined;
-
             if (event.code === 'MAX_ITERATIONS' && lastThoughtContent) {
               // Graceful degradation: the agent exhausted iterations but has
               // accumulated thinking. Use the last thought as the response
               // rather than showing an error — the text was already streamed.
-              const traceId = this.currentTrace?.traceId;
-              this.currentTrace?.update({
-                output: lastThoughtContent,
-                metadata: { maxIterationsExceeded: true },
-              });
-              this.currentTrace?.end();
-              this.currentTrace = undefined;
-
               this.conversationContext.addMessage({
                 role: 'assistant',
                 content: lastThoughtContent,
@@ -405,16 +342,9 @@ export class ChatAgent {
                 content: lastThoughtContent,
                 trace: { steps: [], iterations: 0, totalTokens: 0, durationMs: 0 },
                 sources: [...this.pendingSources],
-                langfuseTraceId: traceId,
               };
             } else {
-              // Other errors: end trace with error metadata, rollback
-              this.currentTrace?.update({
-                metadata: { error: event.error, errorCode: event.code },
-              });
-              this.currentTrace?.end();
-              this.currentTrace = undefined;
-
+              // Other errors: rollback
               this.rollbackUserMessage();
 
               yield {
@@ -427,14 +357,6 @@ export class ChatAgent {
         }
       }
     } catch (error) {
-      // End trace on unexpected errors
-      this.activeToolSpan?.end();
-      this.currentTrace?.update({
-        metadata: { error: error instanceof Error ? error.message : String(error) },
-      });
-      this.currentTrace?.end();
-      this.currentTrace = undefined;
-
       // Rollback on unexpected errors
       this.rollbackUserMessage();
 

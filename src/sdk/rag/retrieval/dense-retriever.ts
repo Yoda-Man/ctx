@@ -121,20 +121,4 @@ export class DenseRetriever implements Retriever {
       // That's done by the HybridRetriever
     }));
   };
-
-  /**
-   * Get the underlying vector store.
-   * Useful for accessing store-specific functionality.
-   */
-  get store(): VectorStore {
-    return this.vectorStore;
-  }
-
-  /**
-   * Get the underlying embedding provider.
-   * Useful for accessing provider-specific functionality.
-   */
-  get provider(): EmbeddingProvider {
-    return this.embeddingProvider;
-  }
 }

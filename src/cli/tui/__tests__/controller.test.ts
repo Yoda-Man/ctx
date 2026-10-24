@@ -65,12 +65,11 @@ vi.mock('../status-line.js', () => {
   class MockStatusLineRenderer {
     private state: Record<string, unknown> = {
       tokens: { used: 0, total: 200000, warningThreshold: 0.8, dangerThreshold: 0.95 },
-      cost: { totalUsd: 0 },
       turnCount: 0,
       gitDirty: false,
       workingDirectory: null,
     };
-    render = vi.fn().mockReturnValue('claude-3.5-sonnet │ ░░░░░░░░░░ 0% │ $0.00 │ 0 turns');
+    render = vi.fn().mockReturnValue('qwen3.5:9b │ ░░░░░░░░░░ 0% │ 0 turns');
     update = vi.fn((partial: Record<string, unknown>) => {
       Object.assign(this.state, partial);
     });
@@ -141,7 +140,7 @@ describe('TUIController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     tui = new TUIController({
-      model: { name: 'Claude 3.5 Sonnet', provider: 'anthropic' },
+      model: { name: 'qwen3.5:9b', provider: 'ollama' },
       project: 'test-project',
     });
   });

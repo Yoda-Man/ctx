@@ -24,8 +24,6 @@ describe('EvalConfigSchema', () => {
     if (result.success) {
       expect(result.data.golden_path).toBe('~/.ctx/eval');
       expect(result.data.default_k).toBe(5);
-      expect(result.data.python_path).toBe('python3');
-      expect(result.data.ragas_model).toBe('gpt-4o-mini');
     }
   });
 
@@ -56,8 +54,6 @@ describe('EvalConfigSchema', () => {
       golden_path: '/custom/path',
       default_k: 10,
       thresholds: { mrr: 0.8, hit_rate: 0.9, precision_at_k: 0.7 },
-      python_path: '/usr/bin/python3',
-      ragas_model: 'gpt-4o',
     });
     expect(result.success).toBe(true);
   });
@@ -190,15 +186,6 @@ describe('EvalError', () => {
       expect(error.code).toBe(EvalErrorCodes.EVAL_RUN_FAILED);
       expect(error.message).toContain('search timed out');
       expect(error.cause).toBe(cause);
-    });
-  });
-
-  describe('factory: ragasError', () => {
-    it('creates error with correct code', () => {
-      const error = EvalError.ragasError('python not found');
-
-      expect(error.code).toBe(EvalErrorCodes.RAGAS_ERROR);
-      expect(error.message).toContain('python not found');
     });
   });
 });

@@ -16,8 +16,7 @@ import type { TokenBudgetConfig } from './types.js';
  * Average characters per token for estimation.
  *
  * Industry standard approximation:
- * - GPT models: ~4 characters per token for English
- * - Claude models: similar ratio
+ * - ~4 characters per token for English text
  * - Code tends to have fewer chars per token (~3.5)
  *
  * We use 4 as a conservative estimate.

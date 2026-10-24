@@ -128,43 +128,4 @@ export class VectorError extends ContextAIError {
       { expected, actual }
     );
   }
-
-  /**
-   * Create an error for empty array input.
-   *
-   * @param operation - Name of the operation that failed (e.g., 'mean', 'sum')
-   *
-   * @example
-   * ```typescript
-   * if (embeddings.length === 0) {
-   *   throw VectorError.emptyArray('mean');
-   * }
-   * ```
-   */
-  static emptyArray(operation: string): VectorError {
-    return new VectorError(
-      `Cannot compute ${operation} of empty array`,
-      'EMPTY_ARRAY',
-      { operation }
-    );
-  }
-
-  /**
-   * Create an error for invalid vector values.
-   *
-   * @param details - Description of what's invalid
-   *
-   * @example
-   * ```typescript
-   * if (vector.some(v => !Number.isFinite(v))) {
-   *   throw VectorError.invalidVector('Contains NaN or Infinity');
-   * }
-   * ```
-   */
-  static invalidVector(details: string): VectorError {
-    return new VectorError(
-      `Invalid vector: ${details}`,
-      'INVALID_VECTOR'
-    );
-  }
 }

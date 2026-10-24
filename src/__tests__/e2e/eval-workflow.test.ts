@@ -8,8 +8,7 @@
  * 4. Verify eval_run/eval_results in SQLite
  * 5. Verify retrieval metrics
  * 6. Generate trend report
- * 7. Export to RAGAS format
- * 8. Clean up
+ * 7. Clean up
  *
  * Mocking Strategy:
  * - Paths: Redirected to temp directories (isolated from ~/.ctx)
@@ -71,11 +70,9 @@ vi.mock('../../config/paths.js', () => {
     CTX_DIR: dataDir,
     DB_PATH: path.join(dataDir, 'context.db'),
     CONFIG_PATH: path.join(configDir, 'config.toml'),
-    PROVIDERS_PATH: path.join(configDir, 'providers.json'),
     getCtxDir: () => dataDir,
     getDbPath: () => path.join(dataDir, 'context.db'),
     getConfigPath: () => path.join(configDir, 'config.toml'),
-    getProvidersPath: () => path.join(configDir, 'providers.json'),
   };
 });
 
@@ -181,7 +178,6 @@ import type { CommandContext } from '../../cli/types.js';
 import { runEval, type EvalRunnerDeps, type EvalSearchResult } from '../../eval/runner.js';
 import { saveGoldenDataset, loadGoldenDataset } from '../../eval/golden.js';
 import { computeTrend, formatTrendReport } from '../../eval/aggregator.js';
-import { exportToRagas, writeExport, type ExportSourceEntry } from '../../eval/exporter.js';
 import type { GoldenDataset, GoldenEntry, RetrievalMetrics, EvalConfig } from '../../eval/types.js';
 
 // Setup helpers
@@ -247,8 +243,6 @@ const TEST_EVAL_CONFIG: EvalConfig = {
   golden_path: '~/.ctx/eval',
   default_k: 5,
   thresholds: { mrr: 0.7, hit_rate: 0.85, precision_at_k: 0.6 },
-  python_path: 'python3',
-  ragas_model: 'gpt-4o-mini',
 };
 
 // ============================================================================
@@ -307,8 +301,8 @@ function setupLLMMock(): void {
 
   vi.mocked(llmProvider.createLLMProvider).mockResolvedValue({
     provider: mockLLM,
-    name: 'anthropic',
-    model: 'claude-opus-5-5',
+    name: 'ollama',
+    model: 'qwen3.5:9b',
   });
 }
 
@@ -473,7 +467,6 @@ describe('E2E Eval Workflow Tests', () => {
       expect(evalSummary.query_count).toBe(3);
       expect(evalSummary.config).toEqual({
         top_k: 5,
-        include_generation: false,
         tags: [],
       });
     });
@@ -616,65 +609,6 @@ describe('E2E Eval Workflow Tests', () => {
       expect(report).toContain('Hit Rate');
       expect(report).toContain('NDCG');
       expect(report).toContain('MAP');
-    });
-  });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // Suite 6: RAGAS Export
-  // ══════════════════════════════════════════════════════════════════════════
-
-  describe('RAGAS Export', () => {
-    it('exportToRagas produces valid entries from golden + eval results', () => {
-      const goldenDataset = loadGoldenDataset(PROJECT_NAME);
-      const evalResults = ops.getEvalResults(evalSummary.run_id);
-
-      const exportEntries: ExportSourceEntry[] = goldenDataset.entries.map((golden) => {
-        const result = evalResults.find((r) => r.query === golden.query);
-        return { golden, evalResult: result };
-      });
-
-      const ragasData = exportToRagas(exportEntries);
-
-      expect(ragasData).toHaveLength(3);
-
-      for (const entry of ragasData) {
-        expect(entry).toHaveProperty('question');
-        expect(entry).toHaveProperty('answer');
-        expect(entry).toHaveProperty('contexts');
-        expect(entry).toHaveProperty('ground_truths');
-        expect(typeof entry.question).toBe('string');
-        expect(entry.question.length).toBeGreaterThan(0);
-        expect(Array.isArray(entry.contexts)).toBe(true);
-        expect(Array.isArray(entry.ground_truths)).toBe(true);
-        expect(entry.ground_truths.length).toBeGreaterThan(0);
-      }
-    });
-
-    it('writeExport creates valid JSON file on disk', () => {
-      const exportPath = join(getTestRoot(), 'exports', 'ragas_output.json');
-
-      const goldenDataset = loadGoldenDataset(PROJECT_NAME);
-      const evalResults = ops.getEvalResults(evalSummary.run_id);
-
-      const exportEntries: ExportSourceEntry[] = goldenDataset.entries.map((golden) => {
-        const result = evalResults.find((r) => r.query === golden.query);
-        return { golden, evalResult: result };
-      });
-
-      const ragasData = exportToRagas(exportEntries);
-      writeExport(ragasData, exportPath);
-
-      // Verify file exists and is valid JSON
-      expect(existsSync(exportPath)).toBe(true);
-      const content = readFileSync(exportPath, 'utf-8');
-      const parsed = JSON.parse(content);
-
-      expect(Array.isArray(parsed)).toBe(true);
-      expect(parsed).toHaveLength(3);
-      expect(parsed[0]).toHaveProperty('question');
-      expect(parsed[0]).toHaveProperty('answer');
-      expect(parsed[0]).toHaveProperty('contexts');
-      expect(parsed[0]).toHaveProperty('ground_truths');
     });
   });
 });

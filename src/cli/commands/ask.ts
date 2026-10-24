@@ -11,7 +11,7 @@
  *
  * Uses the existing infrastructure:
  * - createRAGEngine for context retrieval (hybrid search + XML assembly)
- * - createLLMProvider for answer generation (with automatic fallback)
+ * - createLLMProvider for answer generation (the local Ollama model)
  * - formatCitations for source display
  */
 
@@ -32,7 +32,7 @@ import { createLLMProvider } from '../../providers/llm.js';
 import { CLIError } from '../../errors/index.js';
 import type { Project } from '../../database/schema.js';
 import type { RAGSearchResult } from '../../agent/types.js';
-import { createTracer, shouldRecord } from '../../observability/index.js';
+import { shouldRecord } from '../../observability/index.js';
 import { getDatabase } from '../../database/index.js';
 import type { TraceInput } from '../../eval/types.js';
 
@@ -387,48 +387,16 @@ export function createAskCommand(getContext: () => CommandContext): Command {
       const config = loadConfig();
       ctx.debug(`Embedding: ${config.embedding.model} (${config.embedding.provider})`);
 
-      // Create tracer (NoopTracer if Langfuse not configured)
-      const tracer = createTracer(config);
-      const trace = tracer.trace({
-        name: 'ctx-ask',
-        input: trimmedQuestion,
-        metadata: { project: project.name, topK },
-      });
-      ctx.debug(`Tracer: ${tracer.isRemote ? 'Langfuse' : 'noop'}`);
-
-      let traceEnded = false;
-      try {
-        ctx.debug('Creating RAG engine...');
+      ctx.debug('Creating RAG engine...');
       const ragEngine = await createRAGEngine(config, String(project.id));
 
       // ─────────────────────────────────────────────────────────────────────
-      // 5. Execute RAG search (with retrieval span)
+      // 5. Execute RAG search
       // ─────────────────────────────────────────────────────────────────────
       ctx.debug('Executing RAG search...');
-      const retrievalSpan = trace.span({
-        name: 'rag-retrieval',
-        input: { query: trimmedQuestion, topK },
-      });
-
       const ragResult: RAGSearchResult = await ragEngine.search(trimmedQuestion, {
         finalK: topK,
-        trace,
       });
-
-      retrievalSpan.update({
-        output: {
-          sourceCount: ragResult.sources.length,
-          estimatedTokens: ragResult.estimatedTokens,
-        },
-        metadata: {
-          retrievalMs: ragResult.metadata.retrievalMs,
-          assemblyMs: ragResult.metadata.assemblyMs,
-          resultsRetrieved: ragResult.metadata.resultsRetrieved,
-          resultsAssembled: ragResult.metadata.resultsAssembled,
-          fromCache: ragResult.metadata.fromCache,
-        },
-      });
-      retrievalSpan.end();
 
       ctx.debug(`Retrieved ${ragResult.sources.length} sources`);
       ctx.debug(`Context tokens: ~${ragResult.estimatedTokens}`);
@@ -473,11 +441,8 @@ export function createAskCommand(getContext: () => CommandContext): Command {
           }
         }
 
-        // End trace and record for context-only mode
-        trace.update({ output: { contextOnly: true, sourceCount: ragResult.sources.length } });
-        traceEnded = true;
-        trace.end();
-        if (shouldRecord(config.observability?.sample_rate ?? 1.0)) {
+        // Record for context-only mode
+        if (shouldRecord(config.observability)) {
           try {
             const dbOps = getDatabase();
             dbOps.insertTrace({
@@ -487,7 +452,6 @@ export function createAskCommand(getContext: () => CommandContext): Command {
               top_k: topK,
               latency_ms: Math.round(totalMs),
               retrieval_method: 'fusion',
-              langfuse_trace_id: trace.traceId,
               trace_type: 'ask',
             });
           } catch (err) {
@@ -525,11 +489,8 @@ export function createAskCommand(getContext: () => CommandContext): Command {
           displayNoResults(ctx, trimmedQuestion);
         }
 
-        // End trace and record for no-results case
-        trace.update({ output: { noResults: true }, metadata: { totalMs } });
-        traceEnded = true;
-        trace.end();
-        if (shouldRecord(config.observability?.sample_rate ?? 1.0)) {
+        // Record for no-results case
+        if (shouldRecord(config.observability)) {
           try {
             const dbOps = getDatabase();
             dbOps.insertTrace({
@@ -539,7 +500,6 @@ export function createAskCommand(getContext: () => CommandContext): Command {
               top_k: topK,
               latency_ms: Math.round(totalMs),
               retrieval_method: 'fusion',
-              langfuse_trace_id: trace.traceId,
               trace_type: 'ask',
             });
           } catch (err) {
@@ -553,13 +513,7 @@ export function createAskCommand(getContext: () => CommandContext): Command {
       // 6. Create LLM provider
       // ─────────────────────────────────────────────────────────────────────
       ctx.debug('Creating LLM provider...');
-      const { provider, name: providerName, model } = await createLLMProvider(config, {
-        fallback: {
-          onFallback: (from, to, reason) => {
-            ctx.debug(`LLM fallback: ${from} → ${to} (${reason})`);
-          },
-        },
-      });
+      const { provider, name: providerName, model } = await createLLMProvider(config);
 
       ctx.debug(`Using LLM: ${providerName}/${model}`);
 
@@ -573,13 +527,6 @@ export function createAskCommand(getContext: () => CommandContext): Command {
       ];
 
       ctx.debug(`System prompt tokens: ~${Math.ceil(systemPrompt.length / 4)}`);
-
-      // Create generation span for LLM call (captures model + token usage)
-      const generationSpan = trace.generation({
-        name: 'llm-answer',
-        model: `${providerName}/${model}`,
-        input: { systemPromptLength: systemPrompt.length, question: trimmedQuestion },
-      });
 
       const generationStart = performance.now();
       let answer: string;
@@ -599,18 +546,6 @@ export function createAskCommand(getContext: () => CommandContext): Command {
 
       const generationMs = performance.now() - generationStart;
 
-      generationSpan.update({
-        output: answer,
-        usage: usage
-          ? {
-              input: usage.promptTokens,
-              output: usage.completionTokens,
-              total: usage.totalTokens,
-            }
-          : undefined,
-        metadata: { generationMs },
-      });
-      generationSpan.end();
       const totalMs = performance.now() - startTime;
 
       ctx.debug(`Generation time: ${generationMs.toFixed(0)}ms`);
@@ -666,25 +601,10 @@ export function createAskCommand(getContext: () => CommandContext): Command {
         }
       }
 
-      // Update root trace with final output and end
-      trace.update({
-        output: answer,
-        metadata: {
-          retrievalMs: ragResult.metadata.retrievalMs,
-          assemblyMs: ragResult.metadata.assemblyMs,
-          generationMs,
-          totalMs,
-          model: `${providerName}/${model}`,
-          sourceCount: ragResult.sources.length,
-        },
-      });
-      traceEnded = true;
-      trace.end();
-
       // Always-on local trace recording (fire-and-forget, respects sample_rate)
       // Records ask interactions to eval_traces for retrospective
       // analysis, trend tracking, and golden dataset capture.
-      if (shouldRecord(config.observability?.sample_rate ?? 1.0)) {
+      if (shouldRecord(config.observability)) {
         try {
           const dbOps = getDatabase();
           const traceInput: TraceInput = {
@@ -695,7 +615,6 @@ export function createAskCommand(getContext: () => CommandContext): Command {
             latency_ms: Math.round(totalMs),
             answer,
             retrieval_method: 'fusion',
-            langfuse_trace_id: trace.traceId,
             trace_type: 'ask',
             metadata: {
               model: `${providerName}/${model}`,
@@ -717,12 +636,6 @@ export function createAskCommand(getContext: () => CommandContext): Command {
           // Non-blocking: trace recording should never break the command
           ctx.debug(`Trace recording failed: ${err}`);
         }
-      }
-      } finally {
-        if (!traceEnded) {
-          trace.end();
-        }
-        await tracer.shutdown().catch((err) => ctx.debug(`Tracer shutdown error: ${err}`));
       }
     });
 }

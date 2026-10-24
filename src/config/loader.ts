@@ -74,7 +74,6 @@ const KNOWN_CONFIG_KEYS: Record<string, string[]> = {
     'default_provider',
     'embedding',
     'search',
-    'llm',
     'rag',
     'indexing',
     'eval',
@@ -82,10 +81,9 @@ const KNOWN_CONFIG_KEYS: Record<string, string[]> = {
   ],
   embedding: ['provider', 'model', 'fallback_provider', 'fallback_model', 'batch_size', 'timeout_ms'],
   search: ['top_k', 'rerank'],
-  llm: ['fallback_providers', 'fallback_models'],
-  rag: ['max_tokens', 'retrieve_k', 'final_k', 'enhance_query', 'ordering'],
+  rag: ['max_tokens', 'final_k', 'ordering'],
   indexing: ['ignore_patterns'],
-  eval: ['golden_path', 'default_k', 'thresholds', 'python_path', 'ragas_model'],
+  eval: ['golden_path', 'default_k', 'thresholds'],
   thresholds: ['mrr', 'hit_rate', 'precision_at_k'],
   observability: ['enabled', 'sample_rate'],
 };
@@ -115,6 +113,22 @@ function warnUnknownFields(
       warnUnknownFields(parsed[key] as Record<string, unknown>, key, fullKey);
     }
   }
+}
+
+/**
+ * ctx answers only with a local Ollama model. A config written for a cloud
+ * provider (anthropic, openai) would name a model Ollama does not have, so
+ * both settings are dropped, with a warning, and the defaults apply.
+ */
+function dropCloudProvider(parsed: Record<string, unknown>): void {
+  const provider = parsed['default_provider'];
+  if (provider === undefined || provider === 'ollama') return;
+  console.warn(
+    `Warning: default_provider = "${String(provider)}" is ignored; ctx only uses local Ollama models. ` +
+      'Set one with: ctx config set default_model <ollama model>'
+  );
+  delete parsed['default_provider'];
+  delete parsed['default_model'];
 }
 
 /**
@@ -153,6 +167,7 @@ export function loadConfig(createIfMissing = true): Config {
   // Warn about unknown fields (helps catch typos)
   if (typeof parsed === 'object' && parsed !== null) {
     warnUnknownFields(parsed as Record<string, unknown>);
+    dropCloudProvider(parsed as Record<string, unknown>);
   }
 
   // Validate against the partial schema (allows missing fields)
@@ -205,6 +220,7 @@ export function setConfigValue(key: string, value: string): void {
   if (fs.existsSync(configPath)) {
     const content = fs.readFileSync(configPath, 'utf-8');
     config = TOML.parse(content) as Record<string, unknown>;
+    dropCloudProvider(config);
   }
 
   // Parse the value (try to convert to appropriate type)
@@ -270,7 +286,7 @@ function parseValue(value: string): unknown {
 
 /**
  * List all config values in a flat format
- * Returns entries like ['default_model', 'claude-opus-5-5']
+ * Returns entries like ['default_model', 'llama3.2']
  */
 export function listConfig(): Array<[string, unknown]> {
   const config = loadConfig();

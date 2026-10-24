@@ -259,30 +259,4 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
   private estimateTokenCount = (text: string): number => {
     return Math.ceil(text.length / 4);
   };
-
-  /**
-   * Check if the model is loaded.
-   * Useful for checking warmup status.
-   */
-  isLoaded = (): boolean => {
-    return this.pipeline !== null;
-  };
-
-  /**
-   * Pre-load the embedding model.
-   *
-   * Call this during application startup to avoid first-request latency.
-   * The model is loaded lazily by default, so the first embed() call
-   * can take several seconds while the model downloads and initializes.
-   *
-   * @example
-   * ```typescript
-   * const provider = new HuggingFaceEmbeddingProvider();
-   * await provider.warmup(); // Pre-load during startup
-   * // Now embed() calls will be fast
-   * ```
-   */
-  warmup = async (): Promise<void> => {
-    await this.loadPipeline();
-  };
 }

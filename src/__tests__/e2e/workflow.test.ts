@@ -73,11 +73,9 @@ vi.mock('../../config/paths.js', () => {
     CTX_DIR: dataDir,
     DB_PATH: path.join(dataDir, 'context.db'),
     CONFIG_PATH: path.join(configDir, 'config.toml'),
-    PROVIDERS_PATH: path.join(configDir, 'providers.json'),
     getCtxDir: () => dataDir,
     getDbPath: () => path.join(dataDir, 'context.db'),
     getConfigPath: () => path.join(configDir, 'config.toml'),
-    getProvidersPath: () => path.join(configDir, 'providers.json'),
   };
 });
 
@@ -291,8 +289,8 @@ function setupLLMMock(): void {
 
   vi.mocked(llmProvider.createLLMProvider).mockResolvedValue({
     provider: mockLLM,
-    name: 'anthropic',
-    model: 'claude-opus-5-5',
+    name: 'ollama',
+    model: 'qwen3.5:9b',
   });
 }
 

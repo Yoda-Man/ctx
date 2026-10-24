@@ -5,7 +5,6 @@
  * - Model name (prominent, first position)
  * - Location (working directory + git branch + dirty indicator)
  * - Context gauge (token usage visualization with bar)
- * - Cost tracker (running USD total)
  * - Turn counter (user-assistant exchange count)
  * - Activity indicator (phase icon + current tool/action)
  *
@@ -13,8 +12,6 @@
  * - "Transparency Over Magic" - users must always know what's happening
  * - "Progressive Disclosure" - essential info visible, details on demand
  * - Color encodes meaning (green=safe, yellow=caution, red=danger)
- *
- * @see /Users/draco/projects/Context_Expert/.claude/skills/agentic-cli-ux/SKILL.md
  */
 
 import chalk, { type ChalkInstance } from 'chalk';
@@ -39,9 +36,6 @@ export const DEFAULT_STATUS_STATE: StatusLineState = {
     total: 200000, // 200k default context window
     warningThreshold: 0.8,
     dangerThreshold: 0.95,
-  },
-  cost: {
-    totalUsd: 0,
   },
   activity: {},
   model: {
@@ -86,7 +80,7 @@ export interface StatusLineRendererOptions {
  *
  * Example output:
  * ```
- * claude-opus-5-5 │ ~/projects/my-project main* │ ████░░░░░░ 42% │ $0.02 │ 3 turns │ ⚡ Reading src/index.ts
+ * qwen3.5:9b │ ~/projects/my-project main* │ ████░░░░░░ 42% │ 3 turns │ ⚡ Reading src/index.ts
  * ```
  */
 export class StatusLineRenderer {
@@ -120,7 +114,6 @@ export class StatusLineRenderer {
       ...this.state,
       ...partial,
       tokens: { ...this.state.tokens, ...(partial.tokens ?? {}) },
-      cost: { ...this.state.cost, ...(partial.cost ?? {}) },
       activity: { ...this.state.activity, ...(partial.activity ?? {}) },
       model: { ...this.state.model, ...(partial.model ?? {}) },
     };
@@ -148,10 +141,9 @@ export class StatusLineRenderer {
    * 1. Model name
    * 2. Location (path + branch + dirty)
    * 3. Context gauge (visual bar)
-   * 4. Cost
-   * 5. Turn count
-   * 6. Activity (with phase icon)
-   * 7. Indexing status
+   * 4. Turn count
+   * 5. Activity (with phase icon)
+   * 6. Indexing status
    */
   render(): string {
     const parts: string[] = [];
@@ -170,9 +162,6 @@ export class StatusLineRenderer {
 
     // Context gauge
     parts.push(this.renderContextGauge());
-
-    // Cost
-    parts.push(this.renderCost());
 
     // Turn count
     parts.push(this.renderTurns());
@@ -277,49 +266,6 @@ export class StatusLineRenderer {
     const percentStr = barColor(`${percentDisplay}%`);
 
     return `Context: ${filledBar}${emptyBar} ${percentStr}`;
-  }
-
-  /**
-   * Render the cost display.
-   *
-   * Colors:
-   * - Green when < $0.50
-   * - Yellow when $0.50-$1.00
-   * - Red when > $1.00
-   *
-   * Shows budget progress if budget is set.
-   */
-  private renderCost(): string {
-    const { cost } = this.state;
-    const total = cost.totalUsd;
-
-    // Format to 2 decimal places for compact display
-    const formatted = total.toFixed(2);
-
-    // Choose color based on cost
-    let color: ChalkInstance;
-    if (total >= 1.0) {
-      color = chalk.red;
-    } else if (total >= 0.5) {
-      color = chalk.yellow;
-    } else {
-      color = chalk.green;
-    }
-
-    let display = color(`$${formatted}`);
-
-    // Add budget indicator if set
-    if (cost.budgetUsd !== undefined && cost.budgetUsd > 0) {
-      const budgetPercent = Math.round((total / cost.budgetUsd) * 100);
-      display += chalk.dim(` / $${cost.budgetUsd.toFixed(2)}`);
-      if (budgetPercent >= 90) {
-        display += chalk.red.bold(` (${budgetPercent}%!)`);
-      } else if (budgetPercent >= 70) {
-        display += chalk.yellow(` (${budgetPercent}%)`);
-      }
-    }
-
-    return display;
   }
 
   /**

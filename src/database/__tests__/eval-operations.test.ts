@@ -191,7 +191,7 @@ describe('Eval Operations', () => {
         answer: 'Authentication uses JWT tokens...',
         retrieval_method: 'fusion',
         feedback: 'positive',
-        metadata: { model: 'gpt-4o' },
+        metadata: { model: 'qwen3.5:9b' },
       };
 
       const traceId = ops.insertTrace(input);
@@ -210,7 +210,7 @@ describe('Eval Operations', () => {
       expect(trace.answer).toBe('Authentication uses JWT tokens...');
       expect(trace.retrieval_method).toBe('fusion');
       expect(trace.feedback).toBe('positive');
-      expect(JSON.parse(trace.metadata!)).toEqual({ model: 'gpt-4o' });
+      expect(JSON.parse(trace.metadata!)).toEqual({ model: 'qwen3.5:9b' });
     });
 
     it('handles nullable fields (answer, feedback, metadata)', () => {
@@ -278,25 +278,6 @@ describe('Eval Operations', () => {
       const traces = ops.getTraces({ feedback: 'negative' });
       expect(traces).toHaveLength(1);
       expect(traces[0].query).toBe('bad result');
-    });
-
-    it('stores and retrieves langfuse_trace_id', () => {
-      const projectId = createTestProject();
-
-      const traceId = ops.insertTrace({
-        project_id: projectId,
-        query: 'linked trace',
-        retrieved_files: ['src/index.ts'],
-        top_k: 5,
-        latency_ms: 120,
-        retrieval_method: 'fusion',
-        langfuse_trace_id: 'lf-abc-123',
-      });
-
-      const traces = ops.getTraces({ project_id: projectId });
-      expect(traces).toHaveLength(1);
-      expect(traces[0].id).toBe(traceId);
-      expect(traces[0].langfuse_trace_id).toBe('lf-abc-123');
     });
 
     it('stores null langfuse_trace_id when omitted', () => {

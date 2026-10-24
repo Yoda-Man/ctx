@@ -51,24 +51,6 @@ export interface CacheProvider<T = unknown> {
 }
 
 /**
- * Cache statistics for monitoring and debugging.
- */
-export interface CacheStats {
-  /** Number of cache hits */
-  hits: number;
-  /** Number of cache misses */
-  misses: number;
-  /** Current number of entries in the cache */
-  size: number;
-  /** Hit rate as a decimal (0-1). Returns 0 if no requests yet. */
-  hitRate: number;
-  /** Current memory usage in bytes (only if maxMemoryBytes is set) */
-  memoryUsage?: number;
-  /** Maximum memory budget in bytes (only if maxMemoryBytes is set) */
-  maxMemoryBytes?: number;
-}
-
-/**
  * Function to estimate the memory size of a cached value.
  *
  * @param value - The value to estimate size for

@@ -169,9 +169,6 @@ export async function createEmbeddingProvider(
       provider = await createHuggingFaceProvider(config.model, options);
     } else if (config.provider === 'ollama') {
       provider = await createOllamaProvider(config.model);
-    } else if (config.provider === 'openai') {
-      // OpenAI support is future work - not implemented yet
-      throw new Error('OpenAI embedding provider not yet implemented');
     }
 
     // Verify provider is available
@@ -249,11 +246,6 @@ export function getModelDimensions(model: string): number {
   // Ollama models
   if (normalizedModel.includes('nomic-embed')) return 768;
   if (normalizedModel.includes('mxbai-embed')) return 1024;
-
-  // OpenAI models (future)
-  if (normalizedModel.includes('text-embedding-3-large')) return 3072;
-  if (normalizedModel.includes('text-embedding-3-small')) return 1536;
-  if (normalizedModel.includes('text-embedding-ada')) return 1536;
 
   // Default fallback
   return 1024;

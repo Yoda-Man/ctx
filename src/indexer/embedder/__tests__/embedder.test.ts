@@ -310,12 +310,6 @@ describe('getModelDimensions', () => {
     expect(getModelDimensions('mxbai-embed-large')).toBe(1024);
   });
 
-  it('should return correct dimensions for OpenAI models', () => {
-    expect(getModelDimensions('text-embedding-3-large')).toBe(3072);
-    expect(getModelDimensions('text-embedding-3-small')).toBe(1536);
-    expect(getModelDimensions('text-embedding-ada-002')).toBe(1536);
-  });
-
   it('should return default 1024 for unknown models', () => {
     expect(getModelDimensions('unknown-model')).toBe(1024);
   });

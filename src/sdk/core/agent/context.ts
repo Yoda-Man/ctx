@@ -93,13 +93,6 @@ export class ConversationContext {
   };
 
   /**
-   * Get the number of messages in context
-   */
-  get length(): number {
-    return this.messages.length;
-  }
-
-  /**
    * Clear all messages from context
    */
   clear = (): void => {
@@ -154,19 +147,5 @@ export class ConversationContext {
       messages: this.getMessages(),
       maxTokens: this.maxTokens,
     };
-  };
-
-  /**
-   * Create a ConversationContext from a serialized snapshot
-   */
-  static fromJSON = (
-    data: { messages: ChatMessage[]; maxTokens?: number },
-    tokenCounter?: TokenCounter
-  ): ConversationContext => {
-    return new ConversationContext({
-      initialMessages: data.messages,
-      maxTokens: data.maxTokens,
-      tokenCounter,
-    });
   };
 }

@@ -196,60 +196,6 @@ export class ErrorRecovery {
       };
     }
   };
-
-  /**
-   * Execute and throw on failure (simpler API for when you want exceptions).
-   *
-   * @param fn - The async function to execute
-   * @param context - Optional context for error callbacks
-   * @param signal - Optional AbortSignal for cancellation
-   * @throws The original error if all recovery fails
-   */
-  executeOrThrow = async <T>(
-    fn: () => Promise<T>,
-    context?: Partial<Pick<ErrorContext, 'toolName' | 'input'>>,
-    signal?: AbortSignal
-  ): Promise<T> => {
-    const result = await this.execute(fn, context, signal);
-
-    if (!result.success) {
-      throw result.error;
-    }
-
-    return result.value as T;
-  };
-
-  /**
-   * Create a wrapped version of a function with error recovery.
-   * Useful for creating recoverable versions of existing functions.
-   *
-   * @param fn - The function to wrap
-   * @param context - Optional static context for all invocations
-   */
-  wrap = <TArgs extends unknown[], TResult>(
-    fn: (...args: TArgs) => Promise<TResult>,
-    context?: Partial<Pick<ErrorContext, 'toolName'>>
-  ): ((...args: TArgs) => Promise<ErrorRecoveryResult<TResult>>) => {
-    return async (...args: TArgs) => {
-      return this.execute(() => fn(...args), { ...context, input: args });
-    };
-  };
-
-  /**
-   * Get the circuit breaker instance (if enabled).
-   * Useful for monitoring circuit state.
-   */
-  getCircuitBreaker = (): CircuitBreaker | undefined => {
-    return this.circuitBreaker;
-  };
-
-  /**
-   * Get the retry strategy instance.
-   * Useful for inspecting configuration.
-   */
-  getRetryStrategy = (): RetryStrategy => {
-    return this.retryStrategy;
-  };
 }
 // Re-export error classes for convenience
 ;

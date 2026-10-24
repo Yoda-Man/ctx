@@ -1,36 +1,47 @@
 /**
  * Sampling Utility Tests
  *
- * Tests the shouldRecord() function that gates local SQLite trace recording.
- * Verifies boundary conditions (0.0, 1.0) and statistical distribution
- * for fractional sample rates.
+ * Tests the shouldRecord() function that gates local SQLite trace recording:
+ * the enabled switch, boundary conditions (0.0, 1.0) and the statistical
+ * distribution for fractional sample rates.
  */
 
 import { describe, it, expect } from 'vitest';
 import { shouldRecord } from '../sampling.js';
 
 describe('shouldRecord', () => {
+  it('records nothing when observability is disabled, whatever the sample rate', () => {
+    for (let i = 0; i < 100; i++) {
+      expect(shouldRecord({ enabled: false, sample_rate: 1.0 })).toBe(false);
+    }
+  });
+
+  it('records everything by default', () => {
+    expect(shouldRecord(undefined)).toBe(true);
+    expect(shouldRecord({ enabled: true })).toBe(true);
+  });
+
   it('always records at sample_rate 1.0', () => {
     // Run multiple times to ensure consistency
     for (let i = 0; i < 100; i++) {
-      expect(shouldRecord(1.0)).toBe(true);
+      expect(shouldRecord({ sample_rate: 1.0 })).toBe(true);
     }
   });
 
   it('always records at sample_rate > 1.0', () => {
-    expect(shouldRecord(1.5)).toBe(true);
-    expect(shouldRecord(100)).toBe(true);
+    expect(shouldRecord({ sample_rate: 1.5 })).toBe(true);
+    expect(shouldRecord({ sample_rate: 100 })).toBe(true);
   });
 
   it('never records at sample_rate 0.0', () => {
     for (let i = 0; i < 100; i++) {
-      expect(shouldRecord(0.0)).toBe(false);
+      expect(shouldRecord({ sample_rate: 0.0 })).toBe(false);
     }
   });
 
   it('never records at sample_rate < 0.0', () => {
-    expect(shouldRecord(-0.5)).toBe(false);
-    expect(shouldRecord(-1)).toBe(false);
+    expect(shouldRecord({ sample_rate: -0.5 })).toBe(false);
+    expect(shouldRecord({ sample_rate: -1 })).toBe(false);
   });
 
   it('respects fractional sample_rate (statistical)', () => {
@@ -38,7 +49,7 @@ describe('shouldRecord', () => {
     let recorded = 0;
     const trials = 1000;
     for (let i = 0; i < trials; i++) {
-      if (shouldRecord(0.5)) recorded++;
+      if (shouldRecord({ sample_rate: 0.5 })) recorded++;
     }
 
     // Expect within 3 standard deviations (99.7% confidence)
@@ -52,7 +63,7 @@ describe('shouldRecord', () => {
     let recorded = 0;
     const trials = 1000;
     for (let i = 0; i < trials; i++) {
-      if (shouldRecord(0.1)) recorded++;
+      if (shouldRecord({ sample_rate: 0.1 })) recorded++;
     }
 
     // 10% of 1000 = 100, expect roughly 30-170
