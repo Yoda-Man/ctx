@@ -169,7 +169,7 @@ describe('createStatusCommand', () => {
 
       const output = logOutput.join('\n');
       expect(output).toContain('3');
-      expect(output).toContain('5,432');
+      expect(output).toContain((5432).toLocaleString()); // the system's own separators
     });
 
     it('displays database size', async () => {
