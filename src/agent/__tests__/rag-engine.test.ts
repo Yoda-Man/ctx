@@ -63,13 +63,11 @@ function createMockFusionService(): FusionService {
  */
 function createMockRAGEngineImpl(): {
   search: Mock;
-  warmUp: Mock;
   clearCache: Mock;
   name: string;
 } {
   return {
     search: vi.fn(),
-    warmUp: vi.fn().mockResolvedValue(undefined),
     clearCache: vi.fn().mockResolvedValue(undefined),
     name: 'MockRAGEngine',
   };
@@ -81,16 +79,12 @@ function createMockRAGEngineImpl(): {
 function createMockRAGResult(overrides: Partial<RAGResult> = {}): RAGResult {
   const defaultSources: SourceAttribution[] = [
     {
+      // As the SDK builds it: no chunk metadata, only the chunk's ID.
+      index: 1,
+      chunkId: 'chunk-1',
       source: 'src/auth/handler.ts',
       location: 'lines 42-67',
       score: 0.95,
-      metadata: {
-        filePath: 'src/auth/handler.ts',
-        fileType: 'code',
-        language: 'typescript',
-        startLine: 42,
-        endLine: 67,
-      },
     },
   ];
 
@@ -281,9 +275,7 @@ describe('FusionServiceAdapter', () => {
 describe('ContextExpertRAGEngine', () => {
   const defaultConfig: RAGConfig = {
     max_tokens: 4000,
-    retrieve_k: 20,
     final_k: 5,
-    enhance_query: false,
     ordering: 'sandwich',
   };
 
@@ -305,8 +297,6 @@ describe('ContextExpertRAGEngine', () => {
         topK: 5, // final_k from config
         maxTokens: 4000,
         ordering: 'sandwich',
-        rerank: true, // default when skipRerank not set
-        enhance: false, // from config
       });
     });
 
@@ -325,16 +315,12 @@ describe('ContextExpertRAGEngine', () => {
         finalK: 10,
         maxTokens: 8000,
         ordering: 'relevance',
-        skipRerank: true,
-        enhanceQuery: true,
       });
 
       expect(mockEngine.search).toHaveBeenCalledWith('test query', {
         topK: 10,
         maxTokens: 8000,
         ordering: 'relevance',
-        rerank: false, // skipRerank: true
-        enhance: true, // overridden
       });
     });
   });
@@ -409,24 +395,6 @@ describe('ContextExpertRAGEngine', () => {
         language: 'typescript',
         lineRange: { start: 42, end: 67 },
       });
-    });
-  });
-
-  describe('warmUp', () => {
-    it('should warm up both fusion service and SDK engine', async () => {
-      const mockEngine = createMockRAGEngineImpl();
-      const fusionService = createMockFusionService();
-
-      const engine = new ContextExpertRAGEngine(
-        mockEngine as any,
-        fusionService,
-        defaultConfig
-      );
-
-      await engine.warmUp();
-
-      expect(fusionService.ensureInitialized).toHaveBeenCalledOnce();
-      expect(mockEngine.warmUp).toHaveBeenCalledOnce();
     });
   });
 
@@ -543,39 +511,6 @@ describe('ContextExpertRAGEngine', () => {
       }
     });
 
-    it('should wrap warmUp errors in RAGEngineError', async () => {
-      const mockEngine = createMockRAGEngineImpl();
-      mockEngine.warmUp.mockRejectedValue(new Error('index not found'));
-
-      const fusionService = createMockFusionService();
-      const engine = new ContextExpertRAGEngine(
-        mockEngine as any,
-        fusionService,
-        defaultConfig
-      );
-
-      await expect(engine.warmUp()).rejects.toMatchObject({
-        code: 'EMBEDDING_UNAVAILABLE',
-        message: expect.stringContaining('Warm-up failed'),
-      });
-    });
-
-    it('should handle non-Error in warmUp', async () => {
-      const mockEngine = createMockRAGEngineImpl();
-      mockEngine.warmUp.mockRejectedValue('warmup string error');
-
-      const fusionService = createMockFusionService();
-      const engine = new ContextExpertRAGEngine(
-        mockEngine as any,
-        fusionService,
-        defaultConfig
-      );
-
-      await expect(engine.warmUp()).rejects.toMatchObject({
-        code: 'EMBEDDING_UNAVAILABLE',
-        message: expect.stringContaining('warmup string error'),
-      });
-    });
   });
 });
 
@@ -597,9 +532,7 @@ describe('RAGConfigSchema', () => {
 
     expect(parsed).toEqual({
       max_tokens: 4000,
-      retrieve_k: 20,
       final_k: 5,
-      enhance_query: false,
       ordering: 'sandwich',
     });
   });

@@ -50,11 +50,9 @@ vi.mock('../../../config/paths.js', () => {
     CTX_DIR: dataDir,
     DB_PATH: path.join(dataDir, 'context.db'),
     CONFIG_PATH: path.join(configDir, 'config.toml'),
-    PROVIDERS_PATH: path.join(configDir, 'providers.json'),
     getCtxDir: () => dataDir,
     getDbPath: () => path.join(dataDir, 'context.db'),
     getConfigPath: () => path.join(configDir, 'config.toml'),
-    getProvidersPath: () => path.join(configDir, 'providers.json'),
   };
 });
 

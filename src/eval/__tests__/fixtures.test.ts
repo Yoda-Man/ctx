@@ -124,8 +124,6 @@ describe('Eval Test Fixtures', () => {
     golden_path: '~/.ctx/eval',
     default_k: 5,
     thresholds: { mrr: 0.7, hit_rate: 0.85, precision_at_k: 0.6 },
-    python_path: 'python3',
-    ragas_model: 'gpt-4o-mini',
   };
 
   beforeAll(() => {

@@ -59,7 +59,6 @@ function makeEvalOutput(overrides: Record<string, unknown> = {}) {
     comparison: null,
     regressions: [],
     improvements: [],
-    ragas: null,
     ...overrides,
   };
 }

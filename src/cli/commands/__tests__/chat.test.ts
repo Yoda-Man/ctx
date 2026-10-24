@@ -88,11 +88,6 @@ vi.mock('../../../providers/llm.js', () => ({
   createLLMProvider: vi.fn(),
 }));
 
-// Mock the provider config storage (no stored providers by default)
-vi.mock('../../../config/providers.js', () => ({
-  getDefaultProvider: vi.fn().mockReturnValue(null),
-}));
-
 // Mock citations
 vi.mock('../../../agent/citations.js', () => ({
   formatCitations: vi.fn().mockReturnValue('  [1] src/file.ts:10-20'),
@@ -366,12 +361,7 @@ describe('createChatCommand', () => {
 
       await command.parseAsync(['node', 'test']);
 
-      expect(llmProvider.createLLMProvider).toHaveBeenCalledWith(
-        mockConfig,
-        expect.objectContaining({
-          fallback: expect.any(Object),
-        })
-      );
+      expect(llmProvider.createLLMProvider).toHaveBeenCalledWith(mockConfig);
     });
   });
 

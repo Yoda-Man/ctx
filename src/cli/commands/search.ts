@@ -32,7 +32,7 @@ import {
 } from '../../search/index.js';
 import { CLIError } from '../../errors/index.js';
 import type { Project } from '../../database/schema.js';
-import { createTracer, shouldRecord } from '../../observability/index.js';
+import { shouldRecord } from '../../observability/index.js';
 import { getDatabase } from '../../database/index.js';
 import type { TraceInput } from '../../eval/types.js';
 
@@ -224,17 +224,6 @@ export function createSearchCommand(
       const config = loadConfig();
       ctx.debug(`Embedding: ${config.embedding.model} (${config.embedding.provider})`);
 
-      // Create tracer (NoopTracer if Langfuse not configured)
-      const tracer = createTracer(config);
-      const trace = tracer.trace({
-        name: 'ctx-search',
-        input: trimmedQuery,
-        metadata: { projects: projectNames, topK },
-      });
-      ctx.debug(`Tracer: ${tracer.isRemote ? 'Langfuse' : 'noop'}`);
-
-      let traceEnded = false;
-      try {
       const { provider: embeddingProvider, model: embeddingModel, dimensions } =
         await createEmbeddingProvider(config.embedding, {
           onProgress: (p) => ctx.debug(`Embedding init: ${p.status}`),
@@ -249,10 +238,6 @@ export function createSearchCommand(
       // ─────────────────────────────────────────────────────────────────────
       // 5. Execute search (single-project vs multi-project paths)
       // ─────────────────────────────────────────────────────────────────────
-      const searchSpan = trace.span({
-        name: 'search-retrieval',
-        input: { query: trimmedQuery, topK, rerank: shouldRerank, multiProject: isMultiProject },
-      });
       const searchStart = performance.now();
       let results: SearchResultWithContext[];
 
@@ -320,11 +305,6 @@ export function createSearchCommand(
       }
 
       const searchMs = performance.now() - searchStart;
-      searchSpan.update({
-        output: { resultCount: results.length },
-        metadata: { searchMs, rerank: shouldRerank },
-      });
-      searchSpan.end();
 
       ctx.debug(`Found ${results.length} results`);
 
@@ -361,17 +341,10 @@ export function createSearchCommand(
         ctx.log(formattedResults);
       }
 
-      // End trace and flush to Langfuse (no-op if not configured)
       const totalMs = performance.now() - searchStart;
-      trace.update({
-        output: { resultCount: results.length },
-        metadata: { totalMs, rerank: shouldRerank, multiProject: isMultiProject },
-      });
-      traceEnded = true;
-      trace.end();
 
       // Always-on local trace recording (fire-and-forget, respects sample_rate)
-      if (shouldRecord(config.observability?.sample_rate ?? 1.0)) {
+      if (shouldRecord(config.observability)) {
         try {
           const dbOps = getDatabase();
           // For multi-project, record against the first project
@@ -383,7 +356,6 @@ export function createSearchCommand(
             top_k: topK,
             latency_ms: Math.round(totalMs),
             retrieval_method: 'fusion',
-            langfuse_trace_id: trace.traceId,
             trace_type: 'search',
             metadata: {
               searchMs,
@@ -397,12 +369,6 @@ export function createSearchCommand(
         } catch (err) {
           ctx.debug(`Trace recording failed: ${err}`);
         }
-      }
-      } finally {
-        if (!traceEnded) {
-          trace.end();
-        }
-        await tracer.shutdown().catch((err) => ctx.debug(`Tracer shutdown error: ${err}`));
       }
     });
 }

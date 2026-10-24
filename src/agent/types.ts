@@ -57,16 +57,6 @@ export const RAGConfigSchema = z.object({
   max_tokens: z.number().int().min(500).max(16000).default(4000),
 
   /**
-   * Number of candidates to retrieve initially.
-   *
-   * More candidates = better recall but slower. The reranker (if enabled)
-   * processes these to select final_k results.
-   *
-   * Default: 20 (good balance for code search)
-   */
-  retrieve_k: z.number().int().min(5).max(100).default(20),
-
-  /**
    * Final number of results after reranking.
    *
    * These are assembled into the context. Fewer = more focused answers,
@@ -75,19 +65,6 @@ export const RAGConfigSchema = z.object({
    * Default: 5 (typical for RAG applications)
    */
   final_k: z.number().int().min(1).max(20).default(5),
-
-  /**
-   * Enable LLM-based query enhancement.
-   *
-   * When true, queries are rewritten for better retrieval:
-   * - Expands abbreviations
-   * - Adds synonyms
-   * - Fixes typos
-   *
-   * Requires LLM calls, adding latency and cost.
-   * Default: false (fast mode)
-   */
-  enhance_query: z.boolean().default(false),
 
   /**
    * Ordering strategy for assembled context.
@@ -112,20 +89,11 @@ export type RAGConfig = z.infer<typeof RAGConfigSchema>;
  * Useful for different query types (broad vs. focused).
  */
 export interface RAGEngineOptions {
-  /** Override retrieve_k (initial retrieval count) */
-  retrieveK?: number;
-
   /** Override final_k (results after reranking) */
   finalK?: number;
 
   /** Override max_tokens budget */
   maxTokens?: number;
-
-  /** Override enhance_query flag */
-  enhanceQuery?: boolean;
-
-  /** Skip reranking even if enabled in config */
-  skipRerank?: boolean;
 
   /** Override ordering strategy */
   ordering?: OrderingStrategy;
@@ -424,7 +392,7 @@ export interface RoutingRAGEngineConfig {
    * Embedding dimensions.
    *
    * Must match the dimensions of the embedding model used during indexing.
-   * Common values: 768 (BGE-small), 1024 (BGE-base), 1536 (OpenAI ada-002)
+   * Common values: 384 (BGE-small), 768 (BGE-base), 1024 (BGE-large)
    */
   dimensions: number;
 

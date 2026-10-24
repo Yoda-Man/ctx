@@ -10,7 +10,7 @@
 import type { EmbeddingResult } from './types.js';
 import { BaseEmbeddingProvider } from './base-provider.js';
 import { EmbeddingError } from './errors.js';
-import { loadTransformers } from '../transformers.js';
+import { loadTransformers, withModelDownloadLock } from '../transformers.js';
 
 // ============================================================================
 // Types
@@ -156,11 +156,13 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
 
       // q8: the quantized weights @xenova/transformers loaded by default, so
       // embeddings stay comparable with indexes built before the upgrade.
-      const pipe = await pipeline('feature-extraction', this.model, {
-        dtype: 'q8',
-        ...(this.device === 'cpu' ? { device: 'cpu' as const } : {}),
-        progress_callback: this.onProgress,
-      });
+      const pipe = await withModelDownloadLock(this.model, () =>
+        pipeline('feature-extraction', this.model, {
+          dtype: 'q8',
+          ...(this.device === 'cpu' ? { device: 'cpu' as const } : {}),
+          progress_callback: this.onProgress,
+        })
+      );
 
       return pipe as TransformersPipeline;
     } catch (error) {
@@ -256,31 +258,5 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
    */
   private estimateTokenCount = (text: string): number => {
     return Math.ceil(text.length / 4);
-  };
-
-  /**
-   * Check if the model is loaded.
-   * Useful for checking warmup status.
-   */
-  isLoaded = (): boolean => {
-    return this.pipeline !== null;
-  };
-
-  /**
-   * Pre-load the embedding model.
-   *
-   * Call this during application startup to avoid first-request latency.
-   * The model is loaded lazily by default, so the first embed() call
-   * can take several seconds while the model downloads and initializes.
-   *
-   * @example
-   * ```typescript
-   * const provider = new HuggingFaceEmbeddingProvider();
-   * await provider.warmup(); // Pre-load during startup
-   * // Now embed() calls will be fast
-   * ```
-   */
-  warmup = async (): Promise<void> => {
-    await this.loadPipeline();
   };
 }

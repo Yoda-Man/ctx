@@ -137,7 +137,7 @@ type OnToolCallCallback = (event: ToolCallEvent) => void | Promise<void>;
  * });
  * ```
  */
-export interface ReActEventCallbacks {
+interface ReActEventCallbacks {
   onThought?: OnThoughtCallback;
   onAction?: OnActionCallback;
   onObservation?: OnObservationCallback;

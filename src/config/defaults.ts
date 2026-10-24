@@ -15,9 +15,9 @@ import type { Config } from './schema.js';
  * Optimized for local-first usage with fallbacks
  */
 export const DEFAULT_CONFIG: Config = {
-  // LLM settings - Claude as default for quality
-  default_model: 'claude-sonnet-4-20250514',
-  default_provider: 'anthropic',
+  // LLM settings - a local Ollama model; nothing is sent to a cloud API
+  default_model: 'llama3.2',
+  default_provider: 'ollama',
 
   // Embedding settings - BGE-large via Huggingface (local, no API cost)
   // with Ollama fallback if Huggingface isn't available
@@ -51,8 +51,6 @@ export const DEFAULT_CONFIG: Config = {
       hit_rate: 0.85,
       precision_at_k: 0.6,
     },
-    python_path: 'python3',
-    ragas_model: 'gpt-4o-mini',
   },
 
   // Observability settings - local SQLite traces only
@@ -66,10 +64,10 @@ export const DEFAULT_CONFIG: Config = {
  * Config file template (TOML format)
  * Written to ~/.ctx/config.toml on first run
  */
-export const CONFIG_TEMPLATE = `# Context Expert Configuration
+export const CONFIG_TEMPLATE = `# ctx Configuration
 # Location: ~/.ctx/config.toml
 
-# LLM Settings
+# LLM Settings: a local Ollama model (run: ollama pull <model>)
 default_model = "${DEFAULT_CONFIG.default_model}"
 default_provider = "${DEFAULT_CONFIG.default_provider}"
 
@@ -97,12 +95,10 @@ rerank = ${DEFAULT_CONFIG.search.rerank}
 # ignore_patterns = ["*.tmp", "scratch/", "experiments/"]
 
 # Evaluation Settings
-# Configure golden datasets, quality thresholds, and Python/RAGAS integration
+# Golden datasets and retrieval quality thresholds
 [eval]
 golden_path = "${DEFAULT_CONFIG.eval!.golden_path}"
 default_k = ${DEFAULT_CONFIG.eval!.default_k}
-# python_path = "python3"        # Only needed for: ctx eval run --ragas
-# ragas_model = "gpt-4o-mini"    # LLM judge for answer quality metrics
 
 [eval.thresholds]
 mrr = ${DEFAULT_CONFIG.eval!.thresholds.mrr}

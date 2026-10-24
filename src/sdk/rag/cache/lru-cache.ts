@@ -9,7 +9,7 @@
 
 import type {
   CacheProvider,
-  CacheStats,
+  
   LRUCacheConfig,
   SizeEstimator,
 } from './types.js';
@@ -282,37 +282,6 @@ export class LRUCacheProvider<T = unknown> implements CacheProvider<T> {
     return this.cache.size;
   };
 
-  /**
-   * Get cache statistics for monitoring.
-   *
-   * @returns Stats including hits, misses, size, hit rate, and memory usage
-   */
-  getStats = (): CacheStats => {
-    const total = this.hits + this.misses;
-    const stats: CacheStats = {
-      hits: this.hits,
-      misses: this.misses,
-      size: this.cache.size,
-      hitRate: total > 0 ? this.hits / total : 0,
-    };
-
-    // Include memory stats if using memory-based limits
-    if (this.useMemoryLimit) {
-      stats.memoryUsage = this.currentMemoryBytes;
-      stats.maxMemoryBytes = this.maxMemoryBytes;
-    }
-
-    return stats;
-  };
-
-  /**
-   * Reset cache statistics without clearing entries.
-   */
-  resetStats = (): void => {
-    this.hits = 0;
-    this.misses = 0;
-  };
-
   // ==========================================================================
   // Private Helpers
   // ==========================================================================
@@ -390,24 +359,4 @@ export class LRUCacheProvider<T = unknown> implements CacheProvider<T> {
       this.currentMemoryBytes -= evictedSize;
     }
   }
-
-  // ==========================================================================
-  // Memory Management API (NFR-103)
-  // ==========================================================================
-
-  /**
-   * Get current memory usage in bytes.
-   *
-   * Returns 0 if not using memory-based limits.
-   */
-  memoryUsage = (): number => {
-    return this.currentMemoryBytes;
-  };
-
-  /**
-   * Check if cache is using memory-based limits.
-   */
-  isUsingMemoryLimit = (): boolean => {
-    return this.useMemoryLimit;
-  };
 }

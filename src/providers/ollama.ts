@@ -11,7 +11,6 @@
  */
 
 import { OllamaProvider } from '../sdk/provider-ollama/index.js';
-import { validateOllamaHostUrl } from './validation.js';
 import { getOllamaHost } from '../config/env.js';
 
 // ============================================================================
@@ -79,7 +78,7 @@ export interface OllamaProviderResult {
 // ============================================================================
 
 /** Default model for Ollama - Llama 3.2 (good balance of quality/speed) */
-export const DEFAULT_OLLAMA_MODEL = 'llama3.2';
+const DEFAULT_OLLAMA_MODEL = 'llama3.2';
 
 /** Default timeout for Ollama - 2 minutes (local models can be slow) */
 const DEFAULT_OLLAMA_TIMEOUT = 120000;
@@ -132,9 +131,10 @@ export async function createOllamaProvider(
   const host = options.host ?? getOllamaHost();
 
   // 2. Validate host URL format (validates the ACTUAL host, not just env var)
-  const validation = validateOllamaHostUrl(host);
-  if (!validation.valid) {
-    throw new Error(`${validation.error}\n\n${validation.setupInstructions}`);
+  if (!/^https?:\/\/[^\s/]+/.test(host)) {
+    throw new Error(
+      `Invalid Ollama host URL: ${host}\n\nSet OLLAMA_HOST to an HTTP(S) URL, e.g. export OLLAMA_HOST="http://localhost:11434"`
+    );
   }
 
   // 3. Determine model to use
@@ -155,7 +155,7 @@ export async function createOllamaProvider(
       throw new Error(
         `Ollama server is not available at ${host}.\n\n` +
           'To fix this:\n' +
-          '1. Make sure Ollama is installed (https://ollama.ai/)\n' +
+          '1. Make sure Ollama is installed (https://ollama.com)\n' +
           '2. Start the server: ollama serve\n' +
           `3. Pull the model: ollama pull ${model}\n\n` +
           'Tip: Run `ollama list` to see available models.'

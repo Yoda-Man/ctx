@@ -11,15 +11,15 @@ import { EvalConfigSchema, ObservabilityConfigSchema } from '../eval/types.js';
 
 /**
  * Embedding provider configuration
- * Supports multiple providers: Huggingface (local), Ollama (local), or cloud APIs
+ * Both providers run locally: Huggingface (in process) or Ollama
  */
-export const EmbeddingConfigSchema = z.object({
+const EmbeddingConfigSchema = z.object({
   provider: z
-    .enum(['huggingface', 'ollama', 'openai'])
-    .describe('Embedding provider (huggingface for local BGE, ollama for nomic-embed)'),
+    .enum(['huggingface', 'ollama'])
+    .describe('Embedding provider, both local: huggingface (BGE) or ollama'),
   model: z.string().describe('Embedding model name'),
   fallback_provider: z
-    .enum(['huggingface', 'ollama', 'openai'])
+    .enum(['huggingface', 'ollama'])
     .optional()
     .describe('Fallback provider if primary fails'),
   fallback_model: z
@@ -52,28 +52,6 @@ const SearchConfigSchema = z.object({
 });
 
 /**
- * LLM provider type (used in multiple schemas)
- */
-export const LLMProviderTypeSchema = z.enum(['anthropic', 'openai', 'ollama']);
-
-/**
- * LLM configuration with fallback support
- * This section is optional - defaults work without it
- */
-const LLMConfigSchema = z.object({
-  /** Fallback providers in order of preference (omit to use defaults) */
-  fallback_providers: z
-    .array(LLMProviderTypeSchema)
-    .optional()
-    .describe('Fallback providers if primary fails (e.g., ["openai", "ollama"])'),
-  /** Model to use per fallback provider (uses defaults if omitted) */
-  fallback_models: z
-    .record(LLMProviderTypeSchema, z.string())
-    .optional()
-    .describe('Model to use per fallback provider (e.g., { openai: "gpt-4o" })'),
-});
-
-/**
  * Indexing configuration
  * Controls file discovery behavior during indexing
  */
@@ -89,12 +67,11 @@ const IndexingConfigSchema = z.object({
  * This is the complete shape of config.toml
  */
 export const ConfigSchema = z.object({
-  default_model: z.string().describe('Default LLM model for ask command'),
-  default_provider: LLMProviderTypeSchema.describe('LLM provider to use'),
+  default_model: z.string().describe('Ollama model that answers ask and chat'),
+  /** Always 'ollama': answers come from a local model, never a cloud API */
+  default_provider: z.literal('ollama').describe('LLM provider (local Ollama only)'),
   embedding: EmbeddingConfigSchema,
   search: SearchConfigSchema,
-  /** Optional LLM fallback configuration */
-  llm: LLMConfigSchema.optional(),
   /** Optional RAG pipeline configuration */
   rag: RAGConfigSchema.optional(),
   /** Optional indexing configuration */

@@ -77,8 +77,6 @@ export interface EvalRunOptions {
   projectName: string;
   /** Override top-k for retrieval metrics (defaults to evalConfig.default_k) */
   topK?: number;
-  /** Include generation-quality evaluation via RAGAS (future, not implemented) */
-  includeGeneration?: boolean;
   /** Filter golden entries by tags (only entries with at least one matching tag) */
   tags?: string[];
 }
@@ -209,7 +207,6 @@ export async function runEval(
   // ── Step 2: Create eval_run record ──────────────────────────────────────
   const configSnapshot: Record<string, unknown> = {
     top_k: k,
-    include_generation: options.includeGeneration ?? false,
     tags: tags ?? [],
   };
 

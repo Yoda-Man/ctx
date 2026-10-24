@@ -286,17 +286,6 @@ export class FusionService {
   getProjectId(): string {
     return this.projectId;
   }
-
-  /**
-   * Get chunk counts from both underlying services.
-   */
-  async getChunkCounts(): Promise<{ dense: number; bm25: number }> {
-    const [dense, bm25] = await Promise.all([
-      this.denseService.getChunkCount(),
-      this.bm25Service.getChunkCount(),
-    ]);
-    return { dense, bm25 };
-  }
 }
 
 /**

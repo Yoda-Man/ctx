@@ -343,13 +343,6 @@ export class MultiProjectFusionService {
   }
 
   /**
-   * Get the count of loaded projects.
-   */
-  get loadedProjectCount(): number {
-    return this.vectorManager.loadedProjectCount;
-  }
-
-  /**
    * Clear all loaded projects from both managers.
    *
    * Note: This does NOT clear the underlying store caches.

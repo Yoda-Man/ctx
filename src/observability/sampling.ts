@@ -1,21 +1,24 @@
 /**
- * Trace Sampling
+ * Trace Recording
  *
- * Controls the fraction of interactions recorded to local SQLite.
- * Applied at the command layer before calling insertTrace().
+ * Decides whether an interaction is recorded to the local eval_traces table.
+ * Applied at the command layer before calling insertTrace(). Nothing is ever
+ * sent off the machine.
  *
- * At sample_rate=1.0 (default), every interaction is recorded.
- * At 0.0, no interactions are recorded locally.
- * Fractional values use random sampling for statistical accuracy.
+ * [observability] enabled = false records nothing. Otherwise sample_rate
+ * applies: 1.0 (default) records every interaction, 0.0 none, and values in
+ * between record that fraction at random.
  */
 
 /**
- * Check if this interaction should be recorded based on sample_rate.
+ * Check if this interaction should be recorded.
  *
- * @param sampleRate - Value between 0.0 (never record) and 1.0 (always record)
+ * @param observability - The [observability] config section (defaults apply when absent)
  * @returns true if this interaction should be recorded
  */
-export function shouldRecord(sampleRate: number): boolean {
+export function shouldRecord(observability?: { enabled?: boolean; sample_rate?: number }): boolean {
+  if (observability?.enabled === false) return false;
+  const sampleRate = observability?.sample_rate ?? 1.0;
   if (sampleRate >= 1.0) return true;
   if (sampleRate <= 0.0) return false;
   return Math.random() < sampleRate;

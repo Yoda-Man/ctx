@@ -13,7 +13,7 @@
  * // { type: 'simple', confidence: 0.95, recommendation: { skipRetrieval: true } }
  *
  * classifier.classify('Compare TypeScript and JavaScript');
- * // { type: 'complex', confidence: 0.85, recommendation: { enableEnhancement: true } }
+ * // { type: 'complex', confidence: 0.85, recommendation: { suggestedTopK: 10 } }
  * ```
  */
 
@@ -264,7 +264,7 @@ export class QueryClassifier implements IQueryClassifier {
   classify = (query: string): ClassificationResult => {
     const features = this.extractFeatures(query);
     const { type, confidence } = this.determineType(features, query);
-    const recommendation = this.generateRecommendation(type, features);
+    const recommendation = this.generateRecommendation(type);
 
     return {
       type,
@@ -535,13 +535,11 @@ export class QueryClassifier implements IQueryClassifier {
   /**
    * Generate pipeline recommendation based on query type.
    */
-  private generateRecommendation(type: QueryType, features: QueryFeatures): PipelineRecommendation {
+  private generateRecommendation(type: QueryType): PipelineRecommendation {
     switch (type) {
       case 'simple':
         return {
           skipRetrieval: true,
-          enableEnhancement: false,
-          enableReranking: false,
           suggestedTopK: 0,
           needsConversationContext: false,
         };
@@ -549,8 +547,6 @@ export class QueryClassifier implements IQueryClassifier {
       case 'factual':
         return {
           skipRetrieval: false,
-          enableEnhancement: false, // Standard queries don't need enhancement
-          enableReranking: true,
           suggestedTopK: 5,
           needsConversationContext: false,
         };
@@ -558,9 +554,6 @@ export class QueryClassifier implements IQueryClassifier {
       case 'complex':
         return {
           skipRetrieval: false,
-          enableEnhancement: true,
-          suggestedStrategy: features.wordCount > 20 ? 'multi-query' : 'rewrite',
-          enableReranking: true,
           suggestedTopK: 10,
           needsConversationContext: false,
         };
@@ -568,8 +561,6 @@ export class QueryClassifier implements IQueryClassifier {
       case 'conversational':
         return {
           skipRetrieval: false,
-          enableEnhancement: false, // Enhancement after context resolution
-          enableReranking: true,
           suggestedTopK: 5,
           needsConversationContext: true,
         };

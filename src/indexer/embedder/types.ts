@@ -29,13 +29,13 @@ import type { Logger } from '../../utils/index.js';
  */
 export interface EmbeddingConfig {
   /** Primary embedding provider */
-  provider: 'huggingface' | 'ollama' | 'openai';
+  provider: 'huggingface' | 'ollama';
 
   /** Model identifier (e.g., "BAAI/bge-large-en-v1.5" for HuggingFace) */
   model: string;
 
   /** Fallback provider if primary fails/unavailable */
-  fallback_provider?: 'huggingface' | 'ollama' | 'openai';
+  fallback_provider?: 'huggingface' | 'ollama';
 
   /** Fallback model */
   fallback_model?: string;

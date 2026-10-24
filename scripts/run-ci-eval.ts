@@ -106,8 +106,6 @@ const CI_EVAL_CONFIG: EvalConfig = {
   golden_path: '~/.ctx/eval',
   default_k: 2,
   thresholds: { mrr: 0.6, hit_rate: 0.8, precision_at_k: 0.5 },
-  python_path: 'python3',
-  ragas_model: 'gpt-4o-mini',
 };
 
 // ============================================================================
@@ -198,7 +196,6 @@ async function main(): Promise<void> {
       comparison: summary.comparison ?? null,
       regressions: [],
       improvements: [],
-      ragas: null,
     };
 
     console.log(JSON.stringify(output, null, 2));

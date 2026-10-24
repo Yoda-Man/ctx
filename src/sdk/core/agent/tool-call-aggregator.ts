@@ -129,13 +129,6 @@ export class ToolCallAggregator {
   }
 
   /**
-   * Check if there are any pending tool calls being aggregated
-   */
-  hasPending(): boolean {
-    return this.pending.size > 0;
-  }
-
-  /**
    * Reset state for next ReAct iteration
    *
    * Call this after processing tool calls and before the next LLM call.

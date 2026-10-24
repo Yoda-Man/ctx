@@ -1,39 +1,8 @@
 /**
  * Observability Module
  *
- * Provides the tracer abstraction commands use. Traces stay local.
- * Commands use createTracer(config) to get a Tracer instance, then create
- * traces for their operations.
- *
- * @example
- * ```typescript
- * import { createTracer } from '../observability/index.js';
- *
- * const tracer = createTracer(config);
- * const trace = tracer.trace({ name: 'ctx-ask', input: question });
- * // ... do work ...
- * trace.end();
- * await tracer.shutdown();
- * ```
+ * Interactions are recorded to the local eval_traces table only, as
+ * [observability] in config.toml allows.
  */
 
-// Types
-export type {
-  Tracer,
-  
-  
-  
-  
-  
-  
-  
-} from './types.js';
-
-// Factory (primary API)
-export { createTracer } from './factory.js';
-
-// Implementations (for testing or direct use)
-;
-
-// Sampling
 export { shouldRecord } from './sampling.js';

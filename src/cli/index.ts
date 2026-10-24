@@ -23,11 +23,6 @@ import {
   createGlobalErrorHandler,
   CLIError,
 } from '../errors/index.js';
-import {
-  validateStartupConfig,
-  printStartupValidation,
-  getValidationOptionsForCommand,
-} from '../config/index.js';
 
 // Version injected at build time via tsup define
 const VERSION = process.env.CLI_VERSION ?? '0.0.0';
@@ -56,7 +51,7 @@ ${chalk.dim('Examples:')}
   ${chalk.cyan('ctx config set search.top_k 20')} Change a setting
 
 ${chalk.dim('Documentation:')}
-  https://github.com/your-org/context-expert
+  https://github.com/Yoda-Man/ctx#readme
 `);
 
 /**
@@ -152,36 +147,6 @@ program.on('command:*', (operands: string[]) => {
     `Unknown command: ${operands[0]}`,
     `Run: ctx --help  to see available commands`
   );
-});
-
-// Validate API keys before command execution (for commands that need them)
-program.hook('preAction', (thisCommand) => {
-  const commandName = thisCommand.name();
-  const opts = getGlobalOptions();
-
-  // Get validation options based on command
-  const validationOptions = getValidationOptionsForCommand(commandName);
-
-  // Skip validation if command doesn't need any providers
-  if (validationOptions.skipLLM && validationOptions.skipEmbedding) {
-    return;
-  }
-
-  // Run validation
-  const result = validateStartupConfig(validationOptions);
-
-  // Print errors/warnings (verbose mode shows warnings too)
-  if (result.errors.length > 0 || (opts.verbose && result.warnings.length > 0)) {
-    printStartupValidation(result, opts.verbose);
-
-    // If there are errors, throw to prevent command execution
-    if (result.errors.length > 0) {
-      throw new CLIError(
-        'Configuration validation failed',
-        'Fix the issues above and try again'
-      );
-    }
-  }
 });
 
 // Parse arguments and execute

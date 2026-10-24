@@ -25,12 +25,7 @@
  */
 
 // Types (tree-shakeable)
-export type {
-  CacheProvider,
-  
-  
-  
-} from './types.js';
+;
 
 // Implementations
 export { LRUCacheProvider } from './lru-cache.js';

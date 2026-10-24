@@ -3,7 +3,6 @@
  *
  * Parent command for evaluation and trace analysis:
  *   ctx eval run --project X         Run batch evaluation against golden dataset
- *   ctx eval run --project X --ragas  Include RAGAS answer quality metrics
  *   ctx eval report --project X      Show eval run history with trend arrows
  *   ctx eval report --project X --last 5  Analyze last 5 runs
  *   ctx eval traces                   List recent interaction traces
@@ -17,25 +16,18 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import * as readline from 'node:readline';
 import { existsSync } from 'node:fs';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
-import { randomUUID } from 'node:crypto';
 import type { CommandContext } from '../types.js';
 import { getDatabase, getDb, runMigrations } from '../../database/index.js';
 import { loadConfig } from '../../config/loader.js';
 import { createRAGEngine } from '../../agent/rag-engine.js';
 import { runEval, createEvalRunnerDeps } from '../../eval/runner.js';
-import { loadGoldenDataset, addGoldenEntry, listGoldenEntries } from '../../eval/golden.js';
-import { exportToRagas, writeExport } from '../../eval/exporter.js';
-import { PythonEvalBridge } from '../../eval/python-bridge.js';
+import { addGoldenEntry, listGoldenEntries } from '../../eval/golden.js';
 import { REGRESSION_THRESHOLD, computeTrend, formatTrendReport } from '../../eval/aggregator.js';
 import {
   EvalConfigSchema,
   EvalError,
   type EvalTrace,
   type EvalRunSummary,
-  type RagasResults,
   type RetrievalMetrics,
 } from '../../eval/types.js';
 import { CLIError } from '../../errors/index.js';
@@ -52,7 +44,6 @@ import type { Project } from '../../database/schema.js';
 interface RunCommandOptions {
   project?: string;
   topK?: string;
-  ragas?: boolean;
 }
 
 /**
@@ -81,7 +72,6 @@ interface EvalRunOutputJSON {
   comparison: EvalRunSummary['comparison'] | null;
   regressions: string[];
   improvements: string[];
-  ragas: RagasResults | null;
 }
 
 // ============================================================================
@@ -311,9 +301,6 @@ function formatTraceRow(trace: EvalTrace): string {
   if (trace.feedback === 'negative') feedback = chalk.red('-');
 
   const hasAnswer = trace.answer ? chalk.green('Y') : chalk.dim('N');
-  const langfuse = trace.langfuse_trace_id
-    ? chalk.cyan(trace.langfuse_trace_id.substring(0, 8))
-    : chalk.dim('-');
 
   return [
     chalk.dim(trace.id.substring(0, 8)),
@@ -325,7 +312,6 @@ function formatTraceRow(trace: EvalTrace): string {
     tokensStr,
     hasAnswer,
     feedback,
-    langfuse,
   ].join('  ');
 }
 
@@ -337,8 +323,7 @@ function formatTraceRow(trace: EvalTrace): string {
  * Create the `ctx eval run` subcommand.
  *
  * Orchestrates batch evaluation: loads golden dataset, runs RAG search
- * per entry, computes retrieval metrics, displays formatted results,
- * and optionally invokes the Python/RAGAS bridge for answer quality.
+ * per entry, computes retrieval metrics, and displays formatted results.
  */
 function createRunSubcommand(
   getContext: () => CommandContext
@@ -347,7 +332,6 @@ function createRunSubcommand(
     .description('Run batch evaluation against golden dataset')
     .option('-p, --project <name>', 'Project to evaluate')
     .option('-k, --top-k <number>', 'Override retrieval top-k (default from config)')
-    .option('--ragas', 'Include RAGAS answer quality evaluation (requires Python)')
     .action(async (cmdOptions: RunCommandOptions) => {
       const ctx = getContext();
 
@@ -425,20 +409,7 @@ function createRunSubcommand(
           summary.comparison,
         );
 
-        // ── Step 6: RAGAS integration (optional) ──────────────────────────
-        let ragasResults: RagasResults | null = null;
-
-        if (cmdOptions.ragas) {
-          ragasResults = await runRagasEval(
-            ctx,
-            cmdOptions.project,
-            summary,
-            evalConfig,
-            db,
-          );
-        }
-
-        // ── Step 7: Output results ────────────────────────────────────────
+        // ── Step 6: Output results ────────────────────────────────────────
         if (ctx.options.json) {
           const allPassed = metricRows
             .filter((r) => r.passed !== null)
@@ -455,7 +426,6 @@ function createRunSubcommand(
             comparison: summary.comparison ?? null,
             regressions: metricRows.filter((r) => r.direction === 'down').map((r) => r.name),
             improvements: metricRows.filter((r) => r.direction === 'up').map((r) => r.name),
-            ragas: ragasResults,
           };
 
           console.log(JSON.stringify(output, null, 2));
@@ -463,24 +433,6 @@ function createRunSubcommand(
           // Display formatted results table
           ctx.log('');
           ctx.log(formatResultsTable(summary, metricRows));
-
-          // Display RAGAS results if available
-          if (ragasResults) {
-            ctx.log(chalk.bold('  RAGAS Answer Quality:'));
-            ctx.log('');
-            for (const [metric, score] of Object.entries(ragasResults.scores)) {
-              const formatted = score.toFixed(3);
-              const color = score >= 0.7 ? chalk.green : score >= 0.5 ? chalk.yellow : chalk.red;
-              ctx.log(`    ${metric.padEnd(22)} ${color(formatted)}`);
-            }
-            ctx.log('');
-            ctx.log(
-              chalk.dim(
-                `    Model: ${ragasResults.metadata.model_used} | Duration: ${ragasResults.metadata.duration_seconds.toFixed(1)}s`
-              )
-            );
-            ctx.log('');
-          }
 
           // Overall pass/fail
           const failedMetrics = metricRows.filter((r) => r.passed === false);
@@ -507,105 +459,6 @@ function createRunSubcommand(
         );
       }
     });
-}
-
-/**
- * Run RAGAS evaluation via Python bridge.
- *
- * Checks Python/RAGAS availability, exports golden data to temp JSON,
- * invokes the RAGAS subprocess, and returns results.
- * Gracefully degrades if Python or RAGAS is unavailable.
- */
-async function runRagasEval(
-  ctx: CommandContext,
-  projectName: string,
-  summary: EvalRunSummary,
-  evalConfig: ReturnType<typeof EvalConfigSchema.parse>,
-  db: ReturnType<typeof getDatabase>,
-): Promise<RagasResults | null> {
-  const bridge = new PythonEvalBridge({
-    pythonPath: evalConfig.python_path,
-    ragasModel: evalConfig.ragas_model,
-  });
-
-  // Check availability
-  if (!ctx.options.json) {
-    ctx.log(chalk.dim('  Checking Python/RAGAS availability...'));
-  }
-
-  const avail = await bridge.checkAvailability();
-
-  if (!avail.pythonFound) {
-    if (!ctx.options.json) {
-      ctx.warn('Python not found — skipping RAGAS evaluation');
-      ctx.log(chalk.dim(`  Looked for: ${evalConfig.python_path}`));
-    }
-    return null;
-  }
-
-  if (!avail.ragasAvailable) {
-    if (!ctx.options.json) {
-      ctx.warn('RAGAS package not installed — skipping answer quality evaluation');
-      ctx.log(chalk.dim('  Install: pip install ragas'));
-    }
-    return null;
-  }
-
-  // Export golden dataset + eval results for RAGAS
-  const dataset = loadGoldenDataset(projectName);
-  const evalResults = db.getEvalResults(summary.run_id);
-
-  const sourceEntries = dataset.entries.map((golden) => {
-    const result = evalResults.find((r) => r.query === golden.query);
-    return { golden, evalResult: result };
-  });
-
-  const ragasData = exportToRagas(sourceEntries);
-  const tempDir = path.join(os.tmpdir(), 'ctx-eval');
-  if (!existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-  }
-  const tempPath = path.join(tempDir, `ragas-${randomUUID()}.json`);
-  writeExport(ragasData, tempPath);
-
-  try {
-    if (!ctx.options.json) {
-      const ora = (await import('ora')).default;
-      const spinner = ora({
-        text: 'Running RAGAS evaluation...',
-        color: 'magenta',
-      }).start();
-
-      try {
-        const results = await bridge.runRagas(tempPath, [
-          'faithfulness',
-          'answer_relevancy',
-          'context_precision',
-          'context_recall',
-        ]);
-        spinner.succeed('RAGAS evaluation complete');
-        return results;
-      } catch (error) {
-        spinner.fail('RAGAS evaluation failed');
-        ctx.warn(error instanceof Error ? error.message : String(error));
-        return null;
-      }
-    } else {
-      return await bridge.runRagas(tempPath, [
-        'faithfulness',
-        'answer_relevancy',
-        'context_precision',
-        'context_recall',
-      ]);
-    }
-  } finally {
-    // Clean up temp file
-    try {
-      fs.unlinkSync(tempPath);
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
 }
 
 // ============================================================================
@@ -692,10 +545,10 @@ function createTracesSubcommand(
       ctx.log('');
       ctx.log(
         chalk.dim(
-          'ID        Timestamp           Type    Query                                            Files   Latency  Tokens  Ans  Fb  Langfuse'
+          'ID        Timestamp           Type    Query                                            Files   Latency  Tokens  Ans  Fb'
         )
       );
-      ctx.log(chalk.dim('\u2500'.repeat(150)));
+      ctx.log(chalk.dim('\u2500'.repeat(140)));
 
       for (const trace of traces) {
         ctx.log(formatTraceRow(trace));
@@ -1323,7 +1176,7 @@ function createGoldenGenerateSubcommand(
       const db = getDb();
 
       // Step 2: Sample random chunks (exclude embedding BLOB for efficiency)
-      // Schema: src/database/migrations/001-initial.sql — chunks table
+      // Schema: the 001-initial migration in src/database/migrate.ts, chunks table
       const sampleSize = targetCount * 3; // Over-sample to account for LLM variance
       const chunks = db
         .prepare(

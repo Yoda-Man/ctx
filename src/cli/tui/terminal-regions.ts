@@ -337,11 +337,6 @@ export class TerminalRegionManager extends EventEmitter<TerminalRegionManagerEve
     this.write(ANSI.cursorTo(this.inputRegion.startRow));
   }
 
-  /** Whether streaming is active. */
-  get streaming(): boolean {
-    return this._isStreaming;
-  }
-
   /**
    * Move cursor to the input area for readline.
    * Call this before displaying the prompt.
@@ -366,20 +361,6 @@ export class TerminalRegionManager extends EventEmitter<TerminalRegionManagerEve
     output.push(ANSI.RESTORE_CURSOR);
 
     this.write(output.join(''));
-  }
-
-  /**
-   * Clear the status bar.
-   */
-  clearStatusBar(): void {
-    if (!this.isInitialized) return;
-
-    this.write([
-      ANSI.SAVE_CURSOR,
-      ANSI.cursorTo(this.statusRegion.startRow),
-      ANSI.CLEAR_LINE,
-      ANSI.RESTORE_CURSOR,
-    ].join(''));
   }
 
   /**

@@ -1,4 +1,4 @@
-import type { GenerateOptions, LLMProviderConfig } from '../core/index.js';
+import type { GenerateOptions } from '../core/index.js';
 
 /**
  * Configuration for the Ollama local LLM provider.
@@ -11,7 +11,7 @@ import type { GenerateOptions, LLMProviderConfig } from '../core/index.js';
  * });
  * ```
  */
-export interface OllamaProviderConfig extends Omit<LLMProviderConfig, 'apiKey'> {
+export interface OllamaProviderConfig {
   /**
    * Model identifier (e.g., 'llama3.2', 'mistral', 'codellama').
    * Run `ollama list` to see available models.
@@ -92,7 +92,6 @@ export interface OllamaChatRequest {
   model: string;
   messages: OllamaMessage[];
   stream?: boolean;
-  format?: 'json' | Record<string, unknown>;
   options?: OllamaModelOptions;
   tools?: OllamaTool[];
   keep_alive?: string;
@@ -104,90 +103,45 @@ export interface OllamaChatRequest {
 export interface OllamaModelOptions {
   /** Sampling temperature (0-2) */
   temperature?: number;
-  /** Top-P nucleus sampling */
-  top_p?: number;
-  /** Top-K sampling */
-  top_k?: number;
-  /** Frequency penalty */
-  frequency_penalty?: number;
-  /** Presence penalty */
-  presence_penalty?: number;
-  /** Stop sequences */
-  stop?: string[];
   /** Maximum tokens to generate */
   num_predict?: number;
-  /** Random seed for reproducibility */
-  seed?: number;
 }
 
 /**
- * Ollama chat response (non-streaming).
+ * Ollama chat response (non-streaming): the fields ctx reads.
  */
 export interface OllamaChatResponse {
   model: string;
-  created_at: string;
   message: {
-    role: 'assistant';
     content: string;
     tool_calls?: OllamaToolCall[];
   };
-  done: boolean;
   done_reason?: 'stop' | 'length' | 'load';
   total_duration?: number;
-  load_duration?: number;
   prompt_eval_count?: number;
-  prompt_eval_duration?: number;
   eval_count?: number;
-  eval_duration?: number;
 }
 
 /**
- * Ollama streaming chunk (NDJSON line).
+ * Ollama streaming chunk (NDJSON line): the fields ctx reads.
  */
 export interface OllamaStreamChunk {
   model: string;
-  created_at: string;
   /** Absent on a line that reports an error instead. */
   message?: {
-    role: 'assistant';
     content: string;
     tool_calls?: OllamaToolCall[];
   };
   /** A failure Ollama reports mid-stream, e.g. "EOF"; such a line has no message. */
   error?: string;
   done: boolean;
-  done_reason?: 'stop' | 'length' | 'load';
   /** Only present when done=true */
   total_duration?: number;
-  load_duration?: number;
-  prompt_eval_count?: number;
-  prompt_eval_duration?: number;
-  eval_count?: number;
-  eval_duration?: number;
 }
 
 /**
- * Ollama model information from /api/tags.
- */
-interface OllamaModelInfo {
-  name: string;
-  model: string;
-  modified_at: string;
-  size: number;
-  digest: string;
-  details: {
-    parent_model?: string;
-    format: string;
-    family: string;
-    families?: string[];
-    parameter_size: string;
-    quantization_level: string;
-  };
-}
-
-/**
- * Response from Ollama /api/tags endpoint.
+ * Response from Ollama /api/tags endpoint: the installed models' names.
  */
 export interface OllamaTagsResponse {
-  models: OllamaModelInfo[];
+  models: Array<{ name: string }>;
 }

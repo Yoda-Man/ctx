@@ -8,17 +8,16 @@
  * - Verbose mode (stack traces)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   CLIError,
-  FileNotFoundError,
   ConfigError,
-  APIKeyError,
   DatabaseError,
   ValidationError,
-  NotImplementedError,
   formatError,
   getExitCode,
+  handleError,
+  createGlobalErrorHandler,
 } from '../index.js';
 
 describe('Error Classes', () => {
@@ -61,24 +60,6 @@ describe('Error Classes', () => {
     });
   });
 
-  describe('FileNotFoundError', () => {
-    it('creates error with path', () => {
-      const error = new FileNotFoundError('/path/to/file');
-
-      expect(error.message).toBe('Path does not exist: /path/to/file');
-      expect(error.hint).toBe('Check the path and try again');
-      expect(error.code).toBe(3);
-      expect(error.name).toBe('FileNotFoundError');
-    });
-
-    it('is instanceof CLIError', () => {
-      const error = new FileNotFoundError('/test');
-
-      expect(error).toBeInstanceOf(CLIError);
-      expect(error).toBeInstanceOf(FileNotFoundError);
-    });
-  });
-
   describe('ConfigError', () => {
     it('creates error with default hint', () => {
       const error = new ConfigError('Invalid option');
@@ -93,23 +74,6 @@ describe('Error Classes', () => {
       const error = new ConfigError('Invalid option', 'Custom hint');
 
       expect(error.hint).toBe('Custom hint');
-    });
-  });
-
-  describe('APIKeyError', () => {
-    it('creates error with provider name', () => {
-      const error = new APIKeyError('OpenAI');
-
-      expect(error.message).toBe('OpenAI API key not configured');
-      expect(error.hint).toContain('OPENAI_API_KEY');
-      expect(error.code).toBe(4);
-      expect(error.name).toBe('APIKeyError');
-    });
-
-    it('creates error with custom env var', () => {
-      const error = new APIKeyError('Anthropic', 'CLAUDE_API_KEY');
-
-      expect(error.hint).toContain('CLAUDE_API_KEY');
     });
   });
 
@@ -154,16 +118,6 @@ describe('Error Classes', () => {
     });
   });
 
-  describe('NotImplementedError', () => {
-    it('creates error for feature', () => {
-      const error = new NotImplementedError('Export to PDF');
-
-      expect(error.message).toBe('Export to PDF is not yet implemented');
-      expect(error.hint).toBe('This feature is coming soon');
-      expect(error.code).toBe(1);
-      expect(error.name).toBe('NotImplementedError');
-    });
-  });
 });
 
 describe('formatError', () => {
@@ -255,9 +209,7 @@ describe('formatError', () => {
 describe('getExitCode', () => {
   it('returns code from CLIError', () => {
     expect(getExitCode(new CLIError('test', undefined, 42))).toBe(42);
-    expect(getExitCode(new FileNotFoundError('/x'))).toBe(3);
     expect(getExitCode(new ConfigError('bad'))).toBe(2);
-    expect(getExitCode(new APIKeyError('OpenAI'))).toBe(4);
     expect(getExitCode(new DatabaseError('locked'))).toBe(5);
   });
 
@@ -269,5 +221,38 @@ describe('getExitCode', () => {
     expect(getExitCode('string')).toBe(1);
     expect(getExitCode(null)).toBe(1);
     expect(getExitCode(undefined)).toBe(1);
+  });
+});
+
+describe('handleError', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function capture() {
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    return { stderr, exit };
+  }
+
+  it('writes the formatted error to stderr and exits with its code', () => {
+    const { stderr, exit } = capture();
+    handleError(new ConfigError('bad value'), { json: true });
+
+    expect(JSON.parse(stderr.mock.calls[0]![0] as string)).toMatchObject({ error: 'bad value', code: 2 });
+    expect(exit).toHaveBeenCalledWith(2);
+  });
+
+  it('exits with 1 for an error that is not a CLIError', () => {
+    const { exit } = capture();
+    handleError(new Error('boom'));
+
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it('createGlobalErrorHandler keeps the options it was created with', () => {
+    const { stderr, exit } = capture();
+    createGlobalErrorHandler({ json: true })(new DatabaseError('locked'));
+
+    expect(JSON.parse(stderr.mock.calls[0]![0] as string).error).toBe('locked');
+    expect(exit).toHaveBeenCalledWith(5);
   });
 });

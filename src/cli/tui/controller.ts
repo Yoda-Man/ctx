@@ -79,7 +79,7 @@ export interface TUIControllerOptions {
  * Usage:
  * ```typescript
  * const tui = new TUIController({
- *   model: { name: 'Claude 3.5 Sonnet', provider: 'anthropic' },
+ *   model: { name: 'qwen3.5:9b', provider: 'ollama' },
  *   project: 'my-project',
  *   completer: myTabCompleter,
  * });
@@ -112,7 +112,6 @@ export class TUIController {
 
   // State tracking
   private currentTokens: number = 0;
-  private totalCost: number = 0;
   private turnCount: number = 0;
 
   constructor(options: TUIControllerOptions = {}) {
@@ -148,7 +147,6 @@ export class TUIController {
           warningThreshold: 0.8,
           dangerThreshold: 0.95,
         },
-        cost: { totalUsd: 0 },
       },
       {
         terminalWidth: process.stdout.columns ?? 80,
@@ -273,13 +271,6 @@ export class TUIController {
   }
 
   /**
-   * Set the agent mode.
-   */
-  setMode(mode: AgentMode): void {
-    this.updateStatus({ mode });
-  }
-
-  /**
    * Update token usage.
    */
   updateTokens(used: number, total?: number): void {
@@ -300,22 +291,6 @@ export class TUIController {
   addTokens(inputTokens: number, outputTokens: number): void {
     this.currentTokens += inputTokens + outputTokens;
     this.updateTokens(this.currentTokens);
-  }
-
-  /**
-   * Update session cost.
-   */
-  updateCost(totalUsd: number): void {
-    this.totalCost = totalUsd;
-    this.updateStatus({ cost: { totalUsd } });
-  }
-
-  /**
-   * Add to session cost.
-   */
-  addCost(amountUsd: number): void {
-    this.totalCost += amountUsd;
-    this.updateCost(this.totalCost);
   }
 
   /**
@@ -447,7 +422,7 @@ export class TUIController {
             break;
 
           case 'usage':
-            // Update token/cost tracking
+            // Update token tracking
             if (chunk.usage) {
               const input = chunk.usage.inputTokens ?? 0;
               const output = chunk.usage.outputTokens ?? 0;
@@ -475,16 +450,6 @@ export class TUIController {
     }
 
     return responseText;
-  }
-
-  /**
-   * Clear the chat area.
-   */
-  clearChat(): void {
-    if (!this.isRunning) return;
-    this.inputManager.pause();
-    this.chatArea.clear();
-    this.inputManager.resume();
   }
 
   /**
@@ -555,7 +520,6 @@ export class TUIController {
     console.log(chalk.dim('─'.repeat(40)));
     console.log(chalk.dim('Session ended'));
     console.log(chalk.dim(`Total tokens: ${this.currentTokens.toLocaleString()}`));
-    console.log(chalk.dim(`Total cost: $${this.totalCost.toFixed(2)}`));
     console.log(chalk.dim(`Turns: ${this.turnCount}`));
     console.log(chalk.dim('─'.repeat(40)));
   }

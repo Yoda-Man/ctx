@@ -319,33 +319,4 @@ export class BM25Retriever implements Retriever {
   get documentCount(): number {
     return this.documents.size;
   }
-
-  /**
-   * Get the number of unique terms in the index.
-   */
-  get vocabularySize(): number {
-    return this.invertedIndex.size;
-  }
-
-  /**
-   * Get the average document length.
-   */
-  get averageDocumentLength(): number {
-    return this.avgDocLength;
-  }
-
-  /**
-   * Check if a term exists in the vocabulary.
-   */
-  hasTerm = (term: string): boolean => {
-    return this.invertedIndex.has(term.toLowerCase());
-  };
-
-  /**
-   * Get the IDF value for a term.
-   * Returns undefined if term not in vocabulary.
-   */
-  getIDF = (term: string): number | undefined => {
-    return this.invertedIndex.get(term.toLowerCase())?.idf;
-  };
 }

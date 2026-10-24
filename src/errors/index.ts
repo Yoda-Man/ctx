@@ -14,12 +14,9 @@
 // Error types
 export {
   CLIError,
-  FileNotFoundError,
   ConfigError,
-  APIKeyError,
   DatabaseError,
   ValidationError,
-  NotImplementedError,
 } from './types.js';
 
 // Error handling utilities

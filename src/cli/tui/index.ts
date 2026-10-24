@@ -6,7 +6,7 @@
  *
  * Architecture:
  * - TerminalRegionManager: ANSI scroll regions for fixed layout
- * - StatusLineRenderer: Status bar with mode, context, cost
+ * - StatusLineRenderer: Status bar with mode, context, turns
  * - ChatAreaManager: Scrollable message display
  * - InputManager: Readline wrapper with TUI coordination
  * - TUIController: Orchestrates all components
@@ -17,7 +17,7 @@
  *
  * // Simple usage with startTUI
  * const tui = await startTUI({
- *   model: { name: 'Claude 3.5 Sonnet', provider: 'anthropic' },
+ *   model: { name: 'qwen3.5:9b', provider: 'ollama' },
  *   project: 'my-project',
  *   completer: myTabCompleter,
  *   onLine: async (line) => {

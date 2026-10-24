@@ -2,12 +2,12 @@
 
 **Status**: Accepted
 **Date**: 2026-02-05
-**Context**: Ticket #109 — TUI Architecture
+**Context**: Ticket #109 in the original Context Expert repository, TUI Architecture
 
 ## Context
 
 The `ctx chat` command used a basic readline REPL. Users needed:
-- A fixed status bar showing mode, context gauge, cost, and current activity
+- A fixed status bar showing mode, context gauge, and current activity (it also showed session cost until ctx moved to local models only)
 - A scrollable chat area for messages and streaming LLM responses
 - An input area that stays in place during output scrolling
 
@@ -62,7 +62,7 @@ Row N     | Input Area (fixed, readline)  |  <- readline manages this
 - Zero runtime dependencies beyond chalk (already used)
 - Full control over cursor positioning and scroll behavior
 - Streaming writes directly to stdout with no React reconciliation overhead
-- Small code footprint (~450 lines for all TUI components)
+- Small code footprint (about 450 lines when adopted; about 2,500 in `src/cli/tui/` today)
 
 ### Negative
 
@@ -79,4 +79,3 @@ Row N     | Input Area (fixed, readline)  |  <- readline manages this
 ## References
 
 - [DECSTBM specification](https://gist.github.com/christianparpart/d8a62cc1ab659194337d73e399004036)
-- `.claude/CLI Coding Agent UX Research.md` — Research on agentic CLI patterns

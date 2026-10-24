@@ -212,7 +212,7 @@ function formatConversationAsMarkdown(
 
   // Footer
   lines.push('');
-  lines.push(`*Exported from [Context Expert](https://github.com/contextexpert/cli) on ${formatDate(now)}*`);
+  lines.push(`*Exported from [ctx](https://github.com/Yoda-Man/ctx) on ${formatDate(now)}*`);
 
   return lines.join('\n');
 }

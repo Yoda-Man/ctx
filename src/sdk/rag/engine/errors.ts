@@ -32,13 +32,7 @@ export class RAGEngineError extends ContextAIError {
   /** Name of the engine that failed */
   readonly engineName: string;
   /** Which pipeline stage failed */
-  readonly stage?:
-    | 'enhancement'
-    | 'retrieval'
-    | 'reranking'
-    | 'verification'
-    | 'assembly'
-    | 'cache';
+  readonly stage?: 'retrieval' | 'assembly' | 'cache';
   /** Underlying cause, if any */
   override readonly cause?: Error;
 
@@ -46,7 +40,7 @@ export class RAGEngineError extends ContextAIError {
     message: string,
     code: RAGEngineErrorCode,
     engineName: string,
-    stage?: 'enhancement' | 'retrieval' | 'reranking' | 'verification' | 'assembly' | 'cache',
+    stage?: 'retrieval' | 'assembly' | 'cache',
     cause?: Error
   ) {
     super(message, `RAG_ENGINE_${code}`);
@@ -85,23 +79,6 @@ export class RAGEngineError extends ContextAIError {
   }
 
   /**
-   * Create an error for query enhancement failures.
-   */
-  static enhancementFailed(
-    engineName: string,
-    reason: string,
-    cause?: Error
-  ): RAGEngineError {
-    return new RAGEngineError(
-      `Enhancement failed: ${reason}`,
-      'ENHANCEMENT_FAILED',
-      engineName,
-      'enhancement',
-      cause
-    );
-  }
-
-  /**
    * Create an error for retrieval failures.
    */
   static retrievalFailed(
@@ -114,40 +91,6 @@ export class RAGEngineError extends ContextAIError {
       'RETRIEVAL_FAILED',
       engineName,
       'retrieval',
-      cause
-    );
-  }
-
-  /**
-   * Create an error for reranking failures.
-   */
-  static rerankingFailed(
-    engineName: string,
-    reason: string,
-    cause?: Error
-  ): RAGEngineError {
-    return new RAGEngineError(
-      `Reranking failed: ${reason}`,
-      'RERANKING_FAILED',
-      engineName,
-      'reranking',
-      cause
-    );
-  }
-
-  /**
-   * Create an error for verification failures.
-   */
-  static verificationFailed(
-    engineName: string,
-    reason: string,
-    cause?: Error
-  ): RAGEngineError {
-    return new RAGEngineError(
-      `Verification failed: ${reason}`,
-      'VERIFICATION_FAILED',
-      engineName,
-      'verification',
       cause
     );
   }
@@ -170,23 +113,6 @@ export class RAGEngineError extends ContextAIError {
   }
 
   /**
-   * Create an error for cache-related failures.
-   */
-  static cacheError(
-    engineName: string,
-    reason: string,
-    cause?: Error
-  ): RAGEngineError {
-    return new RAGEngineError(
-      `Cache error: ${reason}`,
-      'CACHE_ERROR',
-      engineName,
-      'cache',
-      cause
-    );
-  }
-
-  /**
    * Create an error for configuration issues.
    */
   static configError(engineName: string, reason: string): RAGEngineError {
@@ -202,7 +128,7 @@ export class RAGEngineError extends ContextAIError {
    */
   static aborted(
     engineName: string,
-    stage: 'enhancement' | 'retrieval' | 'reranking' | 'verification' | 'assembly'
+    stage: 'retrieval' | 'assembly'
   ): RAGEngineError {
     return new RAGEngineError(
       `Operation aborted during ${stage}`,

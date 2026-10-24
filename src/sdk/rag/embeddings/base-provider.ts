@@ -31,22 +31,17 @@ const DEFAULT_MAX_BATCH_SIZE = 100;
  *
  * @example
  * ```typescript
- * class OpenAIEmbeddingProvider extends BaseEmbeddingProvider {
- *   constructor(apiKey: string) {
- *     super({
- *       model: 'text-embedding-3-small',
- *       dimensions: 1536,
- *       batchSize: 2048
- *     });
- *     this.apiKey = apiKey;
+ * class LocalEmbeddingProvider extends BaseEmbeddingProvider {
+ *   constructor() {
+ *     super({ model: 'Xenova/bge-large-en-v1.5', dimensions: 1024, batchSize: 32 });
  *   }
  *
  *   protected async _embed(text: string): Promise<EmbeddingResult> {
- *     // Call OpenAI API
+ *     // Run the local model
  *   }
  *
  *   async isAvailable(): Promise<boolean> {
- *     return !!this.apiKey;
+ *     return true;
  *   }
  * }
  * ```

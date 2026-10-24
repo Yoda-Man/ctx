@@ -11,7 +11,7 @@
 
 import type { EmbeddingProvider, EmbeddingResult } from './types.js';
 import { BaseEmbeddingProvider } from './base-provider.js';
-import { LRUCacheProvider, type CacheProvider } from '../cache/index.js';
+import { LRUCacheProvider,  } from '../cache/index.js';
 
 // ============================================================================
 // Cache Interface
@@ -132,16 +132,6 @@ class LRUEmbeddingCache implements EmbeddingCache {
    */
   size = (): number => {
     return this.provider.size();
-  };
-
-  /**
-   * Access the underlying generic cache provider.
-   *
-   * Useful for accessing additional features like stats or TTL that aren't
-   * part of the legacy EmbeddingCache interface.
-   */
-  getProvider = (): CacheProvider<number[]> => {
-    return this.provider;
   };
 }
 
@@ -312,32 +302,5 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
     }
 
     return results as EmbeddingResult[];
-  };
-
-  /**
-   * Get cache statistics.
-   */
-  getStats = (): { hits: number; misses: number; hitRate: number } => {
-    const total = this.hits + this.misses;
-    return {
-      hits: this.hits,
-      misses: this.misses,
-      hitRate: total > 0 ? this.hits / total : 0,
-    };
-  };
-
-  /**
-   * Clear the cache.
-   */
-  clearCache = async (): Promise<void> => {
-    await this.cache.clear();
-  };
-
-  /**
-   * Reset statistics.
-   */
-  resetStats = (): void => {
-    this.hits = 0;
-    this.misses = 0;
   };
 }

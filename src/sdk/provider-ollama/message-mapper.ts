@@ -145,33 +145,9 @@ function mapOptions(options?: GenerateOptions): OllamaModelOptions {
     ollamaOptions.temperature = options.temperature;
   }
 
-  if (options.topP !== undefined) {
-    ollamaOptions.top_p = options.topP;
-  }
-
-  if (options.topK !== undefined) {
-    ollamaOptions.top_k = options.topK;
-  }
-
-  if (options.frequencyPenalty !== undefined) {
-    ollamaOptions.frequency_penalty = options.frequencyPenalty;
-  }
-
-  if (options.presencePenalty !== undefined) {
-    ollamaOptions.presence_penalty = options.presencePenalty;
-  }
-
-  if (options.stopSequences?.length) {
-    ollamaOptions.stop = options.stopSequences;
-  }
-
   if (options.maxTokens !== undefined) {
     // Ollama uses num_predict instead of max_tokens
     ollamaOptions.num_predict = options.maxTokens;
-  }
-
-  if (options.seed !== undefined) {
-    ollamaOptions.seed = options.seed;
   }
 
   return ollamaOptions;
@@ -189,7 +165,6 @@ function mapOptions(options?: GenerateOptions): OllamaModelOptions {
  * - Mapped messages
  * - Model options (temperature, etc.)
  * - Tools (if any)
- * - Response format (if JSON mode)
  */
 export function buildRequestBody(
   model: string,
@@ -215,19 +190,6 @@ export function buildRequestBody(
   // Add tools if provided
   if (options?.tools?.length) {
     request.tools = mapTools(options.tools);
-  }
-
-  // Handle response format
-  if (options?.responseFormat) {
-    if (options.responseFormat.type === 'json_object') {
-      request.format = 'json';
-    } else if (
-      options.responseFormat.type === 'json_schema' &&
-      options.responseFormat.jsonSchema?.schema
-    ) {
-      // Ollama supports JSON schema directly
-      request.format = options.responseFormat.jsonSchema.schema;
-    }
   }
 
   // Add keep_alive if specified

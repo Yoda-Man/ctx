@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-10-23
 
 First release of `yodaman-ctx`, YodaMan's fork of `@contextexpert/cli` 1.4.0
-(the entries below that are its history). The `ctx` command, the `~/.ctx`
-index, database and configuration are unchanged.
+(the entries below that are its history). The `ctx` command and the `~/.ctx`
+index and database are unchanged. ctx is now private by design: it answers
+only with a local Ollama model, and nothing is sent to a cloud service.
 
 ### Fixed
 - **`ctx ask` failed with "Failed to connect to Ollama server: Cannot read
@@ -22,6 +23,26 @@ index, database and configuration are unchanged.
   was reported as a connection failure. The stream now ends with Ollama's own
   message ("Ollama stopped generating: EOF"), and only fetch's network
   failures count as connection errors.
+- **`ctx ask` cited every source at line 0**, with no language and file type
+  "unknown", in its answers and in `--context-only` JSON, and the XML context
+  had no line range. The line range, language and file type were dropped on
+  the way from search results to sources; sources now carry them, and each
+  `<source>` has `location="lines 42-67"`.
+- `ctx chat`'s `/share` export linked to a repository that does not exist.
+- **`[observability] enabled = false` did not stop recording.** The setting
+  was never read, so every `ask`, `search` and `chat` was still written to
+  the local trace table. It now turns recording off.
+- **`ctx config reset --json` deleted the configuration without `--force`.**
+  It now requires `--force` in every mode, as `ctx remove` does, and without
+  it reports `confirmation_required`.
+- Every command printed `◇ injected env (0) from .env` (dotenv's notice) to
+  stderr, and `ctx --help` linked to a placeholder repository.
+- **Several ctx processes started together each downloaded the same model.**
+  Every one fetched hundreds of MB into its own temp file; five at once split
+  the bandwidth and none finished. The first now downloads while the others
+  wait and then load it from disk, via a per-model lock in
+  `~/.ctx/models/.locks` (taken over if its process has exited). A model
+  already on disk takes no lock, so parallel searches never wait.
 - **A reranker model that could not load failed the whole search.** Reranking
   only refines the order, so when its model cannot load (offline, or a
   download cut off: "Failed to load model ...: terminated") ctx now warns once
@@ -36,17 +57,40 @@ index, database and configuration are unchanged.
   whose config set a model.
 
 ### Removed
+- **Cloud models: Anthropic (Claude), OpenAI and OpenAI-compatible APIs**,
+  with the `@anthropic-ai/sdk` and `openai` packages, the `/provider` command
+  in `ctx chat` and the fallback between providers. Answers come from a local
+  Ollama model (`default_model`, default `llama3.2`). A config that still names
+  a cloud `default_provider` is ignored with a warning, together with its
+  model, and the `[llm]` fallback section is ignored. API keys are no longer
+  read, and `~/.ctx/providers.json` is no longer used (it may hold API keys
+  in plain text; delete it if you no longer need them).
+- **`ctx eval run --ragas`**, which sent questions, answers and code to OpenAI
+  to judge answer quality, with the `eval.python_path` and `eval.ragas_model`
+  settings. Retrieval metrics are unchanged.
+- **`[rag] retrieve_k` and `enhance_query`**, which did nothing: retrieval
+  always used `final_k`, and no query enhancer was ever set up. The engine
+  stages behind them (query enhancement, a second reranker, LLM
+  verification) never ran and are gone too; search reranking is unchanged.
+  The settings are ignored with a warning if still in a config.
+- **The session cost in `ctx chat`'s status bar**, always $0.00 with local
+  models.
+- **The tracer layer** that `ask`, `search` and `chat` called on every run:
+  with cloud tracing gone it did nothing. Local recording to SQLite is
+  unchanged. The Langfuse column in `ctx eval traces` output, always empty,
+  is gone too.
+- **Unused code**: everything the code never calls, found by the compiler,
+  knip and a reference scan of every class member, including the vendored
+  SDK's unused error factories, stats getters and options.
 - **Langfuse cloud tracing** and its dependencies (`@langfuse/otel`,
   `@langfuse/tracing`, `@opentelemetry/sdk-node`). Traces are recorded to
   local SQLite only. Langfuse keys in an existing config are ignored with a
   warning; the `langfuse_trace_id` column stays, so no migration is needed.
-- The Anthropic provider no longer sends `temperature`, `top_p` or `top_k`,
-  which the Messages API removed.
 
 ### Changed
 - **Every dependency is at its latest version**: zod 4, commander 15, chalk 6,
-  ora 9, marked 18, dotenv 18, better-sqlite3 13, tree-sitter 0.25.1, openai 7,
-  `@anthropic-ai/sdk` 1, TypeScript 7, vitest 5, tsup 9.
+  ora 9, marked 18, dotenv 18, better-sqlite3 13, tree-sitter 0.25.1,
+  TypeScript 7, vitest 5, tsup 9.
 - **`@huggingface/transformers` replaces `@xenova/transformers`** for local
   embeddings and reranking, with the same quantized weights (`q8`) so existing
   indexes stay comparable.

@@ -13,7 +13,6 @@
  */
 
 import type { RAGSearchOptions, RAGResult, RAGEngine } from '../engine/types.js';
-import type { EnhancementStrategy } from '../query-enhancement/types.js';
 
 // ============================================================================
 // Query Classification Types
@@ -108,15 +107,6 @@ export interface ClassificationResult {
 export interface PipelineRecommendation {
   /** Whether to skip retrieval entirely */
   skipRetrieval: boolean;
-
-  /** Whether to enable query enhancement */
-  enableEnhancement: boolean;
-
-  /** Suggested enhancement strategy (if enhancement enabled) */
-  suggestedStrategy?: EnhancementStrategy;
-
-  /** Whether to enable reranking */
-  enableReranking: boolean;
 
   /** Suggested topK based on query complexity */
   suggestedTopK: number;
@@ -322,7 +312,7 @@ export interface AdaptiveRAGResult extends RAGResult {
  *
  * const result2 = classifier.classify('Compare React and Vue for large apps');
  * // result2.type: 'complex'
- * // result2.recommendation.enableEnhancement: true
+ * // result2.recommendation.suggestedTopK: 10
  * ```
  */
 export interface IQueryClassifier {

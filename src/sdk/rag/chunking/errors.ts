@@ -216,34 +216,4 @@ export class ChunkerError extends ContextAIError {
       chunkerName
     );
   }
-
-  /**
-   * Create an error when LLM response cannot be parsed.
-   *
-   * @param chunkerName - Name of the chunker that failed to parse
-   * @param details - Description of what couldn't be parsed
-   * @param cause - Optional underlying parsing error
-   *
-   * @example
-   * ```typescript
-   * try {
-   *   const chunks = JSON.parse(llmResponse);
-   * } catch (e) {
-   *   throw ChunkerError.llmParseError('AgenticChunker', 'Invalid JSON in response', e);
-   * }
-   * ```
-   */
-  static llmParseError(
-    chunkerName: string,
-    details: string,
-    cause?: Error
-  ): ChunkerError {
-    return new ChunkerError(
-      `Failed to parse LLM response: ${details}`,
-      'LLM_PARSE_ERROR',
-      chunkerName,
-      undefined,
-      cause
-    );
-  }
 }

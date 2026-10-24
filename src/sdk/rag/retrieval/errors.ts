@@ -69,22 +69,6 @@ export class RetrieverError extends ContextAIError {
   }
 
   /**
-   * Create an error for retrieval failure.
-   */
-  static retrievalFailed(
-    retrieverName: string,
-    reason: string,
-    cause?: Error
-  ): RetrieverError {
-    return new RetrieverError(
-      `Retrieval failed: ${reason}`,
-      'RETRIEVAL_FAILED',
-      retrieverName,
-      cause
-    );
-  }
-
-  /**
    * Create an error for configuration issues.
    */
   static configError(

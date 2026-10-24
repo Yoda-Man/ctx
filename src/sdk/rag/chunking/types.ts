@@ -18,7 +18,7 @@ import type { Chunk } from '../vector-store/types.js';
  * - tokens: Count by estimated tokens (~4 chars = 1 token)
  * - characters: Count by raw characters
  */
-export type SizeUnit = 'tokens' | 'characters';
+type SizeUnit = 'tokens' | 'characters';
 
 /**
  * Options for chunking operations.

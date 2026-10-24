@@ -85,8 +85,8 @@ describe('createCheckCommand', () => {
 
     // Set up mock config
     vi.mocked(configLoader.loadConfig).mockReturnValue({
-      default_provider: 'anthropic',
-      default_model: 'claude-sonnet-4-20250514',
+      default_provider: 'ollama',
+      default_model: 'qwen3.5:9b',
       embedding: {
         provider: 'huggingface',
         model: 'BAAI/bge-large-en-v1.5',
@@ -242,11 +242,11 @@ describe('createCheckCommand', () => {
   describe('embedding model mismatch (warning, still ready)', () => {
     beforeEach(() => {
       vi.mocked(configLoader.loadConfig).mockReturnValue({
-        default_provider: 'anthropic',
-        default_model: 'claude-sonnet-4-20250514',
+        default_provider: 'ollama',
+        default_model: 'qwen3.5:9b',
         embedding: {
-          provider: 'openai',
-          model: 'text-embedding-3-small',
+          provider: 'ollama',
+          model: 'nomic-embed-text',
           batch_size: 32,
         },
         search: {

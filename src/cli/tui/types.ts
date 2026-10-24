@@ -66,16 +66,6 @@ interface TokenUsageState {
 }
 
 /**
- * Cost tracking for status bar display.
- */
-interface CostState {
-  /** Total cost in USD for current session */
-  totalUsd: number;
-  /** Optional budget limit - triggers warnings when approached */
-  budgetUsd?: number;
-}
-
-/**
  * Current activity description for status bar.
  */
 interface ActivityState {
@@ -89,9 +79,9 @@ interface ActivityState {
  * Model information for status bar.
  */
 interface ModelState {
-  /** Display name (e.g., 'Claude 3.5 Sonnet') */
+  /** Display name (e.g., 'qwen3.5:9b') */
   name: string;
-  /** Provider name (e.g., 'anthropic', 'openai') */
+  /** Provider name ('ollama') */
   provider: string;
 }
 
@@ -106,8 +96,6 @@ export interface StatusLineState {
   phase: AgentPhase;
   /** Token/context usage */
   tokens: TokenUsageState;
-  /** Session cost tracking */
-  cost: CostState;
   /** Current activity (tool usage) */
   activity: ActivityState;
   /** Active model info */

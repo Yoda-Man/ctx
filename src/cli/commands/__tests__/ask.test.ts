@@ -149,8 +149,8 @@ describe('createAskCommand', () => {
 
     // Mock config
     vi.mocked(configLoader.loadConfig).mockReturnValue({
-      default_provider: 'anthropic',
-      default_model: 'claude-sonnet-4-20250514',
+      default_provider: 'ollama',
+      default_model: 'qwen3.5:9b',
       embedding: {
         provider: 'huggingface',
         model: 'BAAI/bge-small-en-v1.5',
@@ -182,11 +182,8 @@ describe('createAskCommand', () => {
     };
     vi.mocked(llmProvider.createLLMProvider).mockResolvedValue({
       provider: mockLLMProvider as unknown as ReturnType<typeof llmProvider.createLLMProvider> extends Promise<infer T> ? T extends { provider: infer P } ? P : never : never,
-      name: 'anthropic',
-      model: 'claude-sonnet-4-20250514',
-      usedFallback: false,
-      requestedProvider: 'anthropic',
-      failedAttempts: [],
+      name: 'ollama',
+      model: 'qwen3.5:9b',
     });
 
     // Mock formatCitations
@@ -436,8 +433,8 @@ describe('createAskCommand', () => {
       const output = JSON.parse(consoleLogSpy.mock.calls[0][0]);
       expect(output.metadata).toBeDefined();
       expect(output.metadata.projectSearched).toBe('test-project');
-      expect(output.metadata.model).toBe('claude-sonnet-4-20250514');
-      expect(output.metadata.provider).toBe('anthropic');
+      expect(output.metadata.model).toBe('qwen3.5:9b');
+      expect(output.metadata.provider).toBe('ollama');
     });
 
     it('includes timing metadata', async () => {
@@ -477,7 +474,7 @@ describe('createAskCommand', () => {
     it('shows model info in verbose mode', async () => {
       await runCommand(['How does auth work?']);
 
-      expect(logOutput.some((line) => line.includes('anthropic'))).toBe(true);
+      expect(logOutput.some((line) => line.includes('ollama'))).toBe(true);
     });
   });
 
@@ -637,17 +634,10 @@ describe('createAskCommand', () => {
   });
 
   describe('LLM provider integration', () => {
-    it('creates LLM provider with fallback callbacks', async () => {
+    it('creates the LLM provider from config alone', async () => {
       await runCommand(['How does auth work?']);
 
-      expect(llmProvider.createLLMProvider).toHaveBeenCalledWith(
-        expect.any(Object),
-        expect.objectContaining({
-          fallback: expect.objectContaining({
-            onFallback: expect.any(Function),
-          }),
-        })
-      );
+      expect(llmProvider.createLLMProvider).toHaveBeenCalledWith(expect.any(Object));
     });
 
     it('builds system prompt with RAG context', async () => {

@@ -104,47 +104,4 @@ export class RerankerError extends ContextAIError {
       rerankerName
     );
   }
-
-  /**
-   * Create an error for configuration issues.
-   */
-  static configError(rerankerName: string, reason: string): RerankerError {
-    return new RerankerError(
-      `Configuration error: ${reason}`,
-      'CONFIG_ERROR',
-      rerankerName
-    );
-  }
-
-  /**
-   * Create an error for LLM-related failures.
-   * Used by LLMReranker when the underlying LLM fails.
-   */
-  static llmError(
-    rerankerName: string,
-    reason: string,
-    cause?: Error
-  ): RerankerError {
-    return new RerankerError(
-      `LLM error: ${reason}`,
-      'LLM_ERROR',
-      rerankerName,
-      cause
-    );
-  }
-
-  /**
-   * Create an error when embeddings are required but not available.
-   * Used by MMR reranker when results lack embeddings.
-   */
-  static embeddingRequired(
-    rerankerName: string,
-    reason: string
-  ): RerankerError {
-    return new RerankerError(
-      `Embeddings required: ${reason}`,
-      'EMBEDDING_REQUIRED',
-      rerankerName
-    );
-  }
 }

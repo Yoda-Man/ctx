@@ -14,7 +14,6 @@ import type {
 } from './types.js';
 import { DEFAULT_CHUNKING_OPTIONS } from './types.js';
 import { ChunkerError } from './errors.js';
-import { measureSize } from './token-counter.js';
 
 /** Minimum allowed chunk size in tokens */
 const MIN_CHUNK_SIZE = 10;
@@ -226,15 +225,5 @@ export abstract class BaseChunker implements ChunkingStrategy {
       ...chunk,
       content: header + chunk.content,
     };
-  };
-
-  /**
-   * Measure the size of text in the configured unit.
-   */
-  protected measureText = (
-    text: string,
-    options: Required<ChunkingOptions>
-  ): number => {
-    return measureSize(text, options.sizeUnit);
   };
 }

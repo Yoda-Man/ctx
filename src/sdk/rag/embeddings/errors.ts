@@ -11,10 +11,10 @@ import type { EmbeddingErrorCode, EmbeddingErrorDetails } from './types.js';
  * @example
  * ```typescript
  * throw new EmbeddingError(
- *   'Rate limit exceeded',
- *   'RATE_LIMIT',
- *   'OpenAIEmbeddingProvider',
- *   'text-embedding-3-small',
+ *   'Model failed to load',
+ *   'PROVIDER_UNAVAILABLE',
+ *   'HuggingFaceEmbeddingProvider',
+ *   'Xenova/bge-large-en-v1.5',
  *   originalError
  * );
  * ```
@@ -54,74 +54,6 @@ export class EmbeddingError extends ContextAIError {
       model: this.model,
       cause: this.cause,
     };
-  }
-
-  /**
-   * Create an error for rate limit exceeded.
-   */
-  static rateLimitExceeded(
-    providerName: string,
-    model: string,
-    cause?: Error
-  ): EmbeddingError {
-    return new EmbeddingError(
-      'Rate limit exceeded. Please wait before making more requests.',
-      'RATE_LIMIT',
-      providerName,
-      model,
-      cause
-    );
-  }
-
-  /**
-   * Create an error for model not found.
-   */
-  static modelNotFound(
-    providerName: string,
-    model: string,
-    cause?: Error
-  ): EmbeddingError {
-    return new EmbeddingError(
-      `Model "${model}" not found or not available`,
-      'MODEL_NOT_FOUND',
-      providerName,
-      model,
-      cause
-    );
-  }
-
-  /**
-   * Create an error for batch too large.
-   */
-  static batchTooLarge(
-    providerName: string,
-    model: string,
-    batchSize: number,
-    maxBatchSize: number
-  ): EmbeddingError {
-    return new EmbeddingError(
-      `Batch size ${batchSize} exceeds maximum ${maxBatchSize}`,
-      'BATCH_TOO_LARGE',
-      providerName,
-      model
-    );
-  }
-
-  /**
-   * Create an error for text too long.
-   */
-  static textTooLong(
-    providerName: string,
-    model: string,
-    textLength: number,
-    maxLength: number
-  ): EmbeddingError {
-    return new EmbeddingError(
-      `Text length ${textLength} exceeds maximum ${maxLength} characters`,
-      'TEXT_TOO_LONG',
-      providerName,
-      model
-    );
   }
 
   /**
