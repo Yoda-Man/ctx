@@ -7,7 +7,7 @@
 ## Context
 
 The `ctx chat` command used a basic readline REPL. Users needed:
-- A fixed status bar showing mode, context gauge, cost, and current activity
+- A fixed status bar showing mode, context gauge, and current activity (it also showed session cost until ctx moved to local models only)
 - A scrollable chat area for messages and streaming LLM responses
 - An input area that stays in place during output scrolling
 

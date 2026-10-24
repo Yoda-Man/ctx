@@ -28,6 +28,7 @@ only with a local Ollama model, and nothing is sent to a cloud service.
   had no line range. The line range, language and file type were dropped on
   the way from search results to sources; sources now carry them, and each
   `<source>` has `location="lines 42-67"`.
+- `ctx chat`'s `/share` export linked to a repository that does not exist.
 - **`[observability] enabled = false` did not stop recording.** The setting
   was never read, so every `ask`, `search` and `chat` was still written to
   the local trace table. It now turns recording off.
@@ -67,6 +68,13 @@ only with a local Ollama model, and nothing is sent to a cloud service.
 - **`ctx eval run --ragas`**, which sent questions, answers and code to OpenAI
   to judge answer quality, with the `eval.python_path` and `eval.ragas_model`
   settings. Retrieval metrics are unchanged.
+- **`[rag] retrieve_k` and `enhance_query`**, which did nothing: retrieval
+  always used `final_k`, and no query enhancer was ever set up. The engine
+  stages behind them (query enhancement, a second reranker, LLM
+  verification) never ran and are gone too; search reranking is unchanged.
+  The settings are ignored with a warning if still in a config.
+- **The session cost in `ctx chat`'s status bar**, always $0.00 with local
+  models.
 - **The tracer layer** that `ask`, `search` and `chat` called on every run:
   with cloud tracing gone it did nothing. Local recording to SQLite is
   unchanged. The Langfuse column in `ctx eval traces` output, always empty,
