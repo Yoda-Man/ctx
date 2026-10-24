@@ -8,7 +8,7 @@
  * - Verbose mode (stack traces)
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   CLIError,
   ConfigError,
@@ -16,6 +16,8 @@ import {
   ValidationError,
   formatError,
   getExitCode,
+  handleError,
+  createGlobalErrorHandler,
 } from '../index.js';
 
 describe('Error Classes', () => {
@@ -219,5 +221,38 @@ describe('getExitCode', () => {
     expect(getExitCode('string')).toBe(1);
     expect(getExitCode(null)).toBe(1);
     expect(getExitCode(undefined)).toBe(1);
+  });
+});
+
+describe('handleError', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function capture() {
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    return { stderr, exit };
+  }
+
+  it('writes the formatted error to stderr and exits with its code', () => {
+    const { stderr, exit } = capture();
+    handleError(new ConfigError('bad value'), { json: true });
+
+    expect(JSON.parse(stderr.mock.calls[0]![0] as string)).toMatchObject({ error: 'bad value', code: 2 });
+    expect(exit).toHaveBeenCalledWith(2);
+  });
+
+  it('exits with 1 for an error that is not a CLIError', () => {
+    const { exit } = capture();
+    handleError(new Error('boom'));
+
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it('createGlobalErrorHandler keeps the options it was created with', () => {
+    const { stderr, exit } = capture();
+    createGlobalErrorHandler({ json: true })(new DatabaseError('locked'));
+
+    expect(JSON.parse(stderr.mock.calls[0]![0] as string).error).toBe('locked');
+    expect(exit).toHaveBeenCalledWith(5);
   });
 });
