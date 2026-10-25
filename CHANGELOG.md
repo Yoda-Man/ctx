@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Word and PDF documents are indexed.** `.docx` files are converted to
   Markdown (headings, lists and tables kept) and `.pdf` files to their text,
   on this machine, before indexing, so specs written in either can be searched
-  and answer `ctx ask`. The file limit applies to the converted text,
+  and answer `ctx ask`. A document with no text, such as a scanned PDF, is
+  reported with a warning rather than skipped silently. The file limit applies to the converted text,
   not to the file. New dependencies: `mammoth`, `turndown`, `unpdf`.
 
 ### Changed

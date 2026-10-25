@@ -111,7 +111,9 @@ Documentation is indexed with the code: Markdown (`.md`, `.mdx`), plain text
 (`.txt`, `.rst`), and Word (`.docx`) and PDF files, which are converted to
 Markdown on your machine first. Word headings, lists and tables carry over;
 PDFs give their text, page by page. Citations point at lines of the converted
-Markdown. A folder of specs can be its own project:
+Markdown. A scanned PDF holds only images, so it has no text to index; ctx
+warns about it, and it needs OCR first. Older `.doc` files are skipped. A
+folder of specs can be its own project:
 
 ```bash
 ctx index ~/specs --name specs

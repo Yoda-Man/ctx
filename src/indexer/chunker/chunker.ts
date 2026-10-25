@@ -125,6 +125,10 @@ async function chunkFileWithResult(
 
   // Empty files are success (valid file, just no content)
   if (!content.trim()) {
+    if (converted) {
+      // A scanned PDF is images only; say so rather than skip it silently.
+      warnings.push('No text found (a scanned document needs OCR before it can be indexed)');
+    }
     return {
       filePath: fileInfo.relativePath,
       success: true,
