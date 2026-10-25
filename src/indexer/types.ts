@@ -234,6 +234,8 @@ const EXTENSION_TO_LANGUAGE: Record<string, Language> = {
   mdx: 'markdown',
   txt: 'text',
   rst: 'text',
+  docx: 'markdown', // converted to Markdown before indexing (documents.ts)
+  pdf: 'markdown',
 
   // SQL
   sql: 'sql',

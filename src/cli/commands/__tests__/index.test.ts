@@ -77,6 +77,7 @@ describe('createIndexCommand', () => {
   let mockContext: CommandContext;
   let mockDb: {
     getProjectByPath: ReturnType<typeof vi.fn>;
+    getProjectByName: ReturnType<typeof vi.fn>;
     deleteProjectChunks: ReturnType<typeof vi.fn>;
   };
   let mockReporter: {
@@ -104,6 +105,7 @@ describe('createIndexCommand', () => {
     // Set up mock database
     mockDb = {
       getProjectByPath: vi.fn().mockReturnValue(undefined),
+      getProjectByName: vi.fn().mockReturnValue(undefined),
       deleteProjectChunks: vi.fn(),
     };
     vi.mocked(database.getDatabase).mockReturnValue(mockDb as any);
@@ -331,6 +333,19 @@ describe('createIndexCommand', () => {
       // With atomic re-indexing, we pass useStaging: true to the pipeline
       // instead of calling deleteProjectChunks directly
       expect(indexer.runIndexPipeline).toHaveBeenCalled();
+    });
+
+    it('finds a project indexed from another folder by its name', async () => {
+      mockDb.getProjectByName.mockReturnValue({ ...existingProject, path: '/old/specs' });
+
+      await expect(runCommand(['/path/to/project', '--name', 'existing-project'])).rejects.toThrow(
+        'Project already indexed: existing-project (/old/specs)'
+      );
+
+      await runCommand(['/path/to/project', '--name', 'existing-project', '--force']);
+      expect(indexer.runIndexPipeline).toHaveBeenCalledWith(
+        expect.objectContaining({ projectId: 'existing-uuid', useStaging: true })
+      );
     });
 
     it('passes existing project ID when re-indexing', async () => {

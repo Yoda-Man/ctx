@@ -218,9 +218,7 @@ export function isBinaryFile(filename: string): boolean {
     'otf',
     'eot',
     // Documents
-    'pdf',
     'doc',
-    'docx',
     'xls',
     'xlsx',
     'ppt',

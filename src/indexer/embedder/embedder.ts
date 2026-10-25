@@ -56,13 +56,21 @@ async function embedBatch(
   // Use Promise.race to implement timeout
   // This works even if the provider doesn't support AbortController
   const embeddingPromise = provider.embedBatch(texts);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(() => {
+    timer = setTimeout(() => {
       reject(new EmbeddingTimeoutError(timeout));
     }, timeout);
   });
 
-  const results = await Promise.race([embeddingPromise, timeoutPromise]);
+  // Cleared once the batch settles: a pending timer kept `ctx index` running
+  // for the full timeout (two minutes by default) after indexing had finished.
+  let results;
+  try {
+    results = await Promise.race([embeddingPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
 
   // Convert number[] to Float32Array for SQLite BLOB storage
   return results.map((result) => new Float32Array(result.embedding));

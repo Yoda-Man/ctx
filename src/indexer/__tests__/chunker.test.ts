@@ -440,8 +440,8 @@ hello('world');
 
   it('should skip large files', async () => {
     const filePath = join(TEST_DIR, 'large.ts');
-    // Create a file larger than MAX_FILE_SIZE (500KB)
-    const content = 'a'.repeat(600 * 1024);
+    // Create a file larger than MAX_FILE_SIZE (750KB)
+    const content = 'a'.repeat(800 * 1024);
     writeFileSync(filePath, content);
 
     const warnings: string[] = [];

@@ -34,6 +34,7 @@ and works just as well on its own.
 | **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
 | **Across projects** | Index any number of codebases and search one of them or all at once; `ctx chat` routes each question to the projects it is about. |
 | **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, not by line count. |
+| **Specs and docs too** | Markdown, text, Word (`.docx`) and PDF are indexed alongside code, so answers can come from requirements as well as source. |
 | **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
 | **Private** | Answers come from a local Ollama model; ctx has no cloud provider and needs no API key. |
 | **Built to be scripted** | Every command except the interactive `ctx chat` has `--json` output, made for agents and tools such as YodaMan. |
@@ -105,6 +106,17 @@ ctx index . --force  # Re-index, replacing existing data
 | `--tags, -t` | Comma-separated tags, shown by `ctx list` and used by `ctx chat` to route questions |
 | `--force` | Replace existing index for this project |
 | `--ignore` | Comma-separated gitignore-style patterns to exclude |
+
+Documentation is indexed with the code: Markdown (`.md`, `.mdx`), plain text
+(`.txt`, `.rst`), and Word (`.docx`) and PDF files, which are converted to
+Markdown on your machine first. Word headings, lists and tables carry over;
+PDFs give their text, page by page. Citations point at lines of the converted
+Markdown. A folder of specs can be its own project:
+
+```bash
+ctx index ~/specs --name specs
+ctx ask "Who approves refunds above 500 rand?" -p specs
+```
 
 ### `ctx list`
 
