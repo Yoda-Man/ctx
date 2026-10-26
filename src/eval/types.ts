@@ -153,7 +153,7 @@ export interface EvalTrace {
   answer: string | null;
   /** Retrieval method used: 'dense', 'bm25', or 'fusion' */
   retrieval_method: string;
-  /** Optional user feedback on result quality */
+  /** Always null: kept so existing databases need no migration */
   feedback: string | null;
   /** JSON-serialized custom metadata */
   metadata: string | null;
@@ -177,7 +177,6 @@ export interface TraceInput {
   latency_ms: number;
   answer?: string;
   retrieval_method: 'dense' | 'bm25' | 'fusion';
-  feedback?: 'positive' | 'negative';
   metadata?: Record<string, unknown>;
   /** Command type that created this trace: 'ask', 'search', or 'chat' */
   trace_type?: 'ask' | 'search' | 'chat';
@@ -195,8 +194,6 @@ export interface TraceFilter {
   start_date?: string;
   /** Include traces up to this ISO date */
   end_date?: string;
-  /** Filter by user feedback value */
-  feedback?: 'positive' | 'negative';
   /** Maximum number of results to return */
   limit?: number;
   /** Filter by trace type */
@@ -398,7 +395,7 @@ export interface EvalRunSummary {
  * Tracks provenance for audit and quality control:
  * - 'manual': Hand-written by developer (highest quality)
  * - 'generated': Created by LLM from codebase analysis
- * - 'captured': Promoted from positive-feedback traces
+ * - 'captured': Promoted from recorded traces (ctx eval golden capture)
  */
 type GoldenEntrySource = 'manual' | 'generated' | 'captured';
 

@@ -137,7 +137,6 @@ export const TraceInputSchema = z.object({
   latency_ms: z.number().int().min(0),
   answer: z.string().optional(),
   retrieval_method: z.enum(['dense', 'bm25', 'fusion']),
-  feedback: z.enum(['positive', 'negative']).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   trace_type: z.enum(['ask', 'search', 'chat']).optional(),
 });
@@ -151,7 +150,6 @@ export const TraceFilterSchema = z.object({
   project_id: z.string().optional(),
   start_date: z.string().optional(),
   end_date: z.string().optional(),
-  feedback: z.enum(['positive', 'negative']).optional(),
   limit: z.number().int().min(1).optional(),
   trace_type: z.enum(['ask', 'search', 'chat']).optional(),
 });

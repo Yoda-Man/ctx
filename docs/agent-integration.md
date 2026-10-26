@@ -187,17 +187,19 @@ ctx index /path/to/project --name "my-project" --force --ignore "*.test.ts,fixtu
 ```
 {"type":"model_loading","timestamp":"...","data":{"status":"Loading model..."}}
 {"type":"stage_start","timestamp":"...","stage":"scanning","data":{"total":0}}
+{"type":"stage_progress","timestamp":"...","stage":"scanning","data":{"processed":1,"total":0,"currentFile":"README.md"}}
 {"type":"stage_complete","timestamp":"...","stage":"scanning","data":{"processed":150,"total":150,"durationMs":120}}
 {"type":"stage_start","timestamp":"...","stage":"chunking","data":{"total":150}}
 {"type":"stage_complete","timestamp":"...","stage":"chunking","data":{"processed":150,"total":150,"durationMs":340}}
 {"type":"stage_start","timestamp":"...","stage":"embedding","data":{"total":1200}}
+{"type":"stage_progress","timestamp":"...","stage":"embedding","data":{"processed":32,"total":1200}}
 {"type":"stage_complete","timestamp":"...","stage":"embedding","data":{"processed":1200,"total":1200,"durationMs":8500}}
 {"type":"stage_start","timestamp":"...","stage":"storing","data":{"total":1200}}
 {"type":"stage_complete","timestamp":"...","stage":"storing","data":{"processed":1200,"total":1200,"durationMs":200}}
 {"type":"complete","timestamp":"...","data":{"result":{...}}}
 ```
 
-The final `complete` event contains the full pipeline result with project stats. Agents can monitor `stage_start`/`stage_complete` events for progress tracking, or simply wait for the `complete` event.
+The final `complete` event contains the full pipeline result with project stats. Agents can monitor `stage_start`, `stage_progress` and `stage_complete` events for progress tracking, or simply wait for the `complete` event.
 
 **Exit code**: `0` on success, `1` on failure (project already exists without `--force`, invalid path, etc.).
 
@@ -413,7 +415,14 @@ Run batch evaluation against a golden dataset. Use as a quality gate after modif
   "passed": true,
   "comparison": {
     "previous_run_id": "e5f6g7h8-...",
-    "metric_changes": { "mrr": 0.050, "hit_rate": -0.020 }
+    "metric_changes": {
+      "mrr": 0.050,
+      "precision_at_k": 0.010,
+      "recall_at_k": 0.000,
+      "hit_rate": -0.020,
+      "ndcg": 0.030,
+      "map": 0.020
+    }
   },
   "regressions": [],
   "improvements": ["MRR"]
@@ -480,7 +489,13 @@ ctx eval traces --project my-project --limit 5 --since 7d --type ask --json
       "answer": "Authentication uses JWT...",
       "retrieval_method": "fusion",
       "feedback": null,
-      "metadata": { "tokensUsed": { "total": 950 } },
+      "metadata": {
+        "model": "ollama/qwen3.5:9b",
+        "retrievalMs": 150,
+        "assemblyMs": 1,
+        "generationMs": 2300,
+        "tokensUsed": { "prompt": 800, "completion": 150, "total": 950 }
+      },
       "langfuse_trace_id": null,
       "trace_type": "ask"
     }
@@ -509,13 +524,14 @@ List golden dataset entries for a project.
       "id": "uuid",
       "query": "How does authentication work?",
       "expectedFilePaths": ["src/auth/middleware.ts"],
-      "expectedAnswer": null,
       "tags": ["auth"],
       "source": "manual"
     }
   ]
 }
 ```
+
+`expectedAnswer` and `tags` appear only on entries that have them.
 
 For full eval documentation, see the [Eval & Observability Guide](./eval-observability.md).
 
@@ -550,6 +566,10 @@ With `--verbose --json`, a `stack` field is added:
 |------|---------|
 | `0` | Success |
 | `1` | General error, confirmation required, or project not ready |
+| `2` | Configuration error (for example an invalid `~/.ctx/config.toml`) |
+| `5` | Database error |
+
+`ctx eval run` exits `0` even when a quality threshold fails; check its `passed` field.
 
 Check both exit code and parse stdout/stderr for complete status.
 

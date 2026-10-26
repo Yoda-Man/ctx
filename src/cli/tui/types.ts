@@ -2,28 +2,11 @@
  * TUI Types and Interfaces
  *
  * Core type definitions for the TUI system including:
- * - Agent mode and phase enums for state management
+ * - Agent phase enum for state management
  * - Status line state structure
  * - Terminal region definitions
  * - Configuration options
  */
-
-/**
- * Agent operating mode.
- * Determines what actions are allowed and visual styling.
- *
- * These modes implement "mode-based trust boundaries" - a UX pattern
- * that reduces automation anxiety by making it visually obvious
- * whether the agent can modify files.
- */
-export enum AgentMode {
-  /** Read-only exploration - safe, can't modify files */
-  PLANNING = 'planning',
-  /** Write access enabled - can modify files */
-  EXECUTING = 'executing',
-  /** Suspended, waiting for user input */
-  PAUSED = 'paused',
-}
 
 /**
  * Current activity phase within a mode.
@@ -90,8 +73,6 @@ interface ModelState {
  * All information needed to render the status bar.
  */
 export interface StatusLineState {
-  /** Current agent mode (determines color/styling) */
-  mode: AgentMode;
   /** Current activity phase (for spinner states) */
   phase: AgentPhase;
   /** Token/context usage */
@@ -180,11 +161,6 @@ export interface TUIConfig {
     /** Allow multi-line input (for pasting) */
     multilineEnabled: boolean;
   };
-  /** Color configuration */
-  colors: {
-    /** Mode indicator colors */
-    modeColors: Record<AgentMode, string>;
-  };
 }
 
 /**
@@ -203,12 +179,5 @@ export const DEFAULT_TUI_CONFIG: TUIConfig = {
   inputArea: {
     height: 1,
     multilineEnabled: true,
-  },
-  colors: {
-    modeColors: {
-      [AgentMode.PLANNING]: 'cyan',
-      [AgentMode.EXECUTING]: 'yellow',
-      [AgentMode.PAUSED]: 'gray',
-    },
   },
 };
