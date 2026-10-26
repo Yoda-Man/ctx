@@ -483,7 +483,7 @@ export class DatabaseOperations {
       latencyMs: trace.latency_ms,
       answer: trace.answer ?? null,
       retrievalMethod: trace.retrieval_method,
-      feedback: trace.feedback ?? null,
+      feedback: null, // the column is kept for existing databases; nothing sets it
       metadata: trace.metadata ? JSON.stringify(trace.metadata) : null,
       langfuseTraceId: null, // the column is kept for existing databases; nothing fills it
       traceType: trace.trace_type ?? null,
@@ -503,8 +503,8 @@ export class DatabaseOperations {
    * // Get last 20 traces for a project
    * db.getTraces({ project_id: 'abc', limit: 20 });
    *
-   * // Get negative-feedback traces from this week
-   * db.getTraces({ feedback: 'negative', start_date: '2026-02-05' });
+   * // Get this week's traces
+   * db.getTraces({ start_date: '2026-02-05' });
    * ```
    */
   getTraces(filter: TraceFilter): EvalTrace[] {
@@ -527,10 +527,6 @@ export class DatabaseOperations {
       params.endDate = filter.end_date;
     }
 
-    if (filter.feedback) {
-      conditions.push('feedback = @feedback');
-      params.feedback = filter.feedback;
-    }
 
     if (filter.trace_type) {
       conditions.push('trace_type = @traceType');

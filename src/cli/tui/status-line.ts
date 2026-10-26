@@ -16,7 +16,6 @@
 
 import chalk, { type ChalkInstance } from 'chalk';
 import {
-  AgentMode,
   AgentPhase,
   type StatusLineState,
 } from './types.js';
@@ -29,7 +28,6 @@ const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]|\x1b[78]|\x1b\][^\x07\x1b]*(?
  * Provides sensible defaults for initialization.
  */
 export const DEFAULT_STATUS_STATE: StatusLineState = {
-  mode: AgentMode.PLANNING,
   phase: AgentPhase.IDLE,
   tokens: {
     used: 0,

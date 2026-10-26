@@ -296,9 +296,6 @@ function formatTraceRow(trace: EvalTrace): string {
     ? String(tokens).padStart(6)
     : chalk.dim('-'.padStart(6));
 
-  let feedback = chalk.dim('-');
-  if (trace.feedback === 'positive') feedback = chalk.green('+');
-  if (trace.feedback === 'negative') feedback = chalk.red('-');
 
   const hasAnswer = trace.answer ? chalk.green('Y') : chalk.dim('N');
 
@@ -311,7 +308,6 @@ function formatTraceRow(trace: EvalTrace): string {
     latency.padStart(7),
     tokensStr,
     hasAnswer,
-    feedback,
   ].join('  ');
 }
 
@@ -545,10 +541,10 @@ function createTracesSubcommand(
       ctx.log('');
       ctx.log(
         chalk.dim(
-          'ID        Timestamp           Type    Query                                            Files   Latency  Tokens  Ans  Fb'
+          'ID        Timestamp           Type    Query                                            Files   Latency  Tokens  Ans'
         )
       );
-      ctx.log(chalk.dim('\u2500'.repeat(140)));
+      ctx.log(chalk.dim('\u2500'.repeat(136)));
 
       for (const trace of traces) {
         ctx.log(formatTraceRow(trace));

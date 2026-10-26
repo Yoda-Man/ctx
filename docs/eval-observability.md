@@ -178,7 +178,7 @@ Observability provides visibility into every RAG interaction — what was querie
 
 ### Local Traces
 
-Every `ctx ask`, `ctx search`, and `ctx chat` interaction is **automatically recorded** to the local SQLite database (`eval_traces` table). No configuration needed — this is always on by default.
+Every `ctx ask` and `ctx search`, and every `ctx chat` turn while chat is focused on a project, is **automatically recorded** to the local SQLite database (`eval_traces` table). No configuration needed — this is on by default.
 
 Each trace captures:
 
@@ -192,7 +192,7 @@ Each trace captures:
 | `retrieval_method` | dense, bm25, or fusion |
 | `trace_type` | ask, search, or chat |
 | `metadata` | Token usage, model info, etc. |
-| `feedback` | Optional user feedback (positive/negative) |
+| `feedback` | Always null; kept so existing databases need no migration |
 | `langfuse_trace_id` | Unused since yodaman-ctx 1.0 (cloud tracing removed); kept so existing databases need no migration |
 
 **View traces:**
@@ -296,7 +296,14 @@ ctx eval run --project <name> [--top-k <N>] [--json]
   "passed": true,
   "comparison": {
     "previous_run_id": "e5f6g7h8-...",
-    "metric_changes": { "mrr": 0.050, "hit_rate": -0.020 }
+    "metric_changes": {
+      "mrr": 0.050,
+      "precision_at_k": 0.010,
+      "recall_at_k": 0.000,
+      "hit_rate": -0.020,
+      "ndcg": 0.030,
+      "map": 0.020
+    }
   },
   "regressions": [],
   "improvements": ["MRR"]
@@ -380,7 +387,13 @@ ctx eval traces [--project <name>] [--limit <N>] [--since <duration>] [--type <t
       "answer": "Authentication uses JWT...",
       "retrieval_method": "fusion",
       "feedback": null,
-      "metadata": { "tokensUsed": { "total": 950 } },
+      "metadata": {
+        "model": "ollama/qwen3.5:9b",
+        "retrievalMs": 150,
+        "assemblyMs": 1,
+        "generationMs": 2300,
+        "tokensUsed": { "prompt": 800, "completion": 150, "total": 950 }
+      },
       "langfuse_trace_id": null,
       "trace_type": "ask"
     }
@@ -408,7 +421,6 @@ ctx eval golden list --project <name> [--json]
       "id": "uuid",
       "query": "How does authentication work?",
       "expectedFilePaths": ["src/auth/middleware.ts"],
-      "expectedAnswer": null,
       "tags": ["auth"],
       "source": "manual"
     }
@@ -539,17 +551,20 @@ The project includes `.github/workflows/eval.yml` which:
 
 ### Adding Eval to Your CI
 
+`ctx eval run` exits `0` even when a threshold fails, so gate on the `passed`
+field of its JSON output:
+
 ```yaml
 - name: Run eval
-  run: |
-    npm run build
-    ctx eval run --project my-project --json > eval-results.json
+  run: ctx eval run --project my-project --json > eval-results.json
 
 - name: Check thresholds
-  run: node scripts/check-eval-thresholds.js eval-results.json
+  run: node -e "process.exit(require('./eval-results.json').passed ? 0 : 1)"
 ```
 
-**Environment variable overrides for CI thresholds:**
+ctx's own CI uses `scripts/check-eval-thresholds.js` from its repository, which
+also prints a pass/fail table; copy it if you want the same report. Its
+thresholds can be overridden with environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -578,7 +593,7 @@ One row per `ctx ask`/`ctx search`/`ctx chat` interaction.
 | `latency_ms` | INTEGER | Retrieval latency |
 | `answer` | TEXT | LLM answer (nullable) |
 | `retrieval_method` | TEXT | dense, bm25, or fusion |
-| `feedback` | TEXT | positive/negative (nullable) |
+| `feedback` | TEXT | Always null (kept for existing databases) |
 | `metadata` | TEXT | JSON metadata (nullable) |
 | `langfuse_trace_id` | TEXT | Unused since yodaman-ctx 1.0 (nullable) |
 | `trace_type` | TEXT | ask, search, or chat (nullable) |

@@ -11,7 +11,7 @@ import {
   toolToDescription,
   DEFAULT_STATUS_STATE,
 } from '../status-line.js';
-import { AgentMode, AgentPhase } from '../types.js';
+import { AgentPhase } from '../types.js';
 
 // Helper to strip ANSI codes for easier assertions
 function stripAnsi(str: string): string {
@@ -28,8 +28,6 @@ describe('StatusLineRenderer', () => {
   describe('initialization', () => {
     it('should create with default state', () => {
       const state = renderer.getState();
-
-      expect(state.mode).toBe(AgentMode.PLANNING);
       expect(state.phase).toBe(AgentPhase.IDLE);
       expect(state.tokens.used).toBe(0);
       expect(state.turnCount).toBe(0);
@@ -47,7 +45,6 @@ describe('StatusLineRenderer', () => {
 
       expect(state.project).toBe('test-project');
       expect(state.turnCount).toBe(5);
-      expect(state.mode).toBe(AgentMode.PLANNING); // Default preserved
     });
   });
 
@@ -372,7 +369,6 @@ describe('toolToDescription', () => {
 
 describe('DEFAULT_STATUS_STATE', () => {
   it('should have sensible defaults', () => {
-    expect(DEFAULT_STATUS_STATE.mode).toBe(AgentMode.PLANNING);
     expect(DEFAULT_STATUS_STATE.phase).toBe(AgentPhase.IDLE);
     expect(DEFAULT_STATUS_STATE.tokens.total).toBe(200000);
     expect(DEFAULT_STATUS_STATE.tokens.warningThreshold).toBe(0.8);

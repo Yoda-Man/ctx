@@ -190,7 +190,6 @@ describe('Eval Operations', () => {
         latency_ms: 150,
         answer: 'Authentication uses JWT tokens...',
         retrieval_method: 'fusion',
-        feedback: 'positive',
         metadata: { model: 'qwen3.5:9b' },
       };
 
@@ -209,11 +208,11 @@ describe('Eval Operations', () => {
       expect(trace.latency_ms).toBe(150);
       expect(trace.answer).toBe('Authentication uses JWT tokens...');
       expect(trace.retrieval_method).toBe('fusion');
-      expect(trace.feedback).toBe('positive');
+      expect(trace.feedback).toBeNull(); // nothing sets feedback
       expect(JSON.parse(trace.metadata!)).toEqual({ model: 'qwen3.5:9b' });
     });
 
-    it('handles nullable fields (answer, feedback, metadata)', () => {
+    it('handles nullable fields (answer, metadata)', () => {
       const projectId = createTestProject();
 
       const traceId = ops.insertTrace({
@@ -223,7 +222,7 @@ describe('Eval Operations', () => {
         top_k: 3,
         latency_ms: 80,
         retrieval_method: 'dense',
-        // answer, feedback, metadata all omitted
+        // answer and metadata omitted
       });
 
       const traces = ops.getTraces({ project_id: projectId });
@@ -266,18 +265,6 @@ describe('Eval Operations', () => {
       const traces = ops.getTraces({ start_date: '2026-02-01', end_date: '2026-02-28' });
       expect(traces).toHaveLength(2);
       expect(traces[0].query).toBe('newest query'); // DESC order
-    });
-
-    it('filters by feedback', () => {
-      const projectId = createTestProject();
-
-      ops.insertTrace({ project_id: projectId, query: 'good result', retrieved_files: [], top_k: 5, latency_ms: 100, retrieval_method: 'dense', feedback: 'positive' });
-      ops.insertTrace({ project_id: projectId, query: 'bad result', retrieved_files: [], top_k: 5, latency_ms: 100, retrieval_method: 'dense', feedback: 'negative' });
-      ops.insertTrace({ project_id: projectId, query: 'no feedback', retrieved_files: [], top_k: 5, latency_ms: 100, retrieval_method: 'dense' });
-
-      const traces = ops.getTraces({ feedback: 'negative' });
-      expect(traces).toHaveLength(1);
-      expect(traces[0].query).toBe('bad result');
     });
 
     it('stores null langfuse_trace_id when omitted', () => {
@@ -638,12 +625,6 @@ describe('Eval Operations', () => {
           latency_ms: 100,
           retrieval_method: 'invalid_method' as 'dense',
         })
-      ).toThrow();
-    });
-
-    it('getTraces rejects invalid feedback filter', () => {
-      expect(() =>
-        ops.getTraces({ feedback: 'invalid' as 'positive' })
       ).toThrow();
     });
 

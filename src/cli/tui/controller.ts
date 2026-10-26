@@ -24,7 +24,6 @@ import {
 import { ChatAreaManager, createChatAreaManager } from './chat-area.js';
 import { InputManager, createInputManager, type Completer } from './input-manager.js';
 import {
-  AgentMode,
   AgentPhase,
   type StatusLineState,
   type SourceReference,
@@ -134,7 +133,6 @@ export class TUIController {
     // Create status line renderer with initial state
     this.statusLine = createStatusLineRenderer(
       {
-        mode: AgentMode.PLANNING,
         phase: AgentPhase.IDLE,
         model: options.model ?? { name: 'Unknown', provider: 'unknown' },
         project: options.project ?? null,

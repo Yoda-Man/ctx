@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Trace feedback**, which nothing could set: the "Fb" column in
+  `ctx eval traces` was always empty and filtering traces by feedback never
+  matched. The `feedback` column stays in the database, always null.
+- The chat status bar's agent "mode", which was set once and never shown.
+
+### Fixed
+- The docs: the index event list gains `stage_progress`, the exit codes add 2
+  (configuration) and 5 (database), the `eval run`, `eval traces` and
+  `golden list` examples show the fields ctx actually returns, unfocused
+  `ctx chat` turns are no longer said to be recorded, and the CI recipe no
+  longer needs a script that is not in the package. The TUI decision record
+  describes the status bar as it is and links the right specifications.
+
 ## [1.1.0] - 2026-10-26
 
 ### Added
