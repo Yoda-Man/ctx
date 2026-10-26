@@ -191,23 +191,19 @@ export class RecursiveChunker extends BaseChunker {
         // Would exceed max, finalize current chunk
         if (current.length > 0) {
           result.push(current);
-          // Save end of current chunk for overlap
-          previousEnd = current.slice(-overlapChars);
+          // Save end of current chunk for overlap, not starting on the
+          // second half of a surrogate pair (an emoji cut in two)
+          let overlapStart = Math.max(0, current.length - overlapChars);
+          const code = current.charCodeAt(overlapStart);
+          if (code >= 0xdc00 && code <= 0xdfff) overlapStart++;
+          previousEnd = current.slice(overlapStart);
         }
 
-        // Start new chunk with overlap from previous
-        if (segment.length <= maxChars) {
-          current = previousEnd + segment;
-          // Trim if overlap made it too long
-          if (current.length > maxChars) {
-            current = segment;
-          }
-        } else {
-          // Segment itself exceeds max, add as-is (will be large)
-          current = previousEnd + segment;
-          if (current.length > maxChars) {
-            current = segment;
-          }
+        // Start new chunk with overlap from previous, dropping the overlap
+        // when it would make the chunk too long
+        current = previousEnd + segment;
+        if (current.length > maxChars) {
+          current = segment;
         }
       }
     }

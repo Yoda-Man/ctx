@@ -124,7 +124,7 @@ function dropCloudProvider(parsed: Record<string, unknown>): void {
   const provider = parsed['default_provider'];
   if (provider === undefined || provider === 'ollama') return;
   console.warn(
-    `Warning: default_provider = "${String(provider)}" is ignored; ctx only uses local Ollama models. ` +
+    `Warning: default_provider = ${JSON.stringify(provider)} is ignored; ctx only uses local Ollama models. ` +
       'Set one with: ctx config set default_model <ollama model>'
   );
   delete parsed['default_provider'];

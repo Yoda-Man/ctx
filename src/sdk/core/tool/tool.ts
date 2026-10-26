@@ -11,6 +11,7 @@ import {
   withTimeout,
   createCombinedSignal,
 } from './timeout';
+import { errorMessage, toError } from '../../../utils/error.js';
 
 /**
  * Define a type-safe tool with Zod validation
@@ -101,9 +102,9 @@ export function defineTool<TInput extends z.ZodType, TOutput = unknown>(
           throw error;
         }
         throw new ToolError(
-          `Tool "${name}" execution failed: ${error instanceof Error ? error.message : String(error)}`,
+          `Tool "${name}" execution failed: ${errorMessage(error)}`,
           name,
-          error instanceof Error ? error : new Error(String(error))
+          toError(error)
         );
       } finally {
         // Always cleanup to prevent memory leaks

@@ -29,27 +29,10 @@
  */
 
 // Provider factory
-export {
-  createEmbeddingProvider,
-  
-} from './provider.js';
+export { createEmbeddingProvider } from './provider.js';
 
 // Embedder orchestration
-export {
-  embedChunks,
-  
-  
-  
-} from './embedder.js';
+export { embedChunks } from './embedder.js';
 
 // Types
-export type {
-  
-  
-  
-  
-  
-  EmbeddingProvider,
-  
-  
-} from './types.js';
+export type { EmbeddingProvider } from './types.js';

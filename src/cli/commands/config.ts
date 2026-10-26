@@ -28,26 +28,21 @@ export function createConfigCommand(getContext: () => CommandContext): Command {
     .action((key: string) => {
       const ctx = getContext();
 
-      try {
-        const value = getConfigValue(key);
+      const value = getConfigValue(key);
 
-        if (value === undefined) {
-          throw new ConfigError(
-            `Unknown config key: ${key}`,
-            'Run: ctx config list  to see all available keys'
-          );
-        }
+      if (value === undefined) {
+        throw new ConfigError(
+          `Unknown config key: ${key}`,
+          'Run: ctx config list  to see all available keys'
+        );
+      }
 
-        if (ctx.options.json) {
-          console.log(JSON.stringify({ key, value }));
-        } else {
-          // Format the value nicely
-          const formatted = formatValue(value);
-          ctx.log(formatted);
-        }
-      } catch (error) {
-        // Re-throw to let global error handler format it
-        throw error;
+      if (ctx.options.json) {
+        console.log(JSON.stringify({ key, value }));
+      } else {
+        // Format the value nicely
+        const formatted = formatValue(value);
+        ctx.log(formatted);
       }
     });
 
@@ -58,16 +53,12 @@ export function createConfigCommand(getContext: () => CommandContext): Command {
     .action((key: string, value: string) => {
       const ctx = getContext();
 
-      try {
-        setConfigValue(key, value);
+      setConfigValue(key, value);
 
-        if (ctx.options.json) {
-          console.log(JSON.stringify({ success: true, key, value: getConfigValue(key) }));
-        } else {
-          ctx.log(`${chalk.green('✓')} Set ${chalk.cyan(key)} = ${chalk.yellow(value)}`);
-        }
-      } catch (error) {
-        throw error;
+      if (ctx.options.json) {
+        console.log(JSON.stringify({ success: true, key, value: getConfigValue(key) }));
+      } else {
+        ctx.log(`${chalk.green('✓')} Set ${chalk.cyan(key)} = ${chalk.yellow(value)}`);
       }
     });
 
@@ -79,36 +70,32 @@ export function createConfigCommand(getContext: () => CommandContext): Command {
     .action(() => {
       const ctx = getContext();
 
-      try {
-        const entries = listConfig();
+      const entries = listConfig();
 
-        if (ctx.options.json) {
-          const obj = Object.fromEntries(entries);
-          console.log(JSON.stringify(obj, null, 2));
-        } else {
-          ctx.log(chalk.bold('Configuration:'));
-          ctx.log('');
+      if (ctx.options.json) {
+        const obj = Object.fromEntries(entries);
+        console.log(JSON.stringify(obj, null, 2));
+      } else {
+        ctx.log(chalk.bold('Configuration:'));
+        ctx.log('');
 
-          // Group by top-level key for readability
-          let currentGroup = '';
-          for (const [key, value] of entries) {
-            const group = key.split('.')[0] ?? '';
+        // Group by top-level key for readability
+        let currentGroup = '';
+        for (const [key, value] of entries) {
+          const group = key.split('.')[0] ?? '';
 
-            // Add spacing between groups
-            if (group !== currentGroup) {
-              if (currentGroup !== '') ctx.log('');
-              currentGroup = group;
-            }
-
-            const formatted = formatValue(value);
-            ctx.log(`  ${chalk.cyan(key)} = ${chalk.yellow(formatted)}`);
+          // Add spacing between groups
+          if (group !== currentGroup) {
+            if (currentGroup !== '') ctx.log('');
+            currentGroup = group;
           }
 
-          ctx.log('');
-          ctx.log(chalk.dim(`Config file: ${getConfigPath()}`));
+          const formatted = formatValue(value);
+          ctx.log(`  ${chalk.cyan(key)} = ${chalk.yellow(formatted)}`);
         }
-      } catch (error) {
-        throw error;
+
+        ctx.log('');
+        ctx.log(chalk.dim(`Config file: ${getConfigPath()}`));
       }
     });
 

@@ -15,13 +15,11 @@
  */
 
 import chalk, { type ChalkInstance } from 'chalk';
+import { ANSI_ESCAPE_PATTERN } from './terminal-regions.js';
 import {
   AgentPhase,
   type StatusLineState,
 } from './types.js';
-
-/** Pattern matching ANSI escape sequences (CSI, DEC save/restore, OSC). */
-const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]|\x1b[78]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
 /**
  * Default status line state.
@@ -111,9 +109,9 @@ export class StatusLineRenderer {
     this.state = {
       ...this.state,
       ...partial,
-      tokens: { ...this.state.tokens, ...(partial.tokens ?? {}) },
-      activity: { ...this.state.activity, ...(partial.activity ?? {}) },
-      model: { ...this.state.model, ...(partial.model ?? {}) },
+      tokens: { ...this.state.tokens, ...partial.tokens },
+      activity: { ...this.state.activity, ...partial.activity },
+      model: { ...this.state.model, ...partial.model },
     };
     return this.render();
   }
@@ -363,32 +361,17 @@ export function createStatusLineRenderer(
 }
 
 /**
- * Utility: Convert tool name to human-readable description.
+ * Describe a tool call for the status bar. ctx's agent has one tool,
+ * retrieve_knowledge; anything else is named as it is.
  *
  * @example
- * toolToDescription('read_file', { path: 'src/index.ts' })
- * // => 'Reading src/index.ts'
+ * toolToDescription('retrieve_knowledge', { query: 'auth flow' })
+ * // => 'Searching: "auth flow"'
  */
 export function toolToDescription(tool: string, args?: Record<string, unknown>): string {
-  const descriptions: Record<string, (args?: Record<string, unknown>) => string> = {
-    read_file: (a) => `Reading ${a?.path ?? 'file'}`,
-    write_file: (a) => `Writing ${a?.path ?? 'file'}`,
-    edit_file: (a) => `Editing ${a?.path ?? 'file'}`,
-    search_files: (a) => `Searching for "${a?.pattern ?? 'pattern'}"`,
-    execute_command: (a) => `Running: ${String(a?.command ?? 'command').slice(0, 30)}...`,
-    web_fetch: (a) => {
-      try {
-        const url = new URL(String(a?.url ?? ''));
-        return `Fetching ${url.hostname}`;
-      } catch {
-        return 'Fetching URL';
-      }
-    },
-    glob: (a) => `Finding ${a?.pattern ?? 'files'}`,
-    grep: (a) => `Searching for "${a?.pattern ?? 'pattern'}"`,
-    retrieve_knowledge: (a) => `Searching: "${String(a?.query ?? 'codebase').slice(0, 40)}"`,
-  };
-
-  const descriptor = descriptions[tool];
-  return descriptor ? descriptor(args) : `Using ${tool}`;
+  if (tool === 'retrieve_knowledge') {
+    const query = typeof args?.query === 'string' ? args.query : 'codebase';
+    return `Searching: "${query.slice(0, 40)}"`;
+  }
+  return `Using ${tool}`;
 }

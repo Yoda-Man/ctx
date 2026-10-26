@@ -12,7 +12,7 @@
  * - Tests should be deterministic and fast
  */
 
-import type { ChatMessage, TokenUsage, StreamChunk } from '../../sdk/core/index.js';
+import type { ChatMessage, ChatResponse, LLMProvider, TokenUsage, StreamChunk } from '../../sdk/core/index.js';
 import type { RAGSource } from '../../agent/types.js';
 
 // Re-export types needed by test files
@@ -42,9 +42,7 @@ export {
   createMockEmbeddingProvider,
   getProjectFromDb,
   countChunksInDb,
-  
   DEFAULT_SAMPLE_FILES,
-  
 } from '../../cli/__tests__/integration/setup.js';
 
 // ============================================================================
@@ -98,21 +96,6 @@ export interface CitationVerification {
 
   /** Citation indices that don't map to any source (errors) */
   invalidReferences: number[];
-}
-
-/**
- * Mock LLM provider interface matching the real provider shape.
- */
-export interface MockLLMProvider {
-  chat: (
-    messages: ChatMessage[],
-    options?: { maxTokens?: number; temperature?: number }
-  ) => Promise<{ content: string; usage?: TokenUsage }>;
-
-  streamChat: (
-    messages: ChatMessage[],
-    options?: { maxTokens?: number; temperature?: number }
-  ) => AsyncGenerator<StreamChunk>;
 }
 
 // ============================================================================
@@ -202,7 +185,7 @@ The minimum password length can be configured via \`AuthConfig.minPasswordLength
  * // Returns the 'authentication' response with [1], [2] citations
  * ```
  */
-export function createMockLLMProvider(config: MockLLMConfig): MockLLMProvider {
+export function createMockLLMProvider(config: MockLLMConfig): LLMProvider {
   const defaultUsage: TokenUsage = config.tokenUsage ?? {
     promptTokens: 150,
     completionTokens: 100,
@@ -241,6 +224,10 @@ export function createMockLLMProvider(config: MockLLMConfig): MockLLMProvider {
   };
 
   return {
+    name: 'mock-llm',
+    model: 'mock-model',
+    isAvailable: async () => true,
+
     /**
      * Non-streaming chat completion.
      * Used by ask command in --json mode.
@@ -248,12 +235,13 @@ export function createMockLLMProvider(config: MockLLMConfig): MockLLMProvider {
     async chat(
       messages: ChatMessage[],
       _options?: { maxTokens?: number; temperature?: number }
-    ): Promise<{ content: string; usage?: TokenUsage }> {
+    ): Promise<ChatResponse> {
       const question = extractQuestion(messages);
       const content = findResponse(question);
 
       return {
         content,
+        finishReason: 'stop',
         usage: defaultUsage,
       };
     },
@@ -379,50 +367,6 @@ export function verifyCitations(
 // ============================================================================
 
 /**
- * Capture console output during test execution.
- *
- * @internal Prefer using `withConsoleCapture()` which guarantees cleanup.
- *
- * Useful for verifying CLI output without actually printing to terminal.
- * Returns a cleanup function to restore original behavior.
- *
- * ⚠️ WARNING: If a test throws before calling restore(), the mock persists.
- * Use `withConsoleCapture()` instead for guaranteed cleanup.
- *
- * @returns Object with captured lines array and restore function
- *
- * @example
- * ```typescript
- * const capture = captureConsoleOutput();
- * try {
- *   console.log('Hello');
- *   console.log('World');
- * } finally {
- *   capture.restore();
- * }
- * expect(capture.lines).toEqual(['Hello', 'World']);
- * ```
- */
-function captureConsoleOutput(): {
-  lines: string[];
-  restore: () => void;
-} {
-  const lines: string[] = [];
-  const originalLog = console.log;
-
-  console.log = (...args: unknown[]) => {
-    lines.push(args.map(String).join(' '));
-  };
-
-  return {
-    lines,
-    restore: () => {
-      console.log = originalLog;
-    },
-  };
-}
-
-/**
  * Capture stdout.write output during test execution.
  *
  * @internal Prefer using `withStdoutCapture()` which guarantees cleanup.
@@ -508,31 +452,3 @@ export async function withStdoutCapture<T>(
   }
 }
 
-/**
- * Execute a function while capturing console.log, with guaranteed cleanup.
- *
- * This is the PREFERRED API for tests - it wraps capture/restore in try/finally
- * to ensure cleanup happens even if the test throws an exception.
- *
- * @param fn - Function to execute while capturing console output
- * @returns Object with the function result and captured lines
- *
- * @example
- * ```typescript
- * const { lines } = await withConsoleCapture(async () => {
- *   await runSearchCommand(['query', '--project', 'my-project'], ctx);
- * });
- * expect(lines.some(l => l.includes('results'))).toBe(true);
- * ```
- */
-async function withConsoleCapture<T>(
-  fn: () => T | Promise<T>
-): Promise<{ result: T; lines: string[] }> {
-  const capture = captureConsoleOutput();
-  try {
-    const result = await fn();
-    return { result, lines: capture.lines };
-  } finally {
-    capture.restore();
-  }
-}

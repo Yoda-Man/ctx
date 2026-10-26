@@ -148,7 +148,7 @@ export class MultiProjectFusionService {
     options: MultiProjectFusionLoadOptions,
     onProgress?: (progress: MultiProjectLoadProgress) => void
   ): Promise<void> {
-    const { projectIds, dimensions, useHNSW, hnswConfig, bm25Config } = options;
+    const { projectIds, dimensions, bm25Config } = options;
 
     // Validate embedding compatibility for cross-project search (2+ projects)
     // This is a fail-fast check before we start loading any stores
@@ -163,7 +163,7 @@ export class MultiProjectFusionService {
     // This is why we use Promise.all instead of sequential loading
     const loadPromises: Promise<unknown>[] = [
       this.vectorManager.loadStores(
-        { projectIds, dimensions, useHNSW, hnswConfig },
+        { projectIds, dimensions },
         onProgress
       ),
       this.bm25Manager.loadRetrievers({ projectIds, bm25Config }, onProgress),

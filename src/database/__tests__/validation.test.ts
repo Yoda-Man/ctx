@@ -10,7 +10,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   ProjectRowSchema,
-  ChunkRowSchema,
   ChunkLoadRowSchema,
   ChunkLoadNoEmbeddingSchema,
   validateRow,
@@ -229,8 +228,8 @@ describe('Validation Utilities', () => {
 
       const result = validateRows(ChunkLoadNoEmbeddingSchema, rows, 'chunks');
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('chunk-1');
-      expect(result[1].id).toBe('chunk-2');
+      expect(result[0]!.id).toBe('chunk-1');
+      expect(result[1]!.id).toBe('chunk-2');
     });
 
     it('should throw on first invalid row by default', () => {

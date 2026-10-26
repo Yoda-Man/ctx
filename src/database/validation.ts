@@ -50,32 +50,6 @@ export const ProjectRowSchema = z.object({
   description: z.string().nullable(),
 });
 
-// ============================================================================
-// Chunk Schema
-// ============================================================================
-
-/**
- * Zod schema for validating Chunk rows from the database.
- *
- * Note: `embedding` is a Buffer (BLOB) - we validate it exists and is a Buffer.
- * The actual Float32Array conversion happens in application code.
- */
-export const ChunkRowSchema = z.object({
-  id: z.string(),
-  project_id: z.string(),
-  content: z.string(),
-  // Buffer validation - SQLite returns BLOBs as Buffers via better-sqlite3
-  embedding: z.instanceof(Buffer),
-  file_path: z.string(),
-  // Nullable enum for file_type
-  file_type: z.enum(['code', 'docs', 'config']).nullable(),
-  language: z.string().nullable(),
-  start_line: z.number().int().nullable(),
-  end_line: z.number().int().nullable(),
-  metadata: z.string().nullable(),
-  created_at: z.string(),
-});
-
 /**
  * Partial schema for chunk rows loaded in VectorStoreManager.
  *

@@ -88,6 +88,10 @@ export function createIndexCommand(
       ctx.debug(`Project name: ${projectName}`);
       if (tags) ctx.debug(`Tags: ${tags.join(', ')}`);
 
+      // Ensure database is migrated: on a fresh install the lookup below
+      // otherwise fails with "no such table: projects"
+      runMigrations();
+
       // Check if project already exists, by folder or by name: a project whose
       // folder moved keeps its name, and names are unique, so re-indexing it from
       // the new folder must replace it rather than fail once indexing is done.
@@ -110,9 +114,6 @@ export function createIndexCommand(
       if (useStaging) {
         ctx.debug(`Re-indexing: will use atomic swap (${existingProject.chunk_count} existing chunks)`);
       }
-
-      // Ensure database is migrated
-      runMigrations();
 
       // Load configuration
       const config = loadConfig() ?? DEFAULT_CONFIG;

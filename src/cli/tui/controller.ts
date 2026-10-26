@@ -26,10 +26,10 @@ import { InputManager, createInputManager, type Completer } from './input-manage
 import {
   AgentPhase,
   type StatusLineState,
-  type SourceReference,
   type TUIConfig,
   DEFAULT_TUI_CONFIG,
 } from './types.js';
+import { errorMessage } from '../../utils/error.js';
 
 /**
  * Stream chunk type (compatible with existing StreamChunk).
@@ -231,7 +231,7 @@ export class TUIController {
       },
       onError: (error) => {
         this.chatArea.addInfoMessage(
-          chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`),
+          chalk.red(`Error: ${errorMessage(error)}`),
           { compact: true }
         );
       },
@@ -381,7 +381,6 @@ export class TUIController {
 
     let responseText = '';
     let isStreaming = false;
-    let sources: SourceReference[] | undefined;
 
     try {
       for await (const chunk of stream) {
@@ -439,7 +438,7 @@ export class TUIController {
     } finally {
       // End streaming
       if (isStreaming) {
-        this.chatArea.endStream(sources);
+        this.chatArea.endStream();
       }
 
       // Return to idle

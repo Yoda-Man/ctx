@@ -21,8 +21,13 @@
 import { EventEmitter } from 'node:events';
 import type { RegionBounds } from './types.js';
 
-/** Pattern matching ANSI escape sequences (CSI, DEC save/restore, OSC). */
-const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]|\x1b[78]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
+/**
+ * Pattern matching ANSI escape sequences: CSI, DEC save/restore, and OSC.
+ * Strips raw sequences from untrusted content (e.g. model output) before it is
+ * rendered, preventing terminal injection, and measures visible text width.
+ */
+// oxlint-disable-next-line no-control-regex -- matching terminal control codes is the point
+export const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]|\x1b[78]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
 
 /**
  * ANSI escape sequence constants.

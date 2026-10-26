@@ -20,36 +20,13 @@
 // Main chunker functions
 export {
   chunkFile,
-  
   // Structured result functions (Ticket #50)
-  
   chunkFilesWithResult,
   type ChunkerConfig,
 } from './chunker.js';
 
-// Types
-export type {
-  
-  
-  
-  
-  
-  
-  // Structured result types (Ticket #50)
-  
-  
-  
-} from './types.js';
-
 // Configuration
-export {
-  
-  
-  
-  
-  estimateTokens,
-  
-} from './config.js';
+export { estimateTokens } from './config.js';
 
 // Extractors (for advanced use)
 export {

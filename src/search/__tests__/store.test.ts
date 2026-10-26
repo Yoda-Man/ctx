@@ -11,7 +11,6 @@ import {
   VectorStoreManager,
   getVectorStoreManager,
   resetVectorStoreManager,
-  HNSW_MIN_VECTORS,
 } from '../store.js';
 import { blobToEmbedding, embeddingToBlob } from '../../database/schema.js';
 
@@ -234,73 +233,6 @@ describe('VectorStoreManager', () => {
 
       const count = await store.count();
       expect(count).toBe(0);
-    });
-
-    describe('choosing the index by size', () => {
-      // ctx builds the store in every process. HNSW took 8.3 s to build over
-      // 3,714 vectors, while a brute-force scan of 58,728 takes 43 ms.
-      const oneChunk = () => [{
-        id: 'chunk-1', content: 'test', embedding: createTestEmbedding(1024, 1),
-        file_path: 'test.ts', file_type: 'code', language: null, start_line: 1, end_line: 1, metadata: null,
-      }];
-
-      /** A database reporting `count` chunks for the project, holding one. */
-      function dbReporting(count: number) {
-        const db = createMockDb(oneChunk());
-        const prepare = db.prepare;
-        db.prepare = vi.fn((sql: string) =>
-          sql.includes('COUNT(*)') ? { get: vi.fn().mockReturnValue({ count }) } : prepare(sql)
-        );
-        return db;
-      }
-
-      async function indexFor(count: number, useHNSW?: boolean) {
-        vi.mocked(getDb).mockReturnValue(dbReporting(count) as any);
-        const store = await new VectorStoreManager().getStore({ projectId: `p-${count}-${useHNSW}`, dimensions: 1024, useHNSW });
-        return store.getIndexType();
-      }
-
-      it('scans below HNSW_MIN_VECTORS: exact, and nothing to build', async () => {
-        expect(await indexFor(3714)).toBe('brute-force');
-        expect(await indexFor(HNSW_MIN_VECTORS - 1)).toBe('brute-force');
-      });
-
-      it('builds HNSW from HNSW_MIN_VECTORS up', async () => {
-        expect(await indexFor(HNSW_MIN_VECTORS)).toBe('hnsw');
-      });
-
-      it('an explicit useHNSW always wins', async () => {
-        expect(await indexFor(10, true)).toBe('hnsw');
-        expect(await indexFor(HNSW_MIN_VECTORS * 2, false)).toBe('brute-force');
-      });
-    });
-
-    it('should allow brute-force index when specified', async () => {
-      const testChunks = [
-        {
-          id: 'chunk-1',
-          content: 'test',
-          embedding: createTestEmbedding(1024, 1),
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 1,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new VectorStoreManager();
-      const store = await manager.getStore({
-        projectId: 'test-project',
-        dimensions: 1024,
-        useHNSW: false,
-      });
-
-      expect(store.getIndexType()).toBe('brute-force');
     });
   });
 

@@ -48,7 +48,7 @@ export function applyOrdering(
     default: {
       // TypeScript exhaustiveness check - ensures all cases handled
       const exhaustiveCheck: never = strategy;
-      throw new Error(`Unhandled ordering strategy: ${exhaustiveCheck}`);
+      throw new Error(`Unhandled ordering strategy: ${JSON.stringify(exhaustiveCheck)}`);
     }
   }
 }

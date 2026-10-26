@@ -22,7 +22,7 @@
  * Pattern: Follows src/__tests__/e2e/workflow.test.ts
  */
 
-import { mkdirSync, rmSync, existsSync, readFileSync, realpathSync } from 'node:fs';
+import { mkdirSync, rmSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { vi, describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
@@ -288,7 +288,7 @@ function setupEmbedderMock(): void {
     const results = await mockProvider.embedBatch(chunks.map((c) => c.content));
     return chunks.map((chunk, i) => ({
       ...chunk,
-      embedding: results[i]!.embedding,
+      embedding: new Float32Array(results[i]!.embedding),
     }));
   });
 }

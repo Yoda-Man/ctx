@@ -496,3 +496,31 @@ function test() {
     }
   });
 });
+
+describe('line numbers for repeated text', () => {
+  it('numbers the second copy of a repeated block by its own lines', async () => {
+    // Each chunk used to be searched for from the top, so the second copy got the first's lines.
+    const block = Array.from({ length: 120 }, (_, i) => `Line ${i} of a block that the document repeats.`).join('\n');
+    const content = `${block}\n${block}`;
+    const filePath = join(TEST_DIR, 'repeated.md');
+    writeFileSync(filePath, content);
+
+    const chunks = await chunkFile({
+      path: filePath,
+      relativePath: 'repeated.md',
+      extension: 'md',
+      language: 'markdown',
+      type: 'docs',
+      size: Buffer.byteLength(content),
+      modifiedAt: new Date().toISOString(),
+    });
+
+    const lines = content.split('\n');
+    expect(chunks.length).toBeGreaterThan(2);
+    expect(chunks.at(-1)!.end_line).toBe(lines.length);
+    for (const [i, chunk] of chunks.entries()) {
+      expect(lines[chunk.start_line - 1]).toContain(chunk.content.split('\n')[0]);
+      if (i > 0) expect(chunk.start_line).toBeGreaterThanOrEqual(chunks[i - 1]!.start_line);
+    }
+  });
+});

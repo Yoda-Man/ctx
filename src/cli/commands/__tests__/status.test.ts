@@ -51,6 +51,7 @@ describe('createStatusCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -77,6 +78,7 @@ describe('createStatusCommand', () => {
         provider: 'huggingface',
         model: 'BAAI/bge-large-en-v1.5',
         batch_size: 32,
+        timeout_ms: 120000,
       },
       search: {
         top_k: 5,
@@ -416,7 +418,7 @@ describe('createStatusCommand', () => {
       await program.parseAsync(['node', 'test', 'status']);
 
       expect(mockDb.prepare).toHaveBeenCalled();
-      const sqlCall = mockDb.prepare.mock.calls[0][0];
+      const sqlCall = mockDb.prepare.mock.calls[0]![0];
 
       expect(sqlCall).toContain('SELECT');
       expect(sqlCall).toContain('COUNT');

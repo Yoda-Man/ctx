@@ -20,12 +20,6 @@ import {
 import { safeJsonParse, type Logger, consoleLogger } from '../utils/index.js';
 import type { SearchServiceOptions, IndexBuildProgress } from './types.js';
 
-/**
- * Below this many vectors a brute-force scan beats building an HNSW index
- * (about 180 ms per query at this size, against seconds of index building).
- */
-export const HNSW_MIN_VECTORS = 250_000;
-
 /** Batch size for loading chunks from SQLite (memory efficiency) */
 const LOAD_BATCH_SIZE = 1000;
 
@@ -115,32 +109,23 @@ export class VectorStoreManager {
     onProgress?: (progress: IndexBuildProgress) => void,
     logger: Logger = consoleLogger
   ): Promise<InMemoryVectorStore> {
-    const { projectId, dimensions, hnswConfig } = options;
+    const { projectId, dimensions } = options;
 
     const db = this.getDatabase();
 
-    // Get total chunk count for progress reporting and the index choice
+    // Get total chunk count for progress reporting
     const countResult = db
       .prepare('SELECT COUNT(*) as count FROM chunks WHERE project_id = ?')
       .get(projectId) as { count: number };
     const totalChunks = countResult.count;
 
-    // ctx builds this store afresh in every process, so the index is paid for
-    // on every search. HNSW took 8.3 s to build over 3,714 vectors, while a
-    // brute-force scan of 58,728 takes 43 ms per query and is exact.
-    const useHNSW = options.useHNSW ?? totalChunks >= HNSW_MIN_VECTORS;
-
+    // A brute-force scan: exact, and nothing to build. ctx builds this store
+    // afresh in every process, so an approximate index (HNSW) was paid for on
+    // every search: 8.3 s to build over 3,714 vectors, while a scan of 58,728
+    // takes 43 ms per query.
     const store = new InMemoryVectorStore({
       dimensions,
       distanceMetric: 'cosine',
-      indexType: useHNSW ? 'hnsw' : 'brute-force',
-      hnswConfig: useHNSW
-        ? {
-            M: hnswConfig?.M ?? 16,
-            efConstruction: hnswConfig?.efConstruction ?? 200,
-            efSearch: hnswConfig?.efSearch ?? 100,
-          }
-        : undefined,
       useFloat32: true, // 50% memory savings
     });
 

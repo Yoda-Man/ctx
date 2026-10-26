@@ -25,84 +25,17 @@
 // Ignore pattern utilities
 ;
 
-// Types and constants
-export {
-  // Types
-  
-  
-  
-  
-  
-  
-
-  // Constants
-  
-  
-  
-  
-
-  // Utility functions
-  
-  
-} from './types.js';
-
-// Chunker module
-export {
-  // Main functions
-  
-  
-  
-
-  // Types
-  
-  
-  
-  
-  
-  
-
-  // Configuration
-  
-  
-  
-  
-  
-  
-
-  // Extractors (for advanced use)
-  
-  
-  
-  
-} from './chunker/index.js';
-
 // Embedder module
 export {
   // Provider factory
   createEmbeddingProvider,
-  
-
   // Embedder orchestration
-  
-  
-  
-
   // Types
-  
-  
-  
-  
-  
   type EmbeddingProvider,
-  
 } from './embedder/index.js';
 
 // Pipeline orchestration
-export {
-  runIndexPipeline,
-  
-  
-} from './pipeline.js';
+export { runIndexPipeline } from './pipeline.js';
 
 // Session for background indexing
 ;

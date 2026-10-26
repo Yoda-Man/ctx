@@ -224,13 +224,19 @@ async function chunkFileWithResult(
       });
     }
 
-    // Map to ChunkResult with full metadata
+    // Map to ChunkResult with full metadata. Chunks come in order and overlap
+    // by at most chunkOverlap, so each is searched for from just before the
+    // previous one's end: a repeated block gets its own lines, not the first copy's.
+    const overlapChars = chunkConfig.chunkOverlap * 4 * 2; // ~4 chars a token, doubled for slack
+    let searchFrom = 0;
     for (const chunk of segmentChunks) {
-      const { startLine, endLine } = computeLineNumbers(
+      const { startLine, endLine, offset } = computeLineNumbers(
         segment.content,
         chunk.content,
-        segment.startLine
+        segment.startLine,
+        searchFrom
       );
+      if (offset !== -1) searchFrom = Math.max(offset + 1, offset + chunk.content.length - overlapChars);
 
       const result: ChunkResult = {
         id: chunk.id,
@@ -436,10 +442,12 @@ function extractSegments(content: string, fileInfo: FileInfo): ExtractionResultW
 function computeLineNumbers(
   segmentContent: string,
   chunkContent: string,
-  segmentStartLine: number
-): { startLine: number; endLine: number } {
+  segmentStartLine: number,
+  searchFrom: number
+): { startLine: number; endLine: number; offset: number } {
   // Find where this chunk starts within the segment
-  const chunkStartOffset = segmentContent.indexOf(chunkContent);
+  let chunkStartOffset = segmentContent.indexOf(chunkContent, searchFrom);
+  if (chunkStartOffset === -1) chunkStartOffset = segmentContent.indexOf(chunkContent);
 
   if (chunkStartOffset === -1) {
     // Chunk not found (shouldn't happen) - use segment boundaries
@@ -447,6 +455,7 @@ function computeLineNumbers(
     return {
       startLine: segmentStartLine,
       endLine: segmentStartLine + chunkLines - 1,
+      offset: -1,
     };
   }
 
@@ -458,7 +467,7 @@ function computeLineNumbers(
   const chunkLines = chunkContent.split('\n').length;
   const endLine = startLine + chunkLines - 1;
 
-  return { startLine, endLine };
+  return { startLine, endLine, offset: chunkStartOffset };
 }
 
 function tooLarge(fileInfo: FileInfo, size: number, warnings: string[]): FileChunkResult {

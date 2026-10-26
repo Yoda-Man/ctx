@@ -33,6 +33,7 @@ import {
 import { CLIError } from '../../errors/index.js';
 import { createLLMProvider } from '../../providers/llm.js';
 import type { Project } from '../../database/schema.js';
+import { errorMessage } from '../../utils/error.js';
 
 // ============================================================================
 // Run Subcommand Types
@@ -451,7 +452,7 @@ function createRunSubcommand(
         }
         throw new CLIError(
           'Evaluation failed',
-          error instanceof Error ? error.message : String(error)
+          errorMessage(error)
         );
       }
     });
@@ -1281,7 +1282,7 @@ Questions:`,
         if (spinner) spinner.fail('Failed to generate questions');
         throw new CLIError(
           'LLM question generation failed',
-          error instanceof Error ? error.message : String(error)
+          errorMessage(error)
         );
       }
 

@@ -35,6 +35,7 @@ import type { Project } from '../../database/schema.js';
 import { shouldRecord } from '../../observability/index.js';
 import { getDatabase } from '../../database/index.js';
 import type { TraceInput } from '../../eval/types.js';
+import { errorMessage } from '../../utils/error.js';
 
 // ============================================================================
 // Types
@@ -367,7 +368,7 @@ export function createSearchCommand(
           dbOps.insertTrace(traceInput);
           ctx.debug('Trace recorded to eval_traces');
         } catch (err) {
-          ctx.debug(`Trace recording failed: ${err}`);
+          ctx.debug(`Trace recording failed: ${errorMessage(err)}`);
         }
       }
     });

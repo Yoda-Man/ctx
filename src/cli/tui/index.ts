@@ -33,21 +33,7 @@
  */
 
 // Types
-export {
-  
-  AgentPhase,
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-} from './types.js';
+export { AgentPhase } from './types.js';
 
 // Terminal Region Manager
 ;
@@ -64,8 +50,5 @@ export {
 // TUI Controller (main integration point)
 export {
   TUIController,
-  
   type StreamChunk,
-  
-  
 } from './controller.js';

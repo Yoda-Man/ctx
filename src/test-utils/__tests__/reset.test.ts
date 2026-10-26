@@ -5,12 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { resetAll } from '../reset.js';
 import {
-  getVectorStoreManager,
   resetVectorStoreManager,
-  getBM25StoreManager,
   resetBM25StoreManager,
 } from '../../search/index.js';
-import { getDatabase, resetDatabase, closeDb } from '../../database/index.js';
+import { resetDatabase, closeDb } from '../../database/index.js';
 
 // Mock the search and database modules
 vi.mock('../../search/index.js', () => ({

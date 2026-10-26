@@ -143,9 +143,9 @@ describe('ChatAreaManager', () => {
 
       const messages = chatArea.getMessages();
       expect(messages).toHaveLength(3);
-      expect(messages[0].role).toBe('user');
-      expect(messages[1].role).toBe('info');
-      expect(messages[2].role).toBe('system');
+      expect(messages[0]!.role).toBe('user');
+      expect(messages[1]!.role).toBe('info');
+      expect(messages[2]!.role).toBe('system');
     });
   });
 
@@ -228,8 +228,8 @@ describe('ChatAreaManager', () => {
 
       const recent = chatArea.getRecentMessages(2);
       expect(recent).toHaveLength(2);
-      expect(recent[0].content).toBe('msg2');
-      expect(recent[1].content).toBe('msg3');
+      expect(recent[0]!.content).toBe('msg2');
+      expect(recent[1]!.content).toBe('msg3');
     });
   });
 });

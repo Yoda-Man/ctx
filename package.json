@@ -22,12 +22,13 @@
     "dev:index": "node ./dist/cli.js index",
     "dev:ask": "node ./dist/cli.js ask",
     "dev:search": "node ./dist/cli.js search",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run check:latest && npm run build && npm test",
-    "check:latest": "npm outdated"
+    "prepublishOnly": "npm run check:latest && npm run typecheck && npm run lint && npm run build && npm test",
+    "check:latest": "npm outdated",
+    "lint": "oxlint --type-aware --deny-warnings src scripts"
   },
   "keywords": [
     "ai",
@@ -67,7 +68,6 @@
     "better-sqlite3": "^13.0.3",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
-    "dotenv": "^18.0.9",
     "fast-glob": "^3.3.3",
     "ignore": "^7.0.14",
     "mammoth": "^1.13.0",
@@ -86,6 +86,8 @@
     "@types/node": "^26.6.5",
     "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^5.0.5",
+    "oxlint": "^1.89.0",
+    "oxlint-tsgolint": "^7.0.2005",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

@@ -5,10 +5,8 @@
 
 import type {
   ContentPart,
-  
   TextContentPart,
   ImageContentPart,
-  
 } from './types';
 
 /**

@@ -346,19 +346,14 @@ describe('createStatusLineRenderer', () => {
 });
 
 describe('toolToDescription', () => {
-  it('should generate description for read_file', () => {
-    const desc = toolToDescription('read_file', { path: 'src/index.ts' });
-    expect(desc).toBe('Reading src/index.ts');
+  it('describes a knowledge search with its query, shortened to 40 characters', () => {
+    expect(toolToDescription('retrieve_knowledge', { query: 'auth flow' })).toBe('Searching: "auth flow"');
+    expect(toolToDescription('retrieve_knowledge', { query: 'x'.repeat(60) })).toBe(`Searching: "${'x'.repeat(40)}"`);
   });
 
-  it('should generate description for search_files', () => {
-    const desc = toolToDescription('search_files', { pattern: 'TODO' });
-    expect(desc).toBe('Searching for "TODO"');
-  });
-
-  it('should generate description for web_fetch', () => {
-    const desc = toolToDescription('web_fetch', { url: 'https://example.com/api' });
-    expect(desc).toBe('Fetching example.com');
+  it('falls back to "codebase" when the query is missing or not text', () => {
+    expect(toolToDescription('retrieve_knowledge')).toBe('Searching: "codebase"');
+    expect(toolToDescription('retrieve_knowledge', { query: { nested: true } })).toBe('Searching: "codebase"');
   });
 
   it('should fallback for unknown tools', () => {

@@ -187,8 +187,6 @@ describe('MultiProjectFusionService', () => {
         {
           projectIds: ['proj-1', 'proj-2'],
           dimensions: 1024,
-          useHNSW: undefined,
-          hnswConfig: undefined,
         },
         undefined
       );
@@ -209,16 +207,12 @@ describe('MultiProjectFusionService', () => {
       await service.loadProjects({
         projectIds: ['proj-1'],
         dimensions: 768,
-        useHNSW: false,
-        hnswConfig: { M: 32, efConstruction: 400 },
         bm25Config: { k1: 1.5, b: 0.8 },
       });
 
       expect(mockVectorManager.loadStores).toHaveBeenCalledWith(
         expect.objectContaining({
           dimensions: 768,
-          useHNSW: false,
-          hnswConfig: { M: 32, efConstruction: 400 },
         }),
         undefined
       );
@@ -734,7 +728,7 @@ describe('MultiProjectFusionService', () => {
     });
 
     it('should clear loaded projects on reset', () => {
-      const service = getMultiProjectFusionService();
+      getMultiProjectFusionService(); // create the instance that reset must clear
       resetMultiProjectFusionService();
 
       expect(mockVectorManager.clearLoadedProjects).toHaveBeenCalled();

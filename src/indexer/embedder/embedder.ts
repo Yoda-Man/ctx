@@ -15,6 +15,7 @@ import type { EmbeddingProvider } from '../../sdk/rag/index.js';
 
 import type { ChunkResult } from '../chunker/types.js';
 import type { EmbeddedChunk, EmbedderOptions } from './types.js';
+import { toError } from '../../utils/error.js';
 
 /** Default batch size - 32 is a good balance of speed vs memory */
 const DEFAULT_BATCH_SIZE = 32;
@@ -169,7 +170,7 @@ export async function embedChunks(
 
       // Yield to event loop to keep REPL responsive
       await new Promise((resolve) => setImmediate(resolve));
-    } catch (error) {
+    } catch {
       // Batch failed - try individual chunks for better error isolation
       for (const chunk of batch) {
         // Check for cancellation during fallback processing
@@ -194,7 +195,7 @@ export async function embedChunks(
         } catch (chunkError) {
           // Individual chunk failed - skip it
           onError?.(
-            chunkError instanceof Error ? chunkError : new Error(String(chunkError)),
+            toError(chunkError),
             chunk.id
           );
         }

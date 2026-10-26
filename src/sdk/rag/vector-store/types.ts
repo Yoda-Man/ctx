@@ -267,73 +267,6 @@ export interface VectorStoreErrorDetails {
 // Store-Specific Configuration
 // ============================================================================
 
-// ============================================================================
-// HNSW Configuration
-// ============================================================================
-
-/**
- * Configuration for HNSW (Hierarchical Navigable Small World) index.
- *
- * HNSW is an approximate nearest neighbor algorithm that achieves O(log n)
- * search time. Used by pgvector, Pinecone, Weaviate, and other production
- * vector databases.
- *
- * @example
- * ```typescript
- * const config: HNSWConfig = {
- *   M: 16,              // 16 connections per node
- *   efConstruction: 200, // Build quality
- *   efSearch: 100        // Search quality/speed tradeoff
- * };
- * ```
- */
-export interface HNSWConfig {
-  /**
-   * Maximum number of bi-directional connections per node per layer.
-   *
-   * Higher M = better recall, more memory, slower insert.
-   * - M=4-8: Low memory, good for small datasets
-   * - M=12-16: Balanced (recommended)
-   * - M=24-48: High recall, large datasets
-   *
-   * @default 16
-   */
-  M?: number;
-
-  /**
-   * Size of dynamic candidate list during construction.
-   *
-   * Higher efConstruction = better graph quality, slower insert.
-   * - efConstruction=100: Fast construction
-   * - efConstruction=200: Balanced (recommended)
-   * - efConstruction=400: High quality graph
-   *
-   * @default 200
-   */
-  efConstruction?: number;
-
-  /**
-   * Size of dynamic candidate list during search.
-   *
-   * Higher efSearch = better recall, slower search.
-   * Must be >= k (number of neighbors requested).
-   * - efSearch=16-64: Fast search
-   * - efSearch=100: Balanced (recommended)
-   * - efSearch=200+: High recall
-   *
-   * @default 100
-   */
-  efSearch?: number;
-}
-
-/**
- * Index type for InMemoryVectorStore.
- *
- * - 'brute-force': O(n) linear scan (default, exact results)
- * - 'hnsw': O(log n) HNSW index (approximate, much faster for large datasets)
- */
-type InMemoryIndexType = 'brute-force' | 'hnsw';
-
 /**
  * Callback fired when embeddings are evicted due to memory pressure.
  *
@@ -345,20 +278,10 @@ export type EvictionCallback = (ids: string[], freedBytes: number) => void;
 /**
  * Configuration for in-memory vector store.
  *
- * Extends base VectorStoreConfig with HNSW indexing and memory management options.
+ * Extends base VectorStoreConfig with memory management options.
  *
  * @example
  * ```typescript
- * // Default brute-force (exact, suitable for <10K vectors)
- * const store = new InMemoryVectorStore({ dimensions: 1536 });
- *
- * // HNSW index (approximate, suitable for 10K-100K+ vectors)
- * const store = new InMemoryVectorStore({
- *   dimensions: 1536,
- *   indexType: 'hnsw',
- *   hnswConfig: { M: 16, efSearch: 100 }
- * });
- *
  * // Memory-efficient storage with budget enforcement
  * const store = new InMemoryVectorStore({
  *   dimensions: 1536,
@@ -371,23 +294,6 @@ export type EvictionCallback = (ids: string[], freedBytes: number) => void;
  * ```
  */
 export interface InMemoryVectorStoreConfig extends VectorStoreConfig {
-  /**
-   * Index type to use for similarity search.
-   *
-   * - 'brute-force': Linear scan, O(n), exact results (default)
-   * - 'hnsw': HNSW index, O(log n), approximate results
-   *
-   * @default 'brute-force'
-   */
-  indexType?: InMemoryIndexType;
-
-  /**
-   * HNSW configuration (only used when indexType is 'hnsw').
-   *
-   * Defaults are tuned for balanced recall/speed.
-   */
-  hnswConfig?: HNSWConfig;
-
   // ==========================================================================
   // Memory Management Options (NFR-103)
   // ==========================================================================

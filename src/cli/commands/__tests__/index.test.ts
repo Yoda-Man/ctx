@@ -78,7 +78,6 @@ describe('createIndexCommand', () => {
   let mockDb: {
     getProjectByPath: ReturnType<typeof vi.fn>;
     getProjectByName: ReturnType<typeof vi.fn>;
-    deleteProjectChunks: ReturnType<typeof vi.fn>;
   };
   let mockReporter: {
     startStage: ReturnType<typeof vi.fn>;
@@ -99,6 +98,7 @@ describe('createIndexCommand', () => {
       options: { verbose: false, json: false },
       log: vi.fn(),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -106,7 +106,6 @@ describe('createIndexCommand', () => {
     mockDb = {
       getProjectByPath: vi.fn().mockReturnValue(undefined),
       getProjectByName: vi.fn().mockReturnValue(undefined),
-      deleteProjectChunks: vi.fn(),
     };
     vi.mocked(database.getDatabase).mockReturnValue(mockDb as any);
 
@@ -330,8 +329,7 @@ describe('createIndexCommand', () => {
 
       await runCommand(['/path/to/project', '--force']);
 
-      // With atomic re-indexing, we pass useStaging: true to the pipeline
-      // instead of calling deleteProjectChunks directly
+      // Re-indexing goes through the pipeline's staging tables
       expect(indexer.runIndexPipeline).toHaveBeenCalled();
     });
 
@@ -380,7 +378,7 @@ describe('createIndexCommand', () => {
       await runCommand(['/path/to/project']);
 
       // Fresh indexing should NOT use staging table (useStaging is undefined/falsy)
-      const pipelineOptions = vi.mocked(indexer.runIndexPipeline).mock.calls[0][0];
+      const pipelineOptions = vi.mocked(indexer.runIndexPipeline).mock.calls[0]![0];
       expect(pipelineOptions.useStaging).toBeFalsy();
     });
   });
@@ -467,9 +465,11 @@ describe('createIndexCommand', () => {
     });
 
     it('runs migrations before accessing database', async () => {
+      // On a fresh install the project lookup failed: "no such table: projects".
       await runCommand(['/path/to/project']);
 
-      expect(database.runMigrations).toHaveBeenCalled();
+      const migrated = vi.mocked(database.runMigrations).mock.invocationCallOrder[0]!;
+      expect(migrated).toBeLessThan(mockDb.getProjectByPath.mock.invocationCallOrder[0]!);
     });
   });
 

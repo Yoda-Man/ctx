@@ -15,7 +15,6 @@ import {
   getMultiProjectBM25StoreManager,
   resetMultiProjectBM25StoreManager,
 } from '../multi-project-bm25-store.js';
-import { resetBM25StoreManager } from '../bm25-store.js';
 import type { Project } from '../../database/schema.js';
 
 // Mock dependencies

@@ -181,7 +181,8 @@ import * as llmProvider from '../../providers/llm.js';
 import { createIndexCommand } from '../../cli/commands/index.js';
 import { createSearchCommand } from '../../cli/commands/search.js';
 import { createAskCommand } from '../../cli/commands/ask.js';
-import { parseREPLCommand, createCompleter } from '../../cli/commands/chat.js';
+import { createCompleter } from '../../cli/commands/chat.js';
+import { parseREPLCommand } from '../../cli/commands/chat-commands.js';
 import type { CommandContext } from '../../cli/types.js';
 
 import {
@@ -271,7 +272,7 @@ function setupEmbedderMock(): void {
     const results = await mockProvider.embedBatch(chunks.map((c) => c.content));
     return chunks.map((chunk, i) => ({
       ...chunk,
-      embedding: results[i]!.embedding,
+      embedding: new Float32Array(results[i]!.embedding),
     }));
   });
 }

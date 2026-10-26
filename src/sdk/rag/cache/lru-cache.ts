@@ -9,7 +9,6 @@
 
 import type {
   CacheProvider,
-  
   LRUCacheConfig,
   SizeEstimator,
 } from './types.js';

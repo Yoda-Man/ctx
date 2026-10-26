@@ -823,22 +823,4 @@ describe('createSearchService', () => {
 
     expect(service).toBeInstanceOf(SearchService);
   });
-
-  it('should create a service with custom HNSW config', () => {
-    const provider = createMockProvider();
-    const service = createSearchService('test', provider, {
-      top_k: 10,
-      rerank: false,
-    }, {
-      dimensions: 1024,
-      useHNSW: true,
-      hnswConfig: {
-        M: 32,
-        efConstruction: 400,
-        efSearch: 200,
-      },
-    });
-
-    expect(service).toBeInstanceOf(SearchService);
-  });
 });

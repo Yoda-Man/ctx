@@ -11,7 +11,7 @@
 
 import type { EmbeddingProvider, EmbeddingResult } from './types.js';
 import { BaseEmbeddingProvider } from './base-provider.js';
-import { LRUCacheProvider,  } from '../cache/index.js';
+import { LRUCacheProvider } from '../cache/index.js';
 
 // ============================================================================
 // Cache Interface
@@ -136,26 +136,6 @@ class LRUEmbeddingCache implements EmbeddingCache {
 }
 
 // ============================================================================
-// Cache Key Generation
-// ============================================================================
-
-/**
- * Generate a cache key from text.
- *
- * Uses a simple hash function for fast key generation.
- * For production with high collision sensitivity, consider using SHA-256.
- */
-function generateCacheKey(text: string): string {
-  // Simple djb2 hash - fast and good distribution
-  let hash = 5381;
-  for (let i = 0; i < text.length; i++) {
-    hash = (hash * 33) ^ text.charCodeAt(i);
-  }
-  // Convert to unsigned 32-bit integer, then to hex string
-  return (hash >>> 0).toString(16);
-}
-
-// ============================================================================
 // Cached Embedding Provider
 // ============================================================================
 
@@ -229,7 +209,7 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
    * Generate embedding with caching.
    */
   protected _embed = async (text: string): Promise<EmbeddingResult> => {
-    const cacheKey = generateCacheKey(text);
+    const cacheKey = text; // the text itself: a short hash let two texts share a vector
 
     // Check cache
     const cached = await this.cache.get(cacheKey);
@@ -260,16 +240,14 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
   protected override _embedBatch = async (
     texts: string[]
   ): Promise<EmbeddingResult[]> => {
-    const results: (EmbeddingResult | null)[] = new Array(texts.length).fill(
-      null
-    );
+    const results: (EmbeddingResult | null)[] = Array.from({ length: texts.length }, () => null);
     const uncachedTexts: string[] = [];
     const uncachedIndices: number[] = [];
 
     // Check cache for each text
     for (let i = 0; i < texts.length; i++) {
       const text = texts[i]!;
-      const cacheKey = generateCacheKey(text);
+      const cacheKey = text; // the text itself: a short hash let two texts share a vector
       const cached = await this.cache.get(cacheKey);
 
       if (cached) {
@@ -296,7 +274,7 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
         const text = uncachedTexts[i]!;
         const originalIndex = uncachedIndices[i]!;
 
-        await this.cache.set(generateCacheKey(text), result.embedding);
+        await this.cache.set(text, result.embedding);
         results[originalIndex] = result;
       }
     }

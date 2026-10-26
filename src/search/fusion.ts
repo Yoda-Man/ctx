@@ -32,7 +32,6 @@ import type {
   FusionServiceOptions,
   SearchConfig,
   IndexBuildProgress,
-  SearchServiceOptions,
   RerankConfig,
 } from './types.js';
 
@@ -186,8 +185,6 @@ export class FusionService {
     // Create underlying services with validated dimensions
     this.denseService = createSearchService(projectId, embeddingProvider, searchConfig, {
       dimensions,
-      useHNSW: options.denseOptions?.useHNSW,
-      hnswConfig: options.denseOptions?.hnswConfig,
     });
 
     this.bm25Service = createBM25SearchService(projectId, searchConfig, {
@@ -323,7 +320,7 @@ export function createFusionService(
   projectId: string,
   embeddingProvider: EmbeddingProvider,
   searchConfig: SearchConfig = { top_k: 10, rerank: false },
-  options: { denseOptions: { dimensions: number; useHNSW?: boolean; hnswConfig?: SearchServiceOptions['hnswConfig'] } } & Partial<Omit<FusionServiceOptions, 'projectId' | 'denseOptions'>>,
+  options: { denseOptions: { dimensions: number } } & Partial<Omit<FusionServiceOptions, 'projectId' | 'denseOptions'>>,
   rerankConfig?: RerankConfig
 ): FusionService {
   return new FusionService(

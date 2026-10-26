@@ -210,14 +210,6 @@ export class DatabaseOperations {
     });
   }
 
-  /**
-   * Delete all chunks for a project (for re-indexing).
-   */
-  deleteProjectChunks(projectId: string): number {
-    const result = this.db.prepare('DELETE FROM chunks WHERE project_id = ?').run(projectId);
-    return result.changes;
-  }
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Atomic Re-indexing: Staging Table Pattern
   //
@@ -526,7 +518,6 @@ export class DatabaseOperations {
       conditions.push('timestamp <= @endDate');
       params.endDate = filter.end_date;
     }
-
 
     if (filter.trace_type) {
       conditions.push('trace_type = @traceType');

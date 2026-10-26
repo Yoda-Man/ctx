@@ -194,6 +194,9 @@ describe('createAssembler', () => {
             metadata: { filePath: 'test.ts', startLine: 1, endLine: 10 },
           },
           score: 0.9,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.9, rerankerScore: 0.9 },
         },
       ]);
 
@@ -207,6 +210,9 @@ describe('createAssembler', () => {
           id: 'test-1',
           chunk: { id: 'test-1', content: 'Test content', metadata: { filePath: 'test.ts', startLine: 42, endLine: 67 } },
           score: 0.9,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.9, rerankerScore: 0.9 },
         },
       ]);
 
@@ -226,6 +232,9 @@ describe('createAssembler', () => {
             metadata: { filePath: 'test.ts' },
           },
           score: 0.9,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.9, rerankerScore: 0.9 },
         },
       ]);
 
@@ -245,6 +254,9 @@ describe('createAssembler', () => {
             metadata: { filePath: 'src/auth.ts' },
           },
           score: 0.9,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.9, rerankerScore: 0.9 },
         },
       ]);
 
@@ -266,6 +278,9 @@ describe('createAssembler', () => {
             metadata: { filePath: 'test.ts' },
           },
           score: 0.9,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.9, rerankerScore: 0.9 },
         },
       ]);
 
@@ -285,6 +300,9 @@ describe('createAssembler', () => {
             metadata: { filePath: 'test.ts' },
           },
           score: 0.95,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.95, rerankerScore: 0.95 },
         },
       ]);
 
@@ -304,6 +322,9 @@ describe('createAssembler', () => {
             metadata: { filePath: 'test.ts' },
           },
           score: 0.95,
+          originalRank: 1,
+          newRank: 1,
+          scores: { originalScore: 0.95, rerankerScore: 0.95 },
         },
       ]);
 

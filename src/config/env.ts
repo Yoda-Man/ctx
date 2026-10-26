@@ -6,9 +6,12 @@
  * loaded too, for local development.
  */
 
-import { config as dotenvConfig } from 'dotenv';
-
-dotenvConfig({ quiet: true }); // dotenv otherwise announces itself on every run
+// Node reads .env itself (20.12+); values already in the environment win. No .env is fine.
+try {
+  process.loadEnvFile();
+} catch {
+  // ENOENT: no .env in this directory
+}
 
 /** The Ollama server URL: OLLAMA_HOST, or Ollama's default address. */
 export function getOllamaHost(): string {

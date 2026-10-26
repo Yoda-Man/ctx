@@ -133,7 +133,7 @@ export function formatResult(
   // Project prefix (for cross-project searches)
   // Prefer projectName for human readability, fallback to projectId
   const projectLabel = result.metadata.projectName ?? result.metadata.projectId;
-  if (showProject && projectLabel) {
+  if (showProject && typeof projectLabel === 'string' && projectLabel) {
     parts.push(`[${projectLabel}]`);
   }
 

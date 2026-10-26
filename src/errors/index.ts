@@ -25,6 +25,4 @@ export {
   getExitCode,
   handleError,
   createGlobalErrorHandler,
-  
-  
 } from './handler.js';

@@ -19,8 +19,9 @@ import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { execSync } from 'node:child_process';
 import chalk from 'chalk';
-import type { ChatState } from './chat.js';
+import type { ChatState } from './chat-state.js';
 import type { CommandContext } from '../types.js';
+import { errorMessage } from '../../utils/error.js';
 
 // ============================================================================
 // Constants
@@ -90,7 +91,7 @@ export async function handleShareCommand(
 
     ctx.log('');
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     ctx.error(`Failed to export conversation: ${message}`);
   }
 

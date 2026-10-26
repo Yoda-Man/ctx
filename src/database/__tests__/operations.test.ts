@@ -5,16 +5,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import Database from 'better-sqlite3';
 
-import {
-  DatabaseOperations,
-  type ProjectUpsertInput,
-  type ChunkInsertInput,
-} from '../operations.js';
+import { type ChunkInsertInput } from '../operations.js';
 import { embeddingToBlob } from '../schema.js';
 
 describe('DatabaseOperations', () => {
@@ -250,35 +246,6 @@ describe('DatabaseOperations', () => {
     });
   });
 
-  describe('deleteProjectChunks', () => {
-    it('should delete all chunks for a project', () => {
-      const projectId = 'test-project-5';
-      const now = new Date().toISOString();
-
-      // Create project
-      testDb.prepare(`
-        INSERT INTO projects (id, name, path, indexed_at, updated_at, file_count, chunk_count)
-        VALUES (?, 'Test Project', '/test/path', ?, ?, 0, 0)
-      `).run(projectId, now, now);
-
-      // Insert chunks
-      const stmt = testDb.prepare(`
-        INSERT INTO chunks (id, project_id, content, embedding, file_path, created_at)
-        VALUES (?, ?, 'test', ?, 'test.ts', ?)
-      `);
-      const emptyEmbedding = embeddingToBlob(new Float32Array([0.1]));
-      stmt.run('chunk-1', projectId, emptyEmbedding, now);
-      stmt.run('chunk-2', projectId, emptyEmbedding, now);
-
-      // Delete
-      const result = testDb.prepare('DELETE FROM chunks WHERE project_id = ?').run(projectId);
-      expect(result.changes).toBe(2);
-
-      const count = (testDb.prepare('SELECT COUNT(*) as count FROM chunks WHERE project_id = ?').get(projectId) as any).count;
-      expect(count).toBe(0);
-    });
-  });
-
   // ─────────────────────────────────────────────────────────────────────────────
   // Atomic Re-indexing: Staging Table Pattern Tests
   //
@@ -490,10 +457,10 @@ describe('DatabaseOperations', () => {
         'SELECT id, content FROM chunks WHERE project_id = ? ORDER BY id'
       ).all(projectId) as Array<{ id: string; content: string }>;
 
-      expect(chunks[0].id).toBe('new-chunk-1');
-      expect(chunks[0].content).toBe('new content X');
-      expect(chunks[1].id).toBe('new-chunk-2');
-      expect(chunks[1].content).toBe('new content Y');
+      expect(chunks[0]!.id).toBe('new-chunk-1');
+      expect(chunks[0]!.content).toBe('new content X');
+      expect(chunks[1]!.id).toBe('new-chunk-2');
+      expect(chunks[1]!.content).toBe('new content Y');
 
       // Cleanup
       testDb.exec('DROP TABLE chunks_staging');
@@ -533,7 +500,7 @@ describe('DatabaseOperations', () => {
       ).all(projectId) as Array<{ content: string }>;
 
       expect(mainTableQuery.length).toBe(1);
-      expect(mainTableQuery[0].content).toBe('existing content');
+      expect(mainTableQuery[0]!.content).toBe('existing content');
 
       // Staging table has different data
       const stagingQuery = testDb.prepare(
@@ -541,7 +508,7 @@ describe('DatabaseOperations', () => {
       ).all(projectId) as Array<{ content: string }>;
 
       expect(stagingQuery.length).toBe(1);
-      expect(stagingQuery[0].content).toBe('staged content');
+      expect(stagingQuery[0]!.content).toBe('staged content');
 
       // Cleanup
       testDb.exec('DROP TABLE chunks_staging');

@@ -27,6 +27,7 @@ import type {
   EmbeddingProviderResult,
 } from './types.js';
 import { type Logger, consoleLogger } from '../../utils/index.js';
+import { errorMessage } from '../../utils/error.js';
 
 /**
  * Model name mapping for different providers.
@@ -107,7 +108,7 @@ async function isProviderAvailable(
     return await provider.isAvailable();
   } catch (error) {
     logger.warn(
-      `Provider availability check failed: ${error instanceof Error ? error.message : String(error)}`
+      `Provider availability check failed: ${errorMessage(error)}`
     );
     return false;
   }
@@ -183,7 +184,7 @@ export async function createEmbeddingProvider(
     }
   } catch (error) {
     // Primary provider failed, will try fallback
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     options?.onProgress?.({
       status: `Primary provider (${config.provider}) unavailable: ${message}. Trying fallback...`,
     });
@@ -213,7 +214,7 @@ export async function createEmbeddingProvider(
       }
     } catch (error) {
       // Fallback also failed
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       throw new Error(
         `Both primary (${config.provider}) and fallback (${config.fallback_provider}) ` +
         `embedding providers failed. Last error: ${message}`
