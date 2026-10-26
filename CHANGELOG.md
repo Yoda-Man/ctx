@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-26
+
 ### Added
 - **Linting with oxlint**, type-aware (it runs on TypeScript 7's own engine,
   which ESLint's TypeScript support cannot yet use), in CI and before every
