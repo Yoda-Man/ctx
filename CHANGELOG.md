@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-26
+
 ### Added
 - **Word and PDF documents are indexed.** `.docx` files are converted to
   Markdown (headings, lists and tables kept) and `.pdf` files to their text,
