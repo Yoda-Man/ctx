@@ -506,9 +506,11 @@ describe('isBinaryFile', () => {
     expect(isBinaryFile('font.ttf')).toBe(true);
   });
 
-  it('identifies document files as binary', () => {
-    expect(isBinaryFile('document.pdf')).toBe(true);
+  it('identifies document files as binary, except the Word and PDF files it converts', () => {
     expect(isBinaryFile('spreadsheet.xlsx')).toBe(true);
+    expect(isBinaryFile('old.doc')).toBe(true);
+    expect(isBinaryFile('spec.pdf')).toBe(false);
+    expect(isBinaryFile('spec.docx')).toBe(false);
   });
 
   it('does not identify text files as binary', () => {

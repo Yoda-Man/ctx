@@ -45,14 +45,15 @@
   };                                                                                                                                                                    
                                                                                                                                                                         
   /**                                                                                                                                                                   
-   * Maximum file size to process (500KB).                                                                                                                              
+   * Maximum file size to process (750KB). For Word and PDF files it applies
+   * to the converted text, not the file.                                                                                                                              
    * Files larger than this are skipped with a warning.                                                                                                                 
    *                                                                                                                                                                    
    * Rationale: Very large files (e.g., minified bundles, generated code)                                                                                               
    * are typically not useful for semantic search and would create                                                                                                      
    * too many chunks.                                                                                                                                                   
    */                                                                                                                                                                   
-  export const MAX_FILE_SIZE = 500 * 1024; // 500KB                                                                                                                     
+  export const MAX_FILE_SIZE = 750 * 1024; // 750KB                                                                                                                     
                                                                                                                                                                         
   /**                                                                                                                                                                   
    * Minimum content length to create a chunk.                                                                                                                          

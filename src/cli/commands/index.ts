@@ -88,14 +88,18 @@ export function createIndexCommand(
       ctx.debug(`Project name: ${projectName}`);
       if (tags) ctx.debug(`Tags: ${tags.join(', ')}`);
 
-      // Check if project already exists
+      // Check if project already exists, by folder or by name: a project whose
+      // folder moved keeps its name, and names are unique, so re-indexing it from
+      // the new folder must replace it rather than fail once indexing is done.
       const db = getDatabase();
-      const existingProject = db.getProjectByPath(projectPath);
+      const existingProject = db.getProjectByPath(projectPath) ?? db.getProjectByName(projectName);
 
       if (existingProject && !cmdOptions.force) {
         throw new CLIError(
           `Project already indexed: ${existingProject.name} (${existingProject.path})`,
-          'Use --force to re-index, or choose a different directory'
+          existingProject.path === projectPath
+            ? 'Use --force to re-index, or choose a different directory'
+            : `Use --force to re-index it from ${projectPath}, or choose a different --name`
         );
       }
 

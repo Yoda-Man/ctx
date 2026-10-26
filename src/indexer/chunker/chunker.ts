@@ -18,7 +18,6 @@
  * - Using the right chunker for each produces more coherent chunks
  */
 
-import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import {
   RecursiveChunker,
@@ -29,6 +28,7 @@ import {
 import { SemanticChunker } from '../../sdk/rag/index.js';
 
 import type { FileInfo } from '../types.js';
+import { isConvertedDocument, readAsText } from '../documents.js';
 import type {
   ChunkResult,
   ChunkOptions,
@@ -97,23 +97,17 @@ async function chunkFileWithResult(
 ): Promise<FileChunkResult> {
   const warnings: string[] = [];
 
-  // Check file size limit
-  if (fileInfo.size > MAX_FILE_SIZE) {
-    const sizeMsg = `${formatSize(fileInfo.size)} > ${formatSize(MAX_FILE_SIZE)}`;
-    return {
-      filePath: fileInfo.relativePath,
-      success: false,
-      chunks: [],
-      skipReason: 'too_large',
-      error: `File too large (${sizeMsg})`,
-      warnings,
-    };
+  // Check file size limit. Word and PDF files are mostly images and layout, so
+  // for them the limit applies to the converted text instead.
+  const converted = isConvertedDocument(fileInfo.path);
+  if (!converted && fileInfo.size > MAX_FILE_SIZE) {
+    return tooLarge(fileInfo, fileInfo.size, warnings);
   }
 
-  // Read file content
+  // Read file content (.docx and .pdf are converted to Markdown)
   let content: string;
   try {
-    content = await readFile(fileInfo.path, 'utf-8');
+    content = await readAsText(fileInfo.path);
   } catch (error) {
     return {
       filePath: fileInfo.relativePath,
@@ -125,8 +119,16 @@ async function chunkFileWithResult(
     };
   }
 
+  if (converted && Buffer.byteLength(content) > MAX_FILE_SIZE) {
+    return tooLarge(fileInfo, Buffer.byteLength(content), warnings);
+  }
+
   // Empty files are success (valid file, just no content)
   if (!content.trim()) {
+    if (converted) {
+      // A scanned PDF is images only; say so rather than skip it silently.
+      warnings.push('No text found (a scanned document needs OCR before it can be indexed)');
+    }
     return {
       filePath: fileInfo.relativePath,
       success: true,
@@ -457,6 +459,17 @@ function computeLineNumbers(
   const endLine = startLine + chunkLines - 1;
 
   return { startLine, endLine };
+}
+
+function tooLarge(fileInfo: FileInfo, size: number, warnings: string[]): FileChunkResult {
+  return {
+    filePath: fileInfo.relativePath,
+    success: false,
+    chunks: [],
+    skipReason: 'too_large',
+    error: `File too large (${formatSize(size)} > ${formatSize(MAX_FILE_SIZE)})`,
+    warnings,
+  };
 }
 
 /**

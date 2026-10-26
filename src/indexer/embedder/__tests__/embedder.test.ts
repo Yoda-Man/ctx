@@ -93,6 +93,18 @@ describe('embedChunks', () => {
     mockProvider = createMockProvider();
   });
 
+  it('leaves no timeout timer running once embedding is done', async () => {
+    // A pending timer kept `ctx index` alive for the whole timeout after it finished.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const chunks = Array.from({ length: 3 }, (_, i) => createMockChunk(`t-${i}`, `Content ${i}`));
+      await embedChunks(chunks, mockProvider, { batchSize: 1, timeout: 120000 });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('should embed an empty array', async () => {
     const result = await embedChunks([], mockProvider);
     expect(result).toEqual([]);

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-26
+
+### Added
+- **Word and PDF documents are indexed.** `.docx` files are converted to
+  Markdown (headings, lists and tables kept) and `.pdf` files to their text,
+  on this machine, before indexing, so specs written in either can be searched
+  and answer `ctx ask`. A document with no text, such as a scanned PDF, is
+  reported with a warning rather than skipped silently. The file limit applies to the converted text,
+  not to the file. New dependencies: `mammoth`, `turndown`, `unpdf`.
+
+### Changed
+- Files up to 750 KB are indexed (was 500 KB); larger ones are still skipped
+  with a warning.
+
+### Fixed
+- **`ctx index` kept running for two minutes after it had finished.** Every
+  embedding batch started a timeout timer (`embedding.timeout_ms`, 120 s by
+  default) that was never cleared, so the process waited for the last one
+  before exiting. Indexing three PDFs took 121 s from start to exit; it now
+  takes 10 s. This also held up YodaMan, which waits for `ctx index` to exit.
+- **Re-indexing a project from a different folder failed after doing all the
+  work.** `ctx index <new folder> --name <existing project> --force` chunked
+  and embedded every file, then stopped on "UNIQUE constraint failed:
+  projects.name". Projects are now matched by name as well as folder: with
+  `--force` the project is re-indexed from the new folder, and without it ctx
+  says so before indexing starts.
+
 ## [1.0.0] - 2026-10-23
 
 First release of `yodaman-ctx`, YodaMan's fork of `@contextexpert/cli` 1.4.0
