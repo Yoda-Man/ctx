@@ -169,10 +169,9 @@ describe('computeRRF', () => {
       const scoreA = fused.find((r) => r.id === 'A')!.score;
       const scoreB = fused.find((r) => r.id === 'B')!.score;
 
-      // 1 / (60 + 1) = 0.016393...
-      const expectedScore = 1 / (60 + 1);
-      expect(scoreA).toBeCloseTo(expectedScore, 5);
-      expect(scoreB).toBeCloseTo(expectedScore, 5);
+      // 1/(60+1), scaled by the best possible 2/(60+1): first in one list = 0.5
+      expect(scoreA).toBeCloseTo(0.5, 5);
+      expect(scoreB).toBeCloseTo(0.5, 5);
     });
 
     it('should compute correct summed score for duplicates', () => {
@@ -183,22 +182,20 @@ describe('computeRRF', () => {
 
       const fused = computeRRF(denseResults, bm25Results, { k: 60 });
 
-      const scoreA = fused[0]!.score;
-      const expectedScore = 2 / (60 + 1);
-      expect(scoreA).toBeCloseTo(expectedScore, 5);
+      // 2/(k+1) is the best possible score: 1
+      expect(fused[0]!.score).toBeCloseTo(1, 5);
     });
 
     it('should respect different k values', () => {
-      const denseResults = createMockResults(['A']);
-      const bm25Results = createMockResults(['B']);
+      const denseResults = createMockResults(['A', 'B']);
+      const bm25Results: SearchResultWithContext[] = [];
 
-      // Lower k = higher individual scores
+      // Lower k = lower ranks lose more: B is (1/12)/(2/11) at k=10, (1/62)/(2/61) at k=60
       const fusedK10 = computeRRF(denseResults, bm25Results, { k: 10 });
       const fusedK60 = computeRRF(denseResults, bm25Results, { k: 60 });
 
-      // k=10: score = 1/(10+1) = 0.0909...
-      // k=60: score = 1/(60+1) = 0.0164...
-      expect(fusedK10[0]!.score).toBeGreaterThan(fusedK60[0]!.score);
+      expect(fusedK10[1]!.score).toBeCloseTo((1 / 12) / (2 / 11), 5);
+      expect(fusedK10[1]!.score).toBeLessThan(fusedK60[1]!.score);
     });
   });
 
@@ -303,8 +300,9 @@ describe('computeRRF', () => {
       expect(fused.length).toBe(4);
       // Scores should be very small but not zero
       // Formula: 1/(10000 + 1) = 0.00009999...
-      expect(fused[0]!.score).toBeGreaterThan(0);
-      expect(fused[0]!.score).toBeLessThan(0.001);
+      // A huge k flattens the ranks: every first-in-one-list item is about 0.5
+      expect(fused[0]!.score).toBeCloseTo(0.5, 5);
+      expect(fused[3]!.score).toBeGreaterThan(0.49);
     });
 
     it('should handle very small k value (k=1)', () => {
@@ -329,7 +327,7 @@ describe('computeRRF', () => {
       // All should have combined scores from both lists
       fused.forEach(result => {
         // Score should be sum of ranks: 2 * 1/(k + rank)
-        expect(result.score).toBeGreaterThan(1 / 61); // More than single rank
+        expect(result.score).toBeGreaterThan(0.5); // more than one list alone gives
       });
     });
 
@@ -391,8 +389,8 @@ describe('computeRRF', () => {
 
       expect(fused.length).toBe(1);
       expect(fused[0]!.id).toBe('A');
-      // Score from dense only: 1/(60+1)
-      expect(fused[0]!.score).toBeCloseTo(1 / 61, 5);
+      // Dense only: 1/(60+1) of a best possible 2/(60+1)
+      expect(fused[0]!.score).toBeCloseTo(0.5, 5);
     });
   });
 });
@@ -501,11 +499,12 @@ describe('FusionService', () => {
         };
       }
       // BM25 query (no embedding column)
-      if (sql.includes('SELECT id, content') && !sql.includes('embedding')) {
+      if (sql.includes('SELECT rowid, id, content') && !sql.includes('embedding')) {
         return {
           all: vi.fn().mockImplementation(
-            (_projectId: string, limit: number, offset: number) => {
-              return chunks.slice(offset, offset + limit);
+            (_projectId: string, afterRowid: number, limit: number) => {
+              // rowid paging: rows numbered from 1, those after the last one read
+              return chunks.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
             }
           ),
         };
@@ -514,8 +513,9 @@ describe('FusionService', () => {
       if (sql.includes('embedding')) {
         return {
           all: vi.fn().mockImplementation(
-            (_projectId: string, limit: number, offset: number) => {
-              return chunksWithEmbeddings.slice(offset, offset + limit);
+            (_projectId: string, afterRowid: number, limit: number) => {
+              // rowid paging: rows numbered from 1, those after the last one read
+              return chunksWithEmbeddings.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
             }
           ),
         };
@@ -681,13 +681,10 @@ describe('FusionService', () => {
 
       const results = await service.search('test content');
 
-      // With k=10, if chunk appears in one list: score = 1/(10+1) = 0.0909...
-      // If chunk appears in both lists: score = 2/(10+1) = 0.1818...
-      // The exact score depends on whether both dense and BM25 return it.
-      // We verify the RRF formula is correctly applied by checking score is in expected range
+      // Scaled to the best possible 2/(10+1): 0.5 when first in one list, 1 when first in both
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0]!.score).toBeGreaterThanOrEqual(1 / 11); // At least one source
-      expect(results[0]!.score).toBeLessThanOrEqual(2 / 11); // At most both sources
+      expect(results[0]!.score).toBeGreaterThanOrEqual(0.5); // first in at least one source
+      expect(results[0]!.score).toBeLessThanOrEqual(1); // at most first in both
     });
   });
 

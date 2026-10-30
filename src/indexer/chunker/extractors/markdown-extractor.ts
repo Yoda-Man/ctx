@@ -1,11 +1,11 @@
 /**
  * Markdown Extractor
  *
- * Uses the marked lexer to extract:
- * - Fenced code blocks → 'code' segments with language info
- * - Prose sections (paragraphs, lists) → 'docs' segments
- *
- * Preserves section headers as context for chunking.
+ * Splits a document into sections: each heading with everything under it,
+ * up to the next heading, as one 'docs' segment of the file's own lines.
+ * The heading stays with its text (a table is found by its title), every
+ * line lands in exactly one segment, and the marked lexer finds the headings
+ * so a `#` line inside a code fence is not mistaken for one.
  */
 
 import { marked } from 'marked';
@@ -15,159 +15,62 @@ import type { ExtractedSegment, ExtractionResult } from '../types.js';
 /**
  * Extract segments from markdown content.
  *
- * Separates code blocks (for code-specific chunking) from prose
- * (for semantic chunking). Tracks section headers as context.
- *
  * @param content - The markdown content
  * @returns Extraction result with segments and original content
  */
 export function extractMarkdownSegments(content: string): ExtractionResult {
-  const tokens = marked.lexer(content);
-  const segments: ExtractedSegment[] = [];
-  const lines = content.split('\n');
+  const text = content.replace(/\r\n?/g, '\n'); // marked does the same
+  const lines = text.split('\n');
+  const tokens = marked.lexer(text);
 
-  // Track the current section header for context
-  let currentHeader: string | undefined;
-
-  // Track line position as we process tokens
-  let currentLine = 1;
-
+  // Row and title of each heading. The tokens' raw text rebuilds the document
+  // exactly; if it ever doesn't, positions can't be trusted: one segment.
+  const headings: Array<{ row: number; title: string }> = [];
+  let row = 0;
+  let length = 0;
   for (const token of tokens) {
-    // Calculate line number from token position
-    const tokenLines = countLines(token.raw);
-    const startLine = currentLine;
-    const endLine = startLine + tokenLines - 1;
+    if (token.type === 'heading') headings.push({ row, title: token.text });
+    row += token.raw.split('\n').length - 1;
+    length += token.raw.length;
+  }
+  const starts = length === text.length ? headings : [];
 
-    switch (token.type) {
-      case 'heading':
-        // Update current header context
-        currentHeader = token.text;
-        // Headers themselves are docs segments
-        segments.push({
-          content: token.raw.trim(),
-          contentType: 'docs',
-          startLine,
-          endLine,
-          metadata: {
-            sectionHeader: currentHeader,
-          },
-        });
-        break;
+  // Section boundaries: the preface (if any), then one per heading
+  const sections: Array<{ start: number; title?: string }> = [];
+  if (starts[0]?.row !== 0) sections.push({ start: 0 });
+  for (const heading of starts) sections.push({ start: heading.row, title: heading.title });
 
-      case 'code':
-        // Fenced code blocks → code segments
-        segments.push({
-          content: token.text,
-          contentType: 'code',
-          startLine,
-          endLine,
-          metadata: {
-            language: token.lang || 'text',
-            sectionHeader: currentHeader,
-          },
-        });
-        break;
+  const segments: ExtractedSegment[] = [];
+  let pendingStart: number | null = null; // start of a section merged into the next
+  sections.forEach((section, i) => {
+    const start = pendingStart ?? section.start;
+    let end = (sections[i + 1]?.start ?? lines.length) - 1;
+    while (end >= start && !lines[end]!.trim()) end--;
+    if (end < start) return;
 
-      case 'paragraph':
-      case 'text':
-        // Prose content → docs segments
-        if (token.raw.trim()) {
-          segments.push({
-            content: token.raw.trim(),
-            contentType: 'docs',
-            startLine,
-            endLine,
-            metadata: {
-              sectionHeader: currentHeader,
-            },
-          });
-        }
-        break;
-
-      case 'list':
-        // Lists are documentation content
-        segments.push({
-          content: token.raw.trim(),
-          contentType: 'docs',
-          startLine,
-          endLine,
-          metadata: {
-            sectionHeader: currentHeader,
-          },
-        });
-        break;
-
-      case 'blockquote':
-        // Blockquotes are documentation content
-        segments.push({
-          content: token.raw.trim(),
-          contentType: 'docs',
-          startLine,
-          endLine,
-          metadata: {
-            sectionHeader: currentHeader,
-          },
-        });
-        break;
-
-      case 'table':
-        // Tables are documentation content
-        segments.push({
-          content: token.raw.trim(),
-          contentType: 'docs',
-          startLine,
-          endLine,
-          metadata: {
-            sectionHeader: currentHeader,
-          },
-        });
-        break;
-
-      case 'html':
-        // HTML blocks - skip or treat as docs
-        if (token.raw.trim()) {
-          segments.push({
-            content: token.raw.trim(),
-            contentType: 'docs',
-            startLine,
-            endLine,
-            metadata: {
-              sectionHeader: currentHeader,
-            },
-          });
-        }
-        break;
-
-      // Skip these token types (whitespace, hr, etc.)
-      case 'space':
-      case 'hr':
-        break;
+    // A heading with nothing under it, or a preface too short to index (the
+    // `---` that opens front matter), joins the next section
+    const isLast = i === sections.length - 1;
+    const tooShort = section.title === undefined && lines.slice(start, end + 1).join('\n').trim().length < 10;
+    if ((tooShort || (section.title !== undefined && end === section.start)) && !isLast) {
+      pendingStart = start;
+      return;
     }
+    pendingStart = null;
 
-    // Advance line counter
-    currentLine = endLine + 1;
-  }
-
-  // If no segments were extracted, treat entire content as docs
-  if (segments.length === 0 && content.trim()) {
+    // Skip leading blank lines of a preface
+    let first = start;
+    while (first < end && !lines[first]!.trim()) first++;
     segments.push({
-      content: content.trim(),
+      content: lines.slice(first, end + 1).join('\n'),
       contentType: 'docs',
-      startLine: 1,
-      endLine: lines.length,
-      metadata: {},
+      startLine: first + 1,
+      endLine: end + 1,
+      metadata: { sectionHeader: section.title },
     });
-  }
+  });
 
   return { segments, originalContent: content };
-}
-
-/**
- * Count the number of lines in a string.
- */
-function countLines(text: string): number {
-  if (!text) return 1;
-  return text.split('\n').length;
 }
 
 /**

@@ -422,13 +422,21 @@ async function runChatREPL(
     // This ensures no input is lost to unregistered handlers
     // ─────────────────────────────────────────────────────────────────────
 
-    // Handle each line of input
-    rl.on('line', async (line) => {
+    // Lines are handled one at a time: readline doesn't wait for an async
+    // handler, so piped input ran `/exit` while a question was still running,
+    // and a second question typed during an answer ran alongside it.
+    let queue = Promise.resolve();
+    const prompt = () => state.rl?.prompt(); // state.rl is cleared once input closes
+    rl.on('line', (line) => {
+      queue = queue.then(() => handleLine(line));
+    });
+
+    const handleLine = async (line: string): Promise<void> => {
       const input = line.trim();
 
       // Skip empty input
       if (!input) {
-        rl.prompt();
+        prompt();
         return;
       }
 
@@ -450,7 +458,7 @@ async function runChatREPL(
         } catch (error) {
           ctx.error(`Command failed: ${errorMessage(error)}`);
         }
-        rl.prompt();
+        prompt();
         return;
       }
 
@@ -468,8 +476,8 @@ async function runChatREPL(
         }
       }
 
-      rl.prompt();
-    });
+      prompt();
+    };
 
     // Handle Ctrl+C gracefully — 3-tier cancellation:
     // 1. If agent is processing → cancel agent, return to prompt
@@ -504,11 +512,14 @@ async function runChatREPL(
       resolve();
     });
 
-    // Handle stream close (EOF, pipe closed, etc.)
-    // This is a safety net for unexpected closures
+    // Handle stream close (EOF, pipe closed, etc.): finish the lines already
+    // read, then clean up
     rl.on('close', () => {
-      cleanup();
-      resolve();
+      state.rl = undefined;
+      void queue.then(() => {
+        cleanup();
+        resolve();
+      });
     });
 
     // All handlers registered - now safe to start accepting input

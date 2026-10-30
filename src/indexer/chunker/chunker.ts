@@ -23,9 +23,10 @@ import {
   RecursiveChunker,
   type Chunk,
   type Document,
+  SemanticChunker,
   type EmbeddingProvider,
 } from '../../sdk/rag/index.js';
-import { SemanticChunker } from '../../sdk/rag/index.js';
+import { errorMessage } from '../../utils/error.js';
 
 import type { FileInfo } from '../types.js';
 import { isConvertedDocument, readAsText } from '../documents.js';
@@ -42,7 +43,6 @@ import {
   isMarkdown,
 } from './extractors/index.js';
 import {
-  CHUNK_CONFIG,
   MAX_FILE_SIZE,
   MIN_CHUNK_SIZE,
   getChunkConfig,
@@ -53,12 +53,6 @@ import {
  * Configuration for the chunker.
  */
 export interface ChunkerConfig {
-  /**
-   * Override default chunk sizes.
-   * Key is content type, value is { chunkSize, chunkOverlap }.
-   */
-  chunkSizeOverrides?: Partial<typeof CHUNK_CONFIG>;
-
   /**
    * Embedding provider for SemanticChunker.
    *
@@ -170,8 +164,7 @@ async function chunkFileWithResult(
     }
 
     // Get chunk configuration for this content type
-    const chunkConfig = config.chunkSizeOverrides?.[segment.contentType]
-      ?? getChunkConfig(segment.contentType);
+    const chunkConfig = getChunkConfig(segment.contentType);
 
     // Estimate token count
     const tokenCount = estimateTokens(segment.content);
@@ -185,43 +178,37 @@ async function chunkFileWithResult(
         content: segment.content,
         metadata: {},
       }];
-    } else if (segment.contentType === 'docs' && config.embeddingProvider) {
-      // Docs content with embedding provider → use SemanticChunker
-      const semanticChunker = new SemanticChunker({
-        embeddingProvider: config.embeddingProvider,
-        similarityThreshold: 0.5,
-        minChunkSize: 100,
-        maxChunkSize: chunkConfig.chunkSize,
-      });
-
-      const document: Document = {
-        id: randomUUID(),
-        content: segment.content,
-        metadata: {},
-        source: fileInfo.relativePath,
-      };
-
-      segmentChunks = await semanticChunker.chunk(document, {
-        chunkSize: chunkConfig.chunkSize,
-        chunkOverlap: chunkConfig.chunkOverlap,
-        sizeUnit: 'tokens',
-      });
     } else {
-      // Code/config content OR no embedding provider → use RecursiveChunker
-      const recursiveChunker = new RecursiveChunker();
-
       const document: Document = {
         id: randomUUID(),
         content: segment.content,
         metadata: {},
         source: fileInfo.relativePath,
       };
-
-      segmentChunks = await recursiveChunker.chunk(document, {
+      const chunkOptions = {
         chunkSize: chunkConfig.chunkSize,
         chunkOverlap: chunkConfig.chunkOverlap,
-        sizeUnit: 'tokens',
-      });
+        sizeUnit: 'tokens' as const,
+      };
+
+      let semanticChunks: Chunk[] | undefined;
+      if (segment.contentType === 'docs' && config.embeddingProvider) {
+        // Docs content with embedding provider → split where the topic changes
+        try {
+          semanticChunks = await new SemanticChunker({
+            embeddingProvider: config.embeddingProvider,
+            similarityThreshold: 0.5,
+            minChunkSize: 100,
+            maxChunkSize: chunkConfig.chunkSize,
+          }).chunk(document, chunkOptions);
+        } catch (error) {
+          // One failed embedding call used to abort the whole index
+          warnings.push(`Semantic chunking failed at line ${segment.startLine} (${errorMessage(error)}); split by size instead`);
+        }
+      }
+
+      // Code/config content, no embedding provider, or a failed semantic split
+      segmentChunks = semanticChunks ?? await new RecursiveChunker().chunk(document, chunkOptions);
     }
 
     // Map to ChunkResult with full metadata. Chunks come in order and overlap

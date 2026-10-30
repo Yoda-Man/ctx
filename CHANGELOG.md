@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1] - 2026-10-30
+## [1.2.0] - 2026-10-30
 
 ### Added
 - **Linting with oxlint**, type-aware (it runs on TypeScript 7's own engine,
@@ -16,8 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests are type-checked** (`npm run typecheck`, in CI and before every
   publish). They were excluded before and had drifted: 165 errors, including
   mocks of options and config fields that no longer exist.
+- **Tests run in a temporary home folder**, so they can't read or write a
+  developer's real `~/.ctx` (one test that mocked the database path but not
+  the connection wrote 2,500 chunks into it).
 
 ### Changed
+- **Re-index your projects after upgrading** (`ctx index <path> --force`):
+  code and Markdown are now split differently (see Fixed), and line numbers
+  in older indexes can be off.
+- **Search scores run from 0 to 1** again: 1 means ranked first by both
+  keyword and vector search, about 0.5 first by one of them. Without the
+  reranker they showed raw fusion values near 0.03, and a `minScore` above
+  that dropped every result.
 - **Requires Node.js 24** (was 22.12), for unpdf 2, which reads PDFs and no
   longer runs on Node 22. CI tests Node 24 and 26.
 - **Reranking is opt-in:** `ctx search --rerank`. On 42 questions over two
@@ -66,6 +76,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the method it named.
 
 ### Fixed
+- **Code indexing kept only functions and classes.** Constants, exported
+  values, module setup and `if __name__ == "__main__":` blocks were in no
+  chunk, so ctx could not find them; chunks also lost their `export` keyword
+  and their doc comments, and nested functions were indexed twice. Each file
+  is now split at its top-level statements: a definition with its comments,
+  decorators and `export`, and the code between definitions, so every line
+  is indexed once. CODE_NUMBERS
+- **Files in other languages (Go, Rust, Java and the rest) lost their code**
+  when they had a block comment: only the comments were indexed. The whole
+  file is now indexed.
+- **Markdown headings were indexed apart from their text**, so a table or
+  list was found without its title, and each paragraph became its own chunk.
+  A document is now split by section, heading included. MARKDOWN_NUMBERS
+- **Searching many projects took about 30 seconds** the first time in a
+  session (27 s across 14 projects and 58,700 chunks; 16 s to load one
+  23,000-chunk project), long enough for `ctx chat` to give up. Chunks were
+  read with paging that re-read every earlier row. The same search now takes
+  5 s, and that project loads in 0.6 s.
+- **Piped input to `ctx chat`** (`echo "question" | ctx chat --no-tui`)
+  failed with "readline was closed": every line ran at once, so `/exit` or
+  the end of input closed the chat under a question still being answered.
+  Lines now run in order, including a question typed while one is answered.
+- **The index summary said "Database size: +0 B"**: new data waits in
+  SQLite's write-ahead log, which wasn't counted. `ctx status` now counts it
+  too.
+- **One failed embedding call while chunking a document aborted the whole
+  index.** That document is now split by size instead, with a warning.
+- A text repeated within one embedding batch was embedded twice.
 - **The first `ctx index` on a new install failed** with "no such table:
   projects": it looked for an existing project before creating the database
   tables.

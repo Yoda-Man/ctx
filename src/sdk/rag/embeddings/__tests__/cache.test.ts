@@ -153,6 +153,17 @@ describe('CachedEmbeddingProvider keys', () => {
 });
 
 describe('CachedEmbeddingProvider.embedBatch', () => {
+  it('embeds a text repeated within one batch once, and fills every position', async () => {
+    const inner = fakeProvider();
+    const cached = new CachedEmbeddingProvider({ provider: inner });
+
+    const results = await cached.embedBatch(['licence header', 'body', 'licence header']);
+
+    expect(inner.embedBatch).toHaveBeenCalledTimes(1);
+    expect(inner.embedBatch).toHaveBeenCalledWith(['licence header', 'body']);
+    expect(results.map((r) => r.embedding)).toEqual([vectorFor('licence header'), vectorFor('body'), vectorFor('licence header')]);
+  });
+
   it('sends only the misses to the wrapped provider and returns results in input order', async () => {
     const inner = fakeProvider();
     const cached = new CachedEmbeddingProvider({ provider: inner });

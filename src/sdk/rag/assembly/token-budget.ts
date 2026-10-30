@@ -75,7 +75,6 @@ export const DEFAULT_TOKEN_BUDGET: Required<TokenBudgetConfig> = {
   maxTokens: 4096,
   contextWindowSize: 8192,
   budgetPercentage: 0.5,
-  overflowStrategy: 'drop',
 };
 
 /**
@@ -121,25 +120,22 @@ export interface BudgetResult {
   usedTokens: number;
   /** Remaining token budget */
   remainingTokens: number;
-  /** Whether any chunks were truncated */
-  wasTruncated: boolean;
 }
 
 /**
  * Apply token budget to a list of chunks.
  *
- * Processes chunks in order, including as many as fit within budget.
- * Handles overflow according to the configured strategy.
+ * Processes chunks in order, including each one that fits within the budget
+ * and dropping the rest.
  *
  * @param chunks - Chunks to process (in desired order)
  * @param budget - Maximum tokens to use
- * @param overflowStrategy - How to handle chunks that exceed remaining budget
  * @param formattingOverhead - Extra chars per chunk for formatting
  * @returns Result with included/dropped chunks and token stats
  *
  * @example
  * ```typescript
- * const result = applyTokenBudget(chunks, 1000, 'drop');
+ * const result = applyTokenBudget(chunks, 1000);
  * console.log(`Included ${result.included.length} chunks`);
  * console.log(`Used ${result.usedTokens} of 1000 tokens`);
  * ```
@@ -147,43 +143,18 @@ export interface BudgetResult {
 export function applyTokenBudget(
   chunks: Chunk[],
   budget: number,
-  overflowStrategy: 'truncate' | 'drop' = 'drop',
   formattingOverhead: number = 50
 ): BudgetResult {
   const included: Chunk[] = [];
   const dropped: Chunk[] = [];
   let usedTokens = 0;
-  let wasTruncated = false;
 
   for (const chunk of chunks) {
     const chunkTokens = estimateChunkTokens(chunk, formattingOverhead);
-    const newTotal = usedTokens + chunkTokens;
-
-    if (newTotal <= budget) {
-      // Chunk fits completely
+    if (usedTokens + chunkTokens <= budget) {
       included.push(chunk);
-      usedTokens = newTotal;
-    } else if (overflowStrategy === 'truncate' && usedTokens < budget) {
-      // Truncate chunk to fit remaining budget
-      const remainingTokens = budget - usedTokens;
-      const remainingChars =
-        (remainingTokens - Math.ceil(formattingOverhead / CHARS_PER_TOKEN)) *
-        CHARS_PER_TOKEN;
-
-      if (remainingChars > 100) {
-        // Only truncate if we can include meaningful content
-        const truncatedChunk: Chunk = {
-          ...chunk,
-          content: truncateText(chunk.content, remainingChars),
-        };
-        included.push(truncatedChunk);
-        usedTokens = budget;
-        wasTruncated = true;
-      } else {
-        dropped.push(chunk);
-      }
+      usedTokens += chunkTokens;
     } else {
-      // Drop chunk entirely
       dropped.push(chunk);
     }
   }
@@ -193,40 +164,5 @@ export function applyTokenBudget(
     dropped,
     usedTokens,
     remainingTokens: Math.max(0, budget - usedTokens),
-    wasTruncated,
   };
-}
-
-/**
- * Truncate text to approximately the target character count.
- *
- * Tries to break at word boundaries for readability.
- * Adds ellipsis to indicate truncation.
- *
- * @param text - Text to truncate
- * @param maxChars - Maximum characters (including ellipsis)
- * @returns Truncated text with ellipsis
- */
-function truncateText(text: string, maxChars: number): string {
-  if (text.length <= maxChars) {
-    return text;
-  }
-
-  const ellipsis = '...';
-  const targetLength = maxChars - ellipsis.length;
-
-  if (targetLength <= 0) {
-    return ellipsis;
-  }
-
-  // Try to break at word boundary
-  let truncated = text.slice(0, targetLength);
-  const lastSpace = truncated.lastIndexOf(' ');
-
-  if (lastSpace > targetLength * 0.8) {
-    // Break at space if it's reasonably close to target
-    truncated = truncated.slice(0, lastSpace);
-  }
-
-  return truncated.trimEnd() + ellipsis;
 }

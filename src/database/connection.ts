@@ -6,7 +6,7 @@
  */
 
 import Database from 'better-sqlite3';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { CTX_DIR, DB_PATH, getCtxDir, getDbPath } from '../config/paths.js';
 
 // Module-level singleton instance
@@ -72,3 +72,13 @@ export function closeDb(): void {
 
 // Re-export path functions from centralized paths module
 export { getCtxDir, getDbPath };
+
+/**
+ * Size of the database on disk, in bytes: the file plus its write-ahead log.
+ * In WAL mode new rows land in the log until a checkpoint, so the file alone
+ * reported "+0 B" after indexing.
+ */
+export function getDbFileSize(): number {
+  const dbPath = getDbPath();
+  return [dbPath, `${dbPath}-wal`].reduce((total, path) => total + (existsSync(path) ? statSync(path).size : 0), 0);
+}

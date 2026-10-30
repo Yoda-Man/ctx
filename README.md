@@ -33,7 +33,7 @@ and works just as well on its own.
 | **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion. `ctx search --rerank` adds a BGE cross-encoder. |
 | **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
 | **Across projects** | Index any number of codebases and search one of them or all at once; `ctx chat` routes each question to the projects it is about. |
-| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, not by line count. |
+| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, each with its comments, and indexes the code between them too. Markdown splits by section, heading included. |
 | **Specs and docs too** | Markdown, text, Word (`.docx`) and PDF are indexed alongside code, so answers can come from requirements as well as source. |
 | **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
 | **Private** | Answers come from a local Ollama model; ctx has no cloud provider and needs no API key. |

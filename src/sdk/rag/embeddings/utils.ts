@@ -23,7 +23,7 @@ import { VectorError } from './vector-errors.js';
  * dotProduct(a, b); // 1*4 + 2*5 + 3*6 = 32
  * ```
  */
-export const dotProduct = (a: number[], b: number[]): number => {
+export const dotProduct = (a: ArrayLike<number>, b: ArrayLike<number>): number => {
   if (a.length !== b.length) {
     throw VectorError.dimensionMismatch(a.length, b.length);
   }
@@ -46,10 +46,10 @@ export const dotProduct = (a: number[], b: number[]): number => {
  * l2Norm([3, 4]); // 5 (Pythagorean: sqrt(9 + 16))
  * ```
  */
-const l2Norm = (embedding: number[]): number => {
+const l2Norm = (embedding: ArrayLike<number>): number => {
   let sumOfSquares = 0;
-  for (const value of embedding) {
-    sumOfSquares += value * value;
+  for (let i = 0; i < embedding.length; i++) {
+    sumOfSquares += embedding[i]! * embedding[i]!;
   }
   return Math.sqrt(sumOfSquares);
 };
@@ -106,20 +106,29 @@ export const normalizeL2 = (embedding: number[]): number[] => {
  * cosineSimilarity(query, doc3); // -1.0
  * ```
  */
-export const cosineSimilarity = (a: number[], b: number[]): number => {
+export const cosineSimilarity = (a: ArrayLike<number>, b: ArrayLike<number>): number => {
   if (a.length !== b.length) {
     throw VectorError.dimensionMismatch(a.length, b.length);
   }
 
-  const normA = l2Norm(a);
-  const normB = l2Norm(b);
+  // One pass: this runs once per stored vector on every search
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    const ai = a[i]!;
+    const bi = b[i]!;
+    dot += ai * bi;
+    normA += ai * ai;
+    normB += bi * bi;
+  }
 
   // Handle zero vectors
   if (normA === 0 || normB === 0) {
     return 0;
   }
 
-  return dotProduct(a, b) / (normA * normB);
+  return dot / Math.sqrt(normA * normB);
 };
 
 /**
@@ -139,7 +148,7 @@ export const cosineSimilarity = (a: number[], b: number[]): number => {
  * euclideanDistance([0, 0], [3, 4]); // 5
  * ```
  */
-export const euclideanDistance = (a: number[], b: number[]): number => {
+export const euclideanDistance = (a: ArrayLike<number>, b: ArrayLike<number>): number => {
   if (a.length !== b.length) {
     throw VectorError.dimensionMismatch(a.length, b.length);
   }

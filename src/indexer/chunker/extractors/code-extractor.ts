@@ -1,9 +1,12 @@
 /**
  * Code Extractor
  *
- * Uses tree-sitter for multi-language AST parsing to extract:
- * - Documentation comments (JSDoc, docstrings) → 'docs' segments
- * - Code definitions (functions, classes, methods) → 'code' segments
+ * Uses tree-sitter to split a file at its top-level statements:
+ * - each definition (function, class, interface, type), with its export
+ *   keyword, decorators and the comments directly above it, is one segment;
+ * - the statements between definitions (imports, constants, module code)
+ *   are grouped into 'module' segments.
+ * Every line of the file lands in exactly one segment.
  *
  * Supports: TypeScript, JavaScript, Python (extensible to more languages)
  */
@@ -64,320 +67,127 @@ export function extractCodeSegments(
 ): ExtractionResult {
   const parserLang = getParserLanguage(language);
 
-  // Fallback for unsupported languages
+  // Other languages: the whole file, which the chunker splits by size
   if (!parserLang) {
-    return extractWithFallback(content, language);
+    const segments: ExtractedSegment[] = content.trim()
+      ? [{ content, contentType: 'code', startLine: 1, endLine: content.split('\n').length, metadata: { symbolType: 'module' } }]
+      : [];
+    return { segments, originalContent: content };
   }
 
-  // Parse with tree-sitter
   const parser = new Parser();
   parser.setLanguage(parserLang);
   const tree = parser.parse(content);
+  const definitionOf = language === 'python' ? pythonDefinition : jsDefinition;
 
-  const segments: ExtractedSegment[] = [];
-  const lines = content.split('\n');
+  return { segments: splitTopLevel(tree.rootNode, content.split('\n'), definitionOf), originalContent: content };
+}
 
-  // Extract based on language
-  if (language === 'python') {
-    extractPythonSegments(tree.rootNode, content, lines, segments);
-  } else {
-    // TypeScript/JavaScript
-    extractJSSegments(tree.rootNode, content, lines, segments);
+type Definition = { symbolName?: string; symbolType: SymbolType };
+type SymbolType = NonNullable<ExtractedSegment['metadata']['symbolType']>;
+
+const JS_DEFINITION_TYPES: Record<string, SymbolType> = {
+  function_declaration: 'function',
+  generator_function_declaration: 'function',
+  class_declaration: 'class',
+  abstract_class_declaration: 'class',
+  interface_declaration: 'interface',
+  type_alias_declaration: 'type',
+  enum_declaration: 'type',
+};
+
+/** A top-level JS/TS statement that defines a symbol, looking through `export`. */
+function jsDefinition(node: Parser.SyntaxNode): Definition | null {
+  if (node.type === 'export_statement') {
+    const declaration = node.childForFieldName('declaration');
+    return declaration ? jsDefinition(declaration) : null;
   }
+  const symbolType = JS_DEFINITION_TYPES[node.type];
+  if (symbolType) return { symbolName: node.childForFieldName('name')?.text, symbolType };
+  // const name = () => ... / function () { ... }
+  if (node.type === 'lexical_declaration' || node.type === 'variable_declaration') {
+    const declarator = node.namedChildren.find((child) => child.type === 'variable_declarator');
+    const value = declarator?.childForFieldName('value');
+    if (value?.type === 'arrow_function' || value?.type === 'function_expression' || value?.type === 'function') {
+      return { symbolName: declarator?.childForFieldName('name')?.text, symbolType: 'function' };
+    }
+  }
+  return null;
+}
 
-  // Sort segments by start line
-  segments.sort((a, b) => a.startLine - b.startLine);
-
-  return { segments, originalContent: content };
+/** A top-level Python statement that defines a symbol, looking through decorators. */
+function pythonDefinition(node: Parser.SyntaxNode): Definition | null {
+  if (node.type === 'decorated_definition') {
+    const definition = node.childForFieldName('definition');
+    return definition ? pythonDefinition(definition) : null;
+  }
+  if (node.type === 'function_definition') return { symbolName: node.childForFieldName('name')?.text, symbolType: 'function' };
+  if (node.type === 'class_definition') return { symbolName: node.childForFieldName('name')?.text, symbolType: 'class' };
+  return null;
 }
 
 /**
- * Extract segments from JavaScript/TypeScript AST.
+ * Walk the top-level statements in order: a definition becomes its own
+ * segment, taking the comments directly above it (no blank line between);
+ * everything else is grouped with its neighbours. Segments are whole lines.
  */
-function extractJSSegments(
-  rootNode: Parser.SyntaxNode,
-  _content: string,
-  _lines: string[],
-  segments: ExtractedSegment[]
-): void {
-  // Track which ranges we've already extracted to avoid duplicates
-  const extractedRanges = new Set<string>();
+function splitTopLevel(
+  root: Parser.SyntaxNode,
+  lines: string[],
+  definitionOf: (node: Parser.SyntaxNode) => Definition | null
+): ExtractedSegment[] {
+  const segments: ExtractedSegment[] = [];
+  const segment = (start: number, end: number, metadata: ExtractedSegment['metadata']): ExtractedSegment => ({
+    content: lines.slice(start, end + 1).join('\n'),
+    contentType: 'code',
+    startLine: start + 1,
+    endLine: end + 1,
+    metadata,
+  });
 
-  // Helper to add a segment if not already extracted
-  const addSegment = (segment: ExtractedSegment) => {
-    const key = `${segment.startLine}-${segment.endLine}-${segment.contentType}`;
-    if (!extractedRanges.has(key)) {
-      extractedRanges.add(key);
-      segments.push(segment);
-    }
+  let run: { start: number; end: number } | null = null; // rows of grouped module statements
+  let comments: Parser.SyntaxNode[] = []; // comments not yet placed
+  let placed = -1; // last row in a segment or the run: a trailing comment shares its row
+  const addToRun = (start: number, end: number) => {
+    if (end <= placed) return;
+    run = run ? { start: run.start, end } : { start: Math.max(start, placed + 1), end };
+    placed = end;
+  };
+  const flushRun = () => {
+    if (run) segments.push(segment(run.start, run.end, { symbolType: 'module' }));
+    run = null;
   };
 
-  // Extract JSDoc comments (/** ... */)
-  const comments = rootNode.descendantsOfType('comment');
-  for (const node of comments) {
-    const text = node.text;
-    // Only extract JSDoc-style comments
-    if (text.startsWith('/**') && !text.startsWith('/***')) {
-      addSegment({
-        content: text,
-        contentType: 'docs',
-        startLine: node.startPosition.row + 1,
-        endLine: node.endPosition.row + 1,
-        metadata: {},
-      });
+  for (const node of root.namedChildren) {
+    if (node.type === 'comment') {
+      comments.push(node);
+      continue;
     }
-  }
-
-  // Extract functions
-  const functions = rootNode.descendantsOfType('function_declaration');
-  for (const node of functions) {
-    const nameNode = node.childForFieldName('name');
-    addSegment({
-      content: node.text,
-      contentType: 'code',
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      metadata: {
-        symbolName: nameNode?.text,
-        symbolType: 'function',
-      },
-    });
-  }
-
-  // Extract arrow functions assigned to variables
-  const variableDeclarations = rootNode.descendantsOfType('lexical_declaration');
-  for (const node of variableDeclarations) {
-    const declarator = node.descendantsOfType('variable_declarator')[0];
-    if (declarator) {
-      const value = declarator.childForFieldName('value');
-      if (value?.type === 'arrow_function') {
-        const nameNode = declarator.childForFieldName('name');
-        addSegment({
-          content: node.text,
-          contentType: 'code',
-          startLine: node.startPosition.row + 1,
-          endLine: node.endPosition.row + 1,
-          metadata: {
-            symbolName: nameNode?.text,
-            symbolType: 'function',
-          },
-        });
-      }
-    }
-  }
-
-  // Extract classes
-  const classes = rootNode.descendantsOfType('class_declaration');
-  for (const node of classes) {
-    const nameNode = node.childForFieldName('name');
-    addSegment({
-      content: node.text,
-      contentType: 'code',
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      metadata: {
-        symbolName: nameNode?.text,
-        symbolType: 'class',
-      },
-    });
-  }
-
-  // Extract interfaces (TypeScript)
-  const interfaces = rootNode.descendantsOfType('interface_declaration');
-  for (const node of interfaces) {
-    const nameNode = node.childForFieldName('name');
-    addSegment({
-      content: node.text,
-      contentType: 'code',
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      metadata: {
-        symbolName: nameNode?.text,
-        symbolType: 'interface',
-      },
-    });
-  }
-
-  // Extract type aliases (TypeScript)
-  const typeAliases = rootNode.descendantsOfType('type_alias_declaration');
-  for (const node of typeAliases) {
-    const nameNode = node.childForFieldName('name');
-    addSegment({
-      content: node.text,
-      contentType: 'code',
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      metadata: {
-        symbolName: nameNode?.text,
-        symbolType: 'type',
-      },
-    });
-  }
-}
-
-/**
- * Extract segments from Python AST.
- */
-function extractPythonSegments(
-  rootNode: Parser.SyntaxNode,
-  _content: string,
-  _lines: string[],
-  segments: ExtractedSegment[]
-): void {
-  const extractedRanges = new Set<string>();
-
-  const addSegment = (segment: ExtractedSegment) => {
-    const key = `${segment.startLine}-${segment.endLine}-${segment.contentType}`;
-    if (!extractedRanges.has(key)) {
-      extractedRanges.add(key);
-      segments.push(segment);
-    }
-  };
-
-  // Extract module-level docstrings
-  const moduleBody = rootNode.children;
-  if (moduleBody.length > 0) {
-    const firstChild = moduleBody[0];
-    if (firstChild?.type === 'expression_statement') {
-      const expr = firstChild.firstChild;
-      if (expr?.type === 'string') {
-        addSegment({
-          content: expr.text,
-          contentType: 'docs',
-          startLine: expr.startPosition.row + 1,
-          endLine: expr.endPosition.row + 1,
-          metadata: {
-            symbolType: 'module',
-          },
-        });
-      }
-    }
-  }
-
-  // Extract functions and their docstrings
-  const functions = rootNode.descendantsOfType('function_definition');
-  for (const node of functions) {
-    const nameNode = node.childForFieldName('name');
-    const body = node.childForFieldName('body');
-
-    // Check for docstring as first statement in body
-    if (body && body.children.length > 0) {
-      const firstStmt = body.children[0];
-      if (firstStmt?.type === 'expression_statement') {
-        const expr = firstStmt.firstChild;
-        if (expr?.type === 'string') {
-          // Extract docstring as separate docs segment
-          addSegment({
-            content: expr.text,
-            contentType: 'docs',
-            startLine: expr.startPosition.row + 1,
-            endLine: expr.endPosition.row + 1,
-            metadata: {
-              symbolName: nameNode?.text,
-              symbolType: 'function',
-            },
-          });
-        }
-      }
+    const definition = definitionOf(node);
+    if (!definition) {
+      for (const comment of comments) addToRun(comment.startPosition.row, comment.endPosition.row);
+      comments = [];
+      addToRun(node.startPosition.row, node.endPosition.row);
+      continue;
     }
 
-    // Extract the function itself
-    addSegment({
-      content: node.text,
-      contentType: 'code',
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      metadata: {
-        symbolName: nameNode?.text,
-        symbolType: 'function',
-      },
-    });
-  }
-
-  // Extract classes
-  const classes = rootNode.descendantsOfType('class_definition');
-  for (const node of classes) {
-    const nameNode = node.childForFieldName('name');
-    const body = node.childForFieldName('body');
-
-    // Check for class docstring
-    if (body && body.children.length > 0) {
-      const firstStmt = body.children[0];
-      if (firstStmt?.type === 'expression_statement') {
-        const expr = firstStmt.firstChild;
-        if (expr?.type === 'string') {
-          addSegment({
-            content: expr.text,
-            contentType: 'docs',
-            startLine: expr.startPosition.row + 1,
-            endLine: expr.endPosition.row + 1,
-            metadata: {
-              symbolName: nameNode?.text,
-              symbolType: 'class',
-            },
-          });
-        }
-      }
+    // The comments touching the definition belong to it; earlier ones to the run
+    let start = node.startPosition.row;
+    let attached = comments.length;
+    while (attached > 0 && comments[attached - 1]!.endPosition.row === start - 1) {
+      attached--;
+      start = comments[attached]!.startPosition.row;
     }
-
-    // Extract the class itself
-    addSegment({
-      content: node.text,
-      contentType: 'code',
-      startLine: node.startPosition.row + 1,
-      endLine: node.endPosition.row + 1,
-      metadata: {
-        symbolName: nameNode?.text,
-        symbolType: 'class',
-      },
-    });
+    for (const comment of comments.slice(0, attached)) addToRun(comment.startPosition.row, comment.endPosition.row);
+    comments = [];
+    flushRun();
+    start = Math.max(start, placed + 1);
+    if (node.endPosition.row >= start) {
+      segments.push(segment(start, node.endPosition.row, definition));
+      placed = node.endPosition.row;
+    }
   }
-}
-
-/**
- * Fallback extraction using regex for unsupported languages.
- * Extracts block comments and treats remaining content as code.
- */
-function extractWithFallback(
-  content: string,
-  _language: Language
-): ExtractionResult {
-  const segments: ExtractedSegment[] = [];
-  const lines = content.split('\n');
-
-  // Extract block comments (/* ... */ or /** ... */)
-  const blockCommentRegex = /\/\*\*?[\s\S]*?\*\//g;
-  let match;
-
-  while ((match = blockCommentRegex.exec(content)) !== null) {
-    const startOffset = match.index;
-    const endOffset = startOffset + match[0].length;
-
-    // Calculate line numbers
-    const startLine = content.slice(0, startOffset).split('\n').length;
-    const endLine = content.slice(0, endOffset).split('\n').length;
-
-    segments.push({
-      content: match[0],
-      contentType: 'docs',
-      startLine,
-      endLine,
-      metadata: {},
-    });
-  }
-
-  // If no segments extracted, treat entire file as one code segment
-  if (segments.length === 0) {
-    segments.push({
-      content,
-      contentType: 'code',
-      startLine: 1,
-      endLine: lines.length,
-      metadata: {
-        symbolType: 'module',
-      },
-    });
-  }
-
-  return { segments, originalContent: content };
+  for (const comment of comments) addToRun(comment.startPosition.row, comment.endPosition.row);
+  flushRun();
+  return segments;
 }

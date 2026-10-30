@@ -181,8 +181,6 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
   private readonly cache: EmbeddingCache;
 
   /** Cache statistics */
-  private hits = 0;
-  private misses = 0;
 
   constructor(config: CachedEmbeddingProviderConfig) {
     super({
@@ -209,12 +207,9 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
    * Generate embedding with caching.
    */
   protected _embed = async (text: string): Promise<EmbeddingResult> => {
-    const cacheKey = text; // the text itself: a short hash let two texts share a vector
-
-    // Check cache
-    const cached = await this.cache.get(cacheKey);
+    // Keyed by the text itself: a short hash let two texts share a vector
+    const cached = await this.cache.get(text);
     if (cached) {
-      this.hits++;
       return {
         embedding: cached,
         tokenCount: Math.ceil(text.length / 4),
@@ -223,11 +218,8 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
     }
 
     // Cache miss - generate embedding
-    this.misses++;
     const result = await this.provider.embed(text);
-
-    // Store in cache
-    await this.cache.set(cacheKey, result.embedding);
+    await this.cache.set(text, result.embedding);
 
     return result;
   };
@@ -241,41 +233,30 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
     texts: string[]
   ): Promise<EmbeddingResult[]> => {
     const results: (EmbeddingResult | null)[] = Array.from({ length: texts.length }, () => null);
-    const uncachedTexts: string[] = [];
-    const uncachedIndices: number[] = [];
+    // Positions of each text not in the cache: a text repeated in the batch is embedded once
+    const uncached = new Map<string, number[]>();
 
-    // Check cache for each text
     for (let i = 0; i < texts.length; i++) {
       const text = texts[i]!;
-      const cacheKey = text; // the text itself: a short hash let two texts share a vector
-      const cached = await this.cache.get(cacheKey);
-
+      const cached = await this.cache.get(text);
       if (cached) {
-        this.hits++;
         results[i] = {
           embedding: cached,
           tokenCount: Math.ceil(text.length / 4),
           model: this.model,
         };
       } else {
-        this.misses++;
-        uncachedTexts.push(text);
-        uncachedIndices.push(i);
+        uncached.set(text, [...(uncached.get(text) ?? []), i]);
       }
     }
 
-    // Generate embeddings for uncached texts
-    if (uncachedTexts.length > 0) {
+    if (uncached.size > 0) {
+      const uncachedTexts = [...uncached.keys()];
       const generated = await this.provider.embedBatch(uncachedTexts);
-
-      // Store in cache and fill results
       for (let i = 0; i < generated.length; i++) {
         const result = generated[i]!;
-        const text = uncachedTexts[i]!;
-        const originalIndex = uncachedIndices[i]!;
-
-        await this.cache.set(text, result.embedding);
-        results[originalIndex] = result;
+        await this.cache.set(uncachedTexts[i]!, result.embedding);
+        for (const index of uncached.get(uncachedTexts[i]!)!) results[index] = result;
       }
     }
 

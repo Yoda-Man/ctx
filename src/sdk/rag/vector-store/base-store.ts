@@ -237,7 +237,7 @@ export abstract class BaseVectorStore implements VectorStore {
    *
    * Higher scores indicate more similarity for all metrics.
    */
-  protected computeScore(a: number[], b: number[]): number {
+  protected computeScore(a: ArrayLike<number>, b: ArrayLike<number>): number {
     switch (this.distanceMetric) {
       case 'cosine':
         return cosineSimilarity(a, b);

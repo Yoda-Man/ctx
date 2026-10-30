@@ -1,12 +1,8 @@
 /**
  * In-Memory Vector Store
  *
- * Vector store with exact brute-force search: a scan of every vector.
- *
- * Memory Management (NFR-103):
- * - Float32Array storage for 50% memory savings (default enabled)
- * - Optional memory budget with LRU eviction
- * - Memory usage tracking and reporting
+ * Vector store with exact brute-force search: a scan of every vector,
+ * stored as Float32Array (half the memory of number[]).
  */
 
 import type {
@@ -14,23 +10,13 @@ import type {
   SearchOptions,
   SearchResult,
   Chunk,
-  InMemoryVectorStoreConfig,
-  EvictionCallback,
+  VectorStoreConfig,
 } from './types.js';
 import { BaseVectorStore } from './base-store.js';
-import { BYTES_PER_FLOAT32, BYTES_PER_FLOAT64 } from '../memory/types.js';
 
-/**
- * Internal storage format for chunks.
- *
- * Embeddings can be stored as Float32Array (efficient) or number[] (compatible).
- */
 interface StoredChunk {
   chunk: Chunk;
-  /** Embedding stored as Float32Array or number[] depending on config */
-  embedding: Float32Array | number[];
-  /** Timestamp for LRU eviction (Date.now()) */
-  insertedAt: number;
+  embedding: Float32Array;
 }
 
 /**
@@ -53,82 +39,25 @@ export class InMemoryVectorStore extends BaseVectorStore {
   /** Internal storage: id -> chunk with embedding */
   private store: Map<string, StoredChunk> = new Map();
 
-  // ==========================================================================
-  // Memory Management (NFR-103)
-  // ==========================================================================
-
-  /** Use Float32Array for embedding storage (50% memory savings) */
-  private readonly useFloat32: boolean;
-
-  /** Maximum memory budget in bytes (0 = unlimited) */
-  private readonly maxMemoryBytes: number;
-
-  /** Callback fired on eviction */
-  private readonly onEviction: EvictionCallback | undefined;
-
-  /** Current tracked memory usage in bytes */
-  private currentMemoryBytes: number = 0;
-
-  /** Bytes per float based on storage format */
-  private readonly bytesPerFloat: number;
-
-  constructor(config: InMemoryVectorStoreConfig) {
+  constructor(config: VectorStoreConfig) {
     super(config);
-
-    // Memory management configuration
-    this.useFloat32 = config.useFloat32 ?? true; // Default: enabled for 50% savings
-    this.maxMemoryBytes = config.maxMemoryBytes ?? 0; // Default: no limit
-    this.onEviction = config.onEviction;
-    this.bytesPerFloat = this.useFloat32 ? BYTES_PER_FLOAT32 : BYTES_PER_FLOAT64;
   }
 
   /**
    * Insert chunks into the store.
    *
    * Generates IDs for chunks without them.
-   * Enforces memory budget with LRU eviction if configured.
    */
   protected _insert = async (
     chunks: ChunkWithEmbedding[]
   ): Promise<string[]> => {
     const ids: string[] = [];
 
-    // Calculate memory needed for this batch
-    const bytesNeeded = chunks.length * this.dimensions * this.bytesPerFloat;
-
-    // Enforce memory budget if configured
-    if (this.maxMemoryBytes > 0) {
-      this.evictIfNeeded(bytesNeeded);
-    }
-
     for (const chunk of chunks) {
       const id = chunk.id || this.generateId();
-
-      // Store chunk without embedding in the chunk object
       const { embedding, ...chunkWithoutEmbedding } = chunk;
-
-      // Convert to Float32Array if enabled (50% memory savings)
-      const storedEmbedding = this.useFloat32
-        ? new Float32Array(embedding)
-        : embedding;
-
-      const storedChunk: StoredChunk = {
-        chunk: { ...chunkWithoutEmbedding, id },
-        embedding: storedEmbedding,
-        insertedAt: Date.now(),
-      };
-
-      // Track memory for new entries (handle updates)
-      const existing = this.store.get(id);
-      if (existing) {
-        // Update: release old memory
-        this.currentMemoryBytes -= this.getEmbeddingBytes(existing.embedding);
-      }
-
-      this.store.set(id, storedChunk);
-      this.currentMemoryBytes += this.getEmbeddingBytes(storedEmbedding);
-
-
+      // Always a copy: the caller's array may be a view over a database buffer
+      this.store.set(id, { chunk: { ...chunkWithoutEmbedding, id }, embedding: new Float32Array(embedding) });
       ids.push(id);
     }
 
@@ -179,10 +108,9 @@ export class InMemoryVectorStore extends BaseVectorStore {
         }
       }
 
-      // Compute similarity score
-      // Note: computeScore expects number[], so convert Float32Array if needed
-      const embeddingArray = this.toNumberArray(stored.embedding);
-      const score = this.computeScore(query, embeddingArray);
+      // Scored on the stored Float32Array: copying it to number[] first cost
+      // every vector an allocation on every search
+      const score = this.computeScore(query, stored.embedding);
 
       // Apply minimum score threshold
       if (options.minScore !== undefined && score < options.minScore) {
@@ -198,9 +126,9 @@ export class InMemoryVectorStore extends BaseVectorStore {
           : { ...stored.chunk, metadata: {} },
       };
 
-      // Optionally include embedding (convert to number[] for API compatibility)
+      // Optionally include embedding (number[] for API compatibility)
       if (options.includeVectors) {
-        result.embedding = this.toNumberArray(stored.embedding);
+        result.embedding = Array.from(stored.embedding);
       }
 
       results.push(result);
@@ -214,18 +142,9 @@ export class InMemoryVectorStore extends BaseVectorStore {
 
   /**
    * Delete chunks by ID.
-   *
-   * Releases tracked memory for deleted chunks.
    */
   protected _delete = async (ids: string[]): Promise<void> => {
-    for (const id of ids) {
-      const existing = this.store.get(id);
-      if (existing) {
-        // Release memory tracking
-        this.currentMemoryBytes -= this.getEmbeddingBytes(existing.embedding);
-        this.store.delete(id);
-      }
-    }
+    for (const id of ids) this.store.delete(id);
   };
 
   /**
@@ -237,80 +156,8 @@ export class InMemoryVectorStore extends BaseVectorStore {
 
   /**
    * Remove all chunks from the store.
-   *
-   * Resets memory tracking to zero.
    */
   clear = async (): Promise<void> => {
     this.store.clear();
-    this.currentMemoryBytes = 0;
   };
-
-  // ==========================================================================
-  // Private Memory Helpers
-  // ==========================================================================
-
-  /**
-   * Get byte size of an embedding.
-   */
-  private getEmbeddingBytes(embedding: Float32Array | number[]): number {
-    if (embedding instanceof Float32Array) {
-      return embedding.byteLength;
-    }
-    return embedding.length * BYTES_PER_FLOAT64;
-  }
-
-  /**
-   * Evict oldest entries if memory budget would be exceeded.
-   *
-   * Uses LRU policy (oldest insertedAt first).
-   */
-  private evictIfNeeded(bytesNeeded: number): void {
-    const targetUsage = this.maxMemoryBytes - bytesNeeded;
-
-    // No eviction needed if we have room
-    if (this.currentMemoryBytes <= targetUsage) {
-      return;
-    }
-
-    // Sort by insertedAt (oldest first) for LRU eviction
-    const entries = Array.from(this.store.entries()).sort(
-      (a, b) => a[1].insertedAt - b[1].insertedAt
-    );
-
-    const evictedIds: string[] = [];
-    let freedBytes = 0;
-
-    // Evict until we have room
-    for (const [id, stored] of entries) {
-      if (this.currentMemoryBytes - freedBytes <= targetUsage) {
-        break;
-      }
-
-      const bytes = this.getEmbeddingBytes(stored.embedding);
-      freedBytes += bytes;
-      evictedIds.push(id);
-
-      this.store.delete(id);
-    }
-
-    // Update memory tracking
-    this.currentMemoryBytes -= freedBytes;
-
-    // Fire callback if items were evicted
-    if (evictedIds.length > 0 && this.onEviction) {
-      this.onEviction(evictedIds, freedBytes);
-    }
-  }
-
-  /**
-   * Convert stored embedding to number[] for API compatibility.
-   *
-   * Used when returning embeddings in search results.
-   */
-  private toNumberArray(embedding: Float32Array | number[]): number[] {
-    if (embedding instanceof Float32Array) {
-      return Array.from(embedding);
-    }
-    return embedding;
-  }
 }

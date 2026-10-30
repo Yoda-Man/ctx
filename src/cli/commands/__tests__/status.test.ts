@@ -17,7 +17,6 @@ import { createStatusCommand } from '../status.js';
 import type { CommandContext } from '../../types.js';
 import * as database from '../../../database/index.js';
 import * as configLoader from '../../../config/loader.js';
-import * as fs from 'node:fs';
 
 // Mock the database module
 vi.mock('../../../database/index.js', () => ({
@@ -25,18 +24,13 @@ vi.mock('../../../database/index.js', () => ({
   getDb: vi.fn(),
   getDbPath: vi.fn(),
   getCtxDir: vi.fn(),
+  getDbFileSize: vi.fn(),
 }));
 
 // Mock the config loader
 vi.mock('../../../config/loader.js', () => ({
   loadConfig: vi.fn(),
   getConfigPath: vi.fn(),
-}));
-
-// Mock node:fs for file size operations
-vi.mock('node:fs', () => ({
-  statSync: vi.fn(),
-  existsSync: vi.fn(),
 }));
 
 describe('createStatusCommand', () => {
@@ -86,9 +80,7 @@ describe('createStatusCommand', () => {
     });
     vi.mocked(configLoader.getConfigPath).mockReturnValue('/Users/test/.ctx/config.toml');
 
-    // Set up mock file system
-    vi.mocked(fs.existsSync).mockReturnValue(true);
-    vi.mocked(fs.statSync).mockReturnValue({ size: 131072 } as fs.Stats); // 128 KB
+    vi.mocked(database.getDbFileSize).mockReturnValue(131072); // 128 KB
 
     // Spy on console.log for JSON output
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -324,7 +316,7 @@ describe('createStatusCommand', () => {
 
   describe('file size formatting', () => {
     it('formats 0 bytes', async () => {
-      vi.mocked(fs.existsSync).mockReturnValue(false);
+      vi.mocked(database.getDbFileSize).mockReturnValue(0);
 
       const cmd = createStatusCommand(() => mockContext);
 
@@ -337,7 +329,7 @@ describe('createStatusCommand', () => {
     });
 
     it('formats kilobytes', async () => {
-      vi.mocked(fs.statSync).mockReturnValue({ size: 5120 } as fs.Stats);
+      vi.mocked(database.getDbFileSize).mockReturnValue(5120);
 
       const cmd = createStatusCommand(() => mockContext);
 
@@ -350,7 +342,7 @@ describe('createStatusCommand', () => {
     });
 
     it('formats megabytes', async () => {
-      vi.mocked(fs.statSync).mockReturnValue({ size: 134217728 } as fs.Stats); // 128 MB
+      vi.mocked(database.getDbFileSize).mockReturnValue(134217728); // 128 MB
 
       const cmd = createStatusCommand(() => mockContext);
 
@@ -363,7 +355,7 @@ describe('createStatusCommand', () => {
     });
 
     it('formats gigabytes', async () => {
-      vi.mocked(fs.statSync).mockReturnValue({ size: 2147483648 } as fs.Stats); // 2 GB
+      vi.mocked(database.getDbFileSize).mockReturnValue(2147483648); // 2 GB
 
       const cmd = createStatusCommand(() => mockContext);
 

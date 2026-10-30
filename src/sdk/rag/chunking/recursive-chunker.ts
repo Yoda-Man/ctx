@@ -93,8 +93,9 @@ export class RecursiveChunker extends BaseChunker {
       );
       chunkIndex++;
 
-      // Update search position (accounting for overlap)
-      currentIndex = Math.max(currentIndex, startIndex + 1);
+      // The next chunk starts at most overlapChars before this one ends, so
+      // repeated text is found where it really is, not at an earlier copy
+      currentIndex = Math.max(currentIndex, startIndex + 1, endIndex - overlapChars);
     }
 
     return chunks;

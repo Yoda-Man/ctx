@@ -126,7 +126,6 @@ export class VectorStoreManager {
     const store = new InMemoryVectorStore({
       dimensions,
       distanceMetric: 'cosine',
-      useFloat32: true, // 50% memory savings
     });
 
     if (totalChunks === 0) {
@@ -135,17 +134,19 @@ export class VectorStoreManager {
     }
 
     // Prepare statement for batch loading
+    // Paged by rowid: each page is an index seek. OFFSET paging re-read every
+    // earlier row per page, so a 23,000-chunk project took 16 s to load.
     const stmt = db.prepare<[string, number, number]>(`
-      SELECT id, content, embedding, file_path, file_type, language,
+      SELECT rowid, id, content, embedding, file_path, file_type, language,
              start_line, end_line, metadata
       FROM chunks
-      WHERE project_id = ?
-      ORDER BY id
-      LIMIT ? OFFSET ?
+      WHERE project_id = ? AND rowid > ?
+      ORDER BY rowid
+      LIMIT ?
     `);
 
     let loaded = 0;
-    let offset = 0;
+    let lastRowid = 0;
 
     // Load in batches
     while (loaded < totalChunks) {
@@ -155,7 +156,7 @@ export class VectorStoreManager {
         total: totalChunks,
       });
 
-      const rawBatch = stmt.all(projectId, LOAD_BATCH_SIZE, offset);
+      const rawBatch = stmt.all(projectId, lastRowid, LOAD_BATCH_SIZE) as Array<{ rowid: number }>;
       const batch: ChunkLoadRow[] = validateRows(
         ChunkLoadRowSchema,
         rawBatch,
@@ -181,8 +182,7 @@ export class VectorStoreManager {
         return {
           id: row.id,
           content: row.content,
-          // Convert Float32Array → number[] for SDK
-          embedding: Array.from(embedding),
+          embedding, // the store keeps its own Float32 copy
           metadata: {
             projectId, // Include projectId for cross-project result attribution
             filePath: row.file_path,
@@ -200,7 +200,7 @@ export class VectorStoreManager {
       await store.insert(chunks);
 
       loaded += batch.length;
-      offset += LOAD_BATCH_SIZE;
+      lastRowid = rawBatch[rawBatch.length - 1]!.rowid;
     }
 
     // Final progress update

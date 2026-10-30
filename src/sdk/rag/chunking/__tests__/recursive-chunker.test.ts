@@ -151,6 +151,14 @@ describe('RecursiveChunker (ctx options)', () => {
     expect(chunks.every((c) => c.content.length <= 1024)).toBe(true);
   });
 
+  it('gives repeated text its real offsets, not an earlier copy\'s', async () => {
+    const text = 'x '.repeat(1500);
+
+    const chunks = await new RecursiveChunker().chunk(doc(text), CONFIG);
+
+    expect(chunks.map((c) => c.metadata.startIndex)).toEqual([0, 924, 1848, 2772]);
+  });
+
   it('never starts an overlap on half an emoji', async () => {
     const text = Array.from({ length: 600 }, () => 'aaaa😀').join(' ');
 

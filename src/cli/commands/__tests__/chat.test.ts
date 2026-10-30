@@ -24,6 +24,9 @@ import type { Config } from '../../../config/schema.js';
 import * as ragEngine from '../../../agent/rag-engine.js';
 import * as llmProvider from '../../../providers/llm.js';
 import * as fs from 'node:fs';
+import * as readline from 'node:readline';
+import { EventEmitter } from 'node:events';
+import { handleQuestionWithAgent } from '../chat-questions.js';
 
 // Mock the database module
 vi.mock('../../../database/index.js', () => ({
@@ -93,6 +96,11 @@ vi.mock('../../../providers/llm.js', () => ({
 // Mock citations
 vi.mock('../../../agent/citations.js', () => ({
   formatCitations: vi.fn().mockReturnValue('  [1] src/file.ts:10-20'),
+}));
+
+vi.mock('../chat-questions.js', () => ({
+  handleQuestionWithAgent: vi.fn(),
+  handleQuestionTUIWithAgent: vi.fn(),
 }));
 
 // Mock readline to prevent actual REPL from starting
@@ -324,6 +332,29 @@ describe('createChatCommand', () => {
 
       // RAG engine should not be created
       expect(ragEngine.createRAGEngine).not.toHaveBeenCalled();
+    });
+
+    it('handles piped lines one at a time and finishes them before exiting', async () => {
+      // A pipe delivers every line and then EOF at once. Lines used to run
+      // together, and the chat closed under a question still being answered.
+      const events: string[] = [];
+      vi.mocked(handleQuestionWithAgent).mockImplementation(async (question) => {
+        events.push(`start ${question}`);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        events.push(`end ${question}`);
+      });
+      const rl = Object.assign(new EventEmitter(), { prompt: vi.fn(), close: vi.fn(), setPrompt: vi.fn() });
+      vi.mocked(readline.createInterface).mockReturnValueOnce(rl as unknown as readline.Interface);
+
+      const done = createChatCommand(() => mockContext).parseAsync(['node', 'test']);
+      await vi.waitFor(() => expect(rl.listenerCount('line')).toBe(1));
+      rl.emit('line', 'first');
+      rl.emit('line', 'second');
+      rl.emit('close');
+      await done;
+
+      expect(events).toEqual(['start first', 'end first', 'start second', 'end second']);
+      expect(rl.prompt).toHaveBeenCalledTimes(1); // the first prompt; none once input has closed
     });
 
     it('skips stale project when path does not exist', async () => {

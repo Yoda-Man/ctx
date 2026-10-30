@@ -10,7 +10,7 @@ import type { ChunkMetadata } from '../types.js';
 
 /** The store src/search/store.ts builds. */
 const ctxStore = (dimensions = 3) =>
-  new InMemoryVectorStore({ dimensions, distanceMetric: 'cosine', useFloat32: true });
+  new InMemoryVectorStore({ dimensions, distanceMetric: 'cosine' });
 
 const chunk = (id: string, embedding: number[], metadata: ChunkMetadata = {}) => ({ id, content: `content of ${id}`, embedding, metadata });
 

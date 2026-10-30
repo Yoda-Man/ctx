@@ -17,7 +17,7 @@ import type { Chunk, ChunkingOptions, Document } from './types.js';
 import type { EmbeddingProvider, EmbeddingResult } from '../embeddings/types.js';
 import { BaseChunker } from './base-chunker.js';
 import { ChunkerError } from './errors.js';
-import { VectorError } from '../embeddings/vector-errors.js';
+import { cosineSimilarity } from '../embeddings/utils.js';
 import { CHARS_PER_TOKEN } from './token-counter.js';
 import { toError } from '../../../utils/error.js';
 
@@ -78,57 +78,6 @@ const DEFAULT_CONFIG = {
   minChunkSize: 100,
   maxChunkSize: 1000,
 } as const;
-
-// ============================================================================
-// Cosine Similarity Helper
-// ============================================================================
-
-/**
- * Calculate cosine similarity between two vectors.
- *
- * Cosine similarity measures the angle between two vectors:
- * - 1.0 = identical direction (same meaning)
- * - 0.0 = orthogonal (unrelated)
- * - -1.0 = opposite direction (opposite meaning)
- *
- * Formula: cos(θ) = (A · B) / (||A|| × ||B||)
- *
- * @param a - First embedding vector
- * @param b - Second embedding vector
- * @returns Similarity score between -1 and 1
- */
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    throw VectorError.dimensionMismatch(a.length, b.length);
-  }
-
-  if (a.length === 0) {
-    return 0;
-  }
-
-  // Calculate dot product and magnitudes in single pass
-  let dotProduct = 0;
-  let magnitudeA = 0;
-  let magnitudeB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    const ai = a[i] ?? 0;
-    const bi = b[i] ?? 0;
-    dotProduct += ai * bi;
-    magnitudeA += ai * ai;
-    magnitudeB += bi * bi;
-  }
-
-  magnitudeA = Math.sqrt(magnitudeA);
-  magnitudeB = Math.sqrt(magnitudeB);
-
-  // Handle zero vectors (shouldn't happen with normalized embeddings)
-  if (magnitudeA === 0 || magnitudeB === 0) {
-    return 0;
-  }
-
-  return dotProduct / (magnitudeA * magnitudeB);
-}
 
 // ============================================================================
 // Sentence Splitting

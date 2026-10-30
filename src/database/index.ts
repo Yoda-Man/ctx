@@ -17,7 +17,7 @@
  */
 
 // Connection management (low-level)
-export { getDb, closeDb, getDbPath, getCtxDir } from './connection.js';
+export { getDb, closeDb, getDbPath, getCtxDir, getDbFileSize } from './connection.js';
 
 // Migration utilities
 export {

@@ -51,7 +51,7 @@ export interface Chunk {
  */
 export interface ChunkWithEmbedding extends Chunk {
   /** The embedding vector (should be normalized) */
-  embedding: number[];
+  embedding: number[] | Float32Array;
 }
 
 // ============================================================================
@@ -261,72 +261,4 @@ export interface VectorStoreErrorDetails {
   storeName: string;
   /** Underlying cause, if any */
   cause?: Error;
-}
-
-// ============================================================================
-// Store-Specific Configuration
-// ============================================================================
-
-/**
- * Callback fired when embeddings are evicted due to memory pressure.
- *
- * @param ids - IDs of evicted chunks
- * @param freedBytes - Approximate bytes freed
- */
-export type EvictionCallback = (ids: string[], freedBytes: number) => void;
-
-/**
- * Configuration for in-memory vector store.
- *
- * Extends base VectorStoreConfig with memory management options.
- *
- * @example
- * ```typescript
- * // Memory-efficient storage with budget enforcement
- * const store = new InMemoryVectorStore({
- *   dimensions: 1536,
- *   useFloat32: true,           // 50% memory savings
- *   maxMemoryBytes: 50 * 1024 * 1024, // 50MB budget
- *   onEviction: (ids, bytes) => {
- *     console.log(`Evicted ${ids.length} chunks, freed ${bytes} bytes`);
- *   }
- * });
- * ```
- */
-export interface InMemoryVectorStoreConfig extends VectorStoreConfig {
-  // ==========================================================================
-  // Memory Management Options (NFR-103)
-  // ==========================================================================
-
-  /**
-   * Use Float32Array for embedding storage instead of number[].
-   *
-   * Float32Array uses 4 bytes per float vs 8 bytes for number[],
-   * providing 50% memory savings with negligible accuracy loss
-   * for typical embedding use cases.
-   *
-   * @default true
-   */
-  useFloat32?: boolean;
-
-  /**
-   * Maximum memory budget in bytes for embedding storage.
-   *
-   * When exceeded, oldest entries are evicted (LRU policy).
-   * Set to 0 or undefined for no limit.
-   *
-   * @example
-   * ```typescript
-   * // 100MB budget (NFR-103 requirement)
-   * maxMemoryBytes: 100 * 1024 * 1024
-   * ```
-   */
-  maxMemoryBytes?: number;
-
-  /**
-   * Callback fired when entries are evicted due to memory pressure.
-   *
-   * Useful for logging, metrics, or cascading cleanup.
-   */
-  onEviction?: EvictionCallback;
 }

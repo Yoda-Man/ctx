@@ -146,7 +146,6 @@ export abstract class BaseAssembler implements ContextAssembler {
     const budgetResult = applyTokenBudget(
       working.map((r) => r.chunk),
       maxTokens,
-      this.config.tokenBudget.overflowStrategy,
       this.getFormattingOverhead()
     );
 

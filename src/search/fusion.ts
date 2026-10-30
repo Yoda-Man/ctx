@@ -47,7 +47,8 @@ export { DEFAULT_RRF_K };
  * @param denseResults - Results from dense/vector search (already sorted by score desc)
  * @param bm25Results - Results from BM25/keyword search (already sorted by score desc)
  * @param config - RRF configuration (k constant, optional weights)
- * @returns Fused results sorted by RRF score descending
+ * @returns Fused results sorted by RRF score descending, scaled to 0-1: 1 means
+ *   ranked first by both searches, about 0.5 first by one of them
  *
  * @example
  * ```typescript
@@ -102,6 +103,10 @@ export function computeRRF(
   // Call SDK's RRF implementation
   const rrfResults = reciprocalRankFusion(rankings, k);
 
+  // Raw RRF tops out near 0.03 (2/61), which read as a poor match and made
+  // any 0-1 minScore drop every result; divide by the best possible score.
+  const bestPossible = (denseWeight + bm25Weight) / (k + 1);
+
   // Convert back to SearchResultWithContext and apply custom weights
   const fusedResults: SearchResultWithContext[] = rrfResults.map((rrf) => {
     const original = resultLookup.get(rrf.id)!;
@@ -119,7 +124,7 @@ export function computeRRF(
 
     return {
       ...original,
-      score: adjustedScore,
+      score: bestPossible > 0 ? adjustedScore / bestPossible : adjustedScore,
     };
   });
 
