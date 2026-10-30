@@ -48,7 +48,6 @@ const EmbeddingConfigSchema = z.object({
  */
 const SearchConfigSchema = z.object({
   top_k: z.number().int().min(1).max(100).describe('Number of results to return'),
-  rerank: z.boolean().describe('Whether to rerank results for better relevance'),
 });
 
 /**

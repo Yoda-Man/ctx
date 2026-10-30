@@ -151,7 +151,6 @@ describe('createSearchCommand', () => {
       },
       search: {
         top_k: 10,
-        rerank: false,
       },
     });
 
@@ -785,6 +784,19 @@ describe('createSearchCommand', () => {
         expect.any(Object), // Embedding provider
         expect.objectContaining({ top_k: 10, rerank: false }), // Search config
         expect.objectContaining({ denseOptions: { dimensions: 1024 } }) // Dimensions from provider
+      );
+    });
+
+    it('reranks only when --rerank asks for it', async () => {
+      const program = new Command();
+      program.addCommand(createSearchCommand(() => mockContext));
+      await program.parseAsync(['node', 'test', 'search', 'query', '--rerank']);
+
+      expect(searchModule.createFusionService).toHaveBeenCalledWith(
+        'proj-123',
+        expect.any(Object),
+        expect.objectContaining({ rerank: true }),
+        expect.any(Object)
       );
     });
   });

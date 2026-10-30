@@ -50,7 +50,7 @@ const { RoutingRAGEngine, createRoutingRAGEngine } = await import('../routing-ra
 // Test fixtures
 const mockConfig = {
   embedding: { provider: 'ollama', model: 'nomic-embed-text' },
-  search: { rerank: true },
+  search: { top_k: 10 },
 } as RoutingRAGEngineConfig['config'];
 
 const mockEmbeddingProvider: EmbeddingProvider = {

@@ -82,7 +82,6 @@ describe('createStatusCommand', () => {
       },
       search: {
         top_k: 5,
-        rerank: true,
       },
     });
     vi.mocked(configLoader.getConfigPath).mockReturnValue('/Users/test/.ctx/config.toml');

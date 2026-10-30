@@ -211,6 +211,115 @@ def calculate(x, y):
     });
   });
 
+  describe('extractCodeSegments - every line, once', () => {
+    /** Each non-blank line is in exactly one segment, and segments are the file's own lines. */
+    function expectFullCoverage(code: string, segments: ReturnType<typeof extractCodeSegments>['segments']) {
+      const lines = code.split('\n');
+      const owners = lines.map(() => 0);
+      for (const s of segments) {
+        expect(s.content).toBe(lines.slice(s.startLine - 1, s.endLine).join('\n'));
+        for (let i = s.startLine - 1; i < s.endLine; i++) owners[i]!++;
+      }
+      lines.forEach((line, i) => {
+        if (line.trim()) expect({ line: i + 1, text: line, owners: owners[i] }).toEqual({ line: i + 1, text: line, owners: 1 });
+      });
+    }
+
+    it('TypeScript: keeps constants, export keywords and doc comments with their code', () => {
+      const code = [
+        '/** Tool timeouts. */',
+        '',
+        "import { ToolTimeoutError } from '../errors/errors';",
+        '',
+        '/** Default tool timeout: 30 seconds */',
+        'export const DEFAULT_TOOL_TIMEOUT_MS = 30_000;',
+        'const RETRIES = 3;',
+        '',
+        '/**',
+        ' * Wrap a promise with a timeout.',
+        ' */',
+        'export async function withTimeout<T>(promise: Promise<T>): Promise<T> {',
+        '  const onAbort = () => undefined;',
+        '  function inner() { return onAbort; }',
+        '  inner();',
+        '  return promise;',
+        '}',
+        '',
+        '// Retries a call',
+        'export const retry = async (fn: () => Promise<void>) => { await fn(); };',
+        '',
+        'export class Runner {',
+        '  /** Runs once. */',
+        '  run(): number { return RETRIES; }',
+        '}',
+        '',
+        "export { ToolTimeoutError } from '../errors/errors';",
+        'export default withTimeout;',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'typescript');
+
+      expectFullCoverage(code, segments);
+      const fn = segments.find((s) => s.metadata.symbolName === 'withTimeout')!;
+      expect(fn.startLine).toBe(9); // its doc comment
+      expect(fn.content).toContain('export async function withTimeout');
+      expect(segments.filter((s) => s.content.includes('function inner'))).toHaveLength(1);
+      expect(segments.find((s) => s.metadata.symbolName === 'retry')!.startLine).toBe(19);
+      expect(segments.find((s) => s.metadata.symbolName === 'Runner')!.metadata.symbolType).toBe('class');
+      expect(segments.some((s) => s.content.includes('export const DEFAULT_TOOL_TIMEOUT_MS = 30_000;'))).toBe(true);
+    });
+
+    it('Python: keeps the module docstring, constants, decorators and the main block', () => {
+      const code = [
+        '"""Sound effects."""',
+        '',
+        'import math',
+        '',
+        'SAMPLE_RATE = 22050',
+        'VOLUMES = {"low": 0.2, "high": 0.8}',
+        '',
+        '',
+        '# Cached tones',
+        '@functools.cache',
+        'def tone(freq):',
+        '    """Return a sine tone."""',
+        '    def wave(t):',
+        '        return math.sin(freq * t)',
+        '    return wave',
+        '',
+        '',
+        'class Mixer:',
+        '    """Mixes channels."""',
+        '',
+        '    def mix(self, a, b):',
+        '        return a + b',
+        '',
+        '',
+        'if __name__ == "__main__":',
+        '    print(tone(440))',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'python');
+
+      expectFullCoverage(code, segments);
+      const tone = segments.find((s) => s.metadata.symbolName === 'tone')!;
+      expect(tone.startLine).toBe(9); // its comment and decorator
+      expect(tone.content).toContain('Return a sine tone.');
+      expect(segments.filter((s) => s.content.includes('def wave'))).toHaveLength(1);
+      expect(segments.filter((s) => s.content.includes('def mix'))).toHaveLength(1);
+      expect(segments.some((s) => s.content.includes('SAMPLE_RATE = 22050'))).toBe(true);
+      expect(segments.some((s) => s.content.includes('if __name__ == "__main__":'))).toBe(true);
+    });
+
+    it('other languages: keeps the code, not only the comments', () => {
+      const code = '/* Entry point */\nfn main() {\n    println!("Hello, Rust!");\n}';
+
+      const { segments } = extractCodeSegments(code, 'rust');
+
+      expectFullCoverage(code, segments);
+    });
+  });
+
   describe('extractCodeSegments - Fallback', () => {
     it('should use fallback for unsupported languages', () => {
       const code = `

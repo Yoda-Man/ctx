@@ -96,7 +96,6 @@ describe('createCheckCommand', () => {
       },
       search: {
         top_k: 5,
-        rerank: true,
       },
     });
 
@@ -254,7 +253,6 @@ describe('createCheckCommand', () => {
         },
         search: {
           top_k: 5,
-          rerank: true,
         },
       });
     });

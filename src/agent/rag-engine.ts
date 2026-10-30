@@ -464,7 +464,7 @@ export async function createRAGEngine(
   const fusionService = createFusionService(
     projectId,
     embeddingProvider,
-    config.search,
+    { ...config.search, rerank: false }, // opt-in only through ctx search --rerank
     {
       denseOptions: { dimensions },
     }

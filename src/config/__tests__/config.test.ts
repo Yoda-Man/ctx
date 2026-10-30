@@ -52,7 +52,6 @@ describe('Config Schema', () => {
     const partial = {
       search: {
         top_k: 5,
-        // rerank missing
       },
       // everything else missing
     };
@@ -158,6 +157,27 @@ describe('Config Loading', () => {
     }
   });
 
+  it('drops the retired search.rerank quietly, so reranking stays off', async () => {
+    // Every config.toml ctx generated up to 1.1.0 has this line.
+    fs.writeFileSync(TEST_CONFIG_PATH, '[search]\ntop_k = 7\nrerank = true\n');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.resetModules();
+    vi.doMock('../paths.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../paths.js')>()),
+      getConfigPath: () => TEST_CONFIG_PATH,
+    }));
+    try {
+      const { loadConfig } = await import('../loader.js');
+      const config = loadConfig(false);
+      expect(config.search).toEqual({ top_k: 7 });
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      vi.doUnmock('../paths.js');
+      vi.resetModules();
+    }
+  });
+
   it('keeps an Ollama model', async () => {
     fs.writeFileSync(TEST_CONFIG_PATH, 'default_provider = "ollama"\ndefault_model = "qwen3.5:9b"\n');
     vi.resetModules();
@@ -183,7 +203,6 @@ describe('Config Defaults', () => {
     expect(DEFAULT_CONFIG.embedding.fallback_provider).toBe('ollama');
     expect(DEFAULT_CONFIG.embedding.fallback_model).toBe('mxbai-embed-large');
     expect(DEFAULT_CONFIG.search.top_k).toBe(10);
-    expect(DEFAULT_CONFIG.search.rerank).toBe(true);
   });
 
   it('has valid eval defaults', () => {

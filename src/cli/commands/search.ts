@@ -49,7 +49,7 @@ interface SearchCommandOptions {
   project?: string;
   /** Number of results to return (default: 10, max: 100) */
   top: string;
-  /** Enable BGE cross-encoder reranking (overrides config) */
+  /** Enable BGE cross-encoder reranking (off by default) */
   rerank?: boolean;
 }
 
@@ -232,8 +232,9 @@ export function createSearchCommand(
 
       ctx.debug(`Using model: ${embeddingModel} (${dimensions}d)`);
 
-      // CLI --rerank flag overrides config.search.rerank
-      const shouldRerank = cmdOptions.rerank ?? config.search.rerank;
+      // Opt-in: on 42 test questions the cross-encoder found the right chunk
+      // first less often (MRR 0.45 vs 0.56), ranking tables and code low.
+      const shouldRerank = cmdOptions.rerank ?? false;
       ctx.debug(`Reranking: ${shouldRerank ? 'enabled' : 'disabled'}`);
 
       // ─────────────────────────────────────────────────────────────────────

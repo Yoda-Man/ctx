@@ -193,8 +193,6 @@ export class RoutingRAGEngine {
   /** Multi-project fusion service (lazy instantiation) */
   private fusionService: MultiProjectFusionService | null = null;
 
-  /** Rerank config from app config */
-  private readonly rerankEnabled: boolean;
 
 
   constructor(engineConfig: RoutingRAGEngineConfig) {
@@ -202,7 +200,6 @@ export class RoutingRAGEngine {
     this.embeddingProvider = engineConfig.embeddingProvider;
     this.dimensions = engineConfig.dimensions;
     this.forceRAG = engineConfig.forceRAG ?? true;
-    this.rerankEnabled = engineConfig.config.search?.rerank ?? true;
 
     // Create router (heuristic-only if no LLM provider)
     this.router = createProjectRouter(
@@ -324,9 +321,8 @@ export class RoutingRAGEngine {
    */
   private getFusionService(): MultiProjectFusionService {
     if (!this.fusionService) {
-      this.fusionService = getMultiProjectFusionService({
-        rerank: this.rerankEnabled,
-      });
+      // No reranking: measured worse than fusion order (see ctx search --rerank)
+      this.fusionService = getMultiProjectFusionService({ rerank: false });
     }
     return this.fusionService;
   }

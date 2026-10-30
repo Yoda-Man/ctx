@@ -143,7 +143,7 @@ describe('createChatCommand', () => {
       batch_size: 32,
       timeout_ms: 120000,
     },
-    search: { top_k: 10, rerank: false },
+    search: { top_k: 10 },
   };
 
   beforeEach(() => {

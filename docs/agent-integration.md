@@ -66,8 +66,8 @@ System health and version info.
 
 ```json
 {
-  "version": "1.0.0",
-  "nodeVersion": "v22.12.0",
+  "version": "1.1.1",
+  "nodeVersion": "v24.11.0",
   "platform": "darwin",
   "projects": 3,
   "totalChunks": 5432,

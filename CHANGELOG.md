@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.1] - 2026-10-26
+## [1.1.1] - 2026-10-30
 
 ### Added
 - **Linting with oxlint**, type-aware (it runs on TypeScript 7's own engine,
@@ -18,6 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mocks of options and config fields that no longer exist.
 
 ### Changed
+- **Requires Node.js 24** (was 22.12), for unpdf 2, which reads PDFs and no
+  longer runs on Node 22. CI tests Node 24 and 26.
+- **Reranking is opt-in:** `ctx search --rerank`. On 42 questions over two
+  projects, each scored by whether the chunk holding the answer came back,
+  hybrid search alone put the answer first more often (45% against 26%; mean
+  reciprocal rank 0.56 against 0.45). The cross-encoder helped prose answers
+  but ranked Markdown tables and code low. `ctx search`, `ask` and `chat` no
+  longer rerank, and the first search no longer downloads the 280 MB reranker.
+  The `search.rerank` setting is retired: the `rerank = true` line every
+  generated config.toml carries is ignored without a warning.
+- Dependencies: @huggingface/transformers 4.3.2, marked 18.1.2, unpdf 2.1.0.
 - One shared `errorMessage()` / `toError()` helper replaces 33 hand-written
   copies, and error messages no longer print `[object Object]` for a thrown
   value that is not an Error.
@@ -70,9 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "what is this project?" searches instead of asking which project.
 - A search that fails now says why in the chat, instead of
   "Found 0 sources".
-- **Reranking works.** The BGE cross-encoder was given the query without the
+- **`--rerank` works.** The BGE cross-encoder was given the query without the
   document, so every result scored the same (0.73) and the order never
-  changed, while still costing a model pass per result. ctx now scores each
+  changed, while still costing a model pass per result. It now scores each
   query and document pair, and the reported scores reflect relevance.
 - The embedding cache keyed vectors by a 32-bit hash of the text, so two
   texts could share one vector (the first collision appeared after about
