@@ -82,13 +82,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and their doc comments, and nested functions were indexed twice. Each file
   is now split at its top-level statements: a definition with its comments,
   decorators and `export`, and the code between definitions, so every line
-  is indexed once. CODE_NUMBERS
+  is indexed once.
 - **Files in other languages (Go, Rust, Java and the rest) lost their code**
   when they had a block comment: only the comments were indexed. The whole
   file is now indexed.
 - **Markdown headings were indexed apart from their text**, so a table or
   list was found without its title, and each paragraph became its own chunk.
-  A document is now split by section, heading included. MARKDOWN_NUMBERS
+  A document is now split by section, heading included.
 - **Searching many projects took about 30 seconds** the first time in a
   session (27 s across 14 projects and 58,700 chunks; 16 s to load one
   23,000-chunk project), long enough for `ctx chat` to give up. Chunks were
