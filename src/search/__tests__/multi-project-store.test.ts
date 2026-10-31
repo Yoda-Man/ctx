@@ -15,7 +15,6 @@ import {
   getMultiProjectVectorStoreManager,
   resetMultiProjectVectorStoreManager,
 } from '../multi-project-store.js';
-import { resetVectorStoreManager } from '../store.js';
 import { EmbeddingMismatchError } from '../errors.js';
 import type { Project } from '../../database/schema.js';
 
@@ -93,7 +92,6 @@ function createMockStore(
     count: vi.fn().mockResolvedValue(chunks.length),
     insert: vi.fn(),
     clear: vi.fn(),
-    getIndexType: vi.fn().mockReturnValue('hnsw'),
   } as unknown as InMemoryVectorStore;
 
   return mockStore;
@@ -418,7 +416,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding, { topK: 5 });
 
       expect(results.length).toBe(2);
@@ -443,7 +441,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding);
 
       expect(results[0]!.projectId).toBe('proj-1');
@@ -487,7 +485,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding, { topK: 10 });
 
       // The shared chunk should be boosted by RRF (appears in both lists)
@@ -498,7 +496,7 @@ describe('MultiProjectVectorStoreManager', () => {
     it('should return empty array when no projects loaded', async () => {
       const manager = new MultiProjectVectorStoreManager();
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding);
 
       expect(results).toEqual([]);
@@ -521,7 +519,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding, { topK: 5 });
 
       expect(results.length).toBe(2);
@@ -548,7 +546,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding, { topK: 2 });
 
       expect(results.length).toBe(2);
@@ -568,7 +566,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       await manager.search(queryEmbedding, {
         fileType: 'code',
         language: 'typescript',
@@ -617,7 +615,7 @@ describe('MultiProjectVectorStoreManager', () => {
       // Simulate external invalidation - proj-1's store was cleared
       mockStoreManager.hasStore.mockImplementation((id: string) => id !== 'proj-1');
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
       const results = await manager.search(queryEmbedding);
 
       // Should only get results from proj-2 (proj-1 was skipped due to invalidation)
@@ -641,7 +639,7 @@ describe('MultiProjectVectorStoreManager', () => {
         dimensions: 1024,
       });
 
-      const queryEmbedding = new Array(1024).fill(0.1);
+      const queryEmbedding = Array.from({ length: 1024 }, () => 0.1);
 
       // Run multiple searches concurrently
       const [results1, results2, results3] = await Promise.all([

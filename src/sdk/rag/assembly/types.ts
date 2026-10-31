@@ -80,14 +80,6 @@ export interface TokenBudgetConfig {
    * Default: 0.5 (50%)
    */
   budgetPercentage?: number;
-
-  /**
-   * How to handle chunks that exceed the budget.
-   * - 'truncate': Include partial chunk content
-   * - 'drop': Exclude the chunk entirely
-   * Default: 'drop'
-   */
-  overflowStrategy?: 'truncate' | 'drop';
 }
 
 // ============================================================================

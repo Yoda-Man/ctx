@@ -203,26 +203,20 @@ export async function runIndexPipeline(
   const scanStartTime = performance.now();
   onStageStart?.('scanning', 0); // Unknown total at start
 
-  let scanResult: ScanResult;
   let filesScanned = 0;
 
-  try {
-    scanResult = await scanDirectory(projectPath, {
-      additionalIgnorePatterns: options.additionalIgnorePatterns,
-      onFile: (file: FileInfo) => {
-        filesScanned++;
-        onProgress?.('scanning', filesScanned, 0, file.relativePath);
-      },
-      onError: (path: string, error: Error) => {
-        const msg = `Failed to process: ${error.message}`;
-        warnings.push(`${path}: ${msg}`);
-        onWarning?.(msg, path);
-      },
-    });
-  } catch (error) {
-    // Fatal scan error
-    throw error;
-  }
+  const scanResult: ScanResult = await scanDirectory(projectPath, {
+    additionalIgnorePatterns: options.additionalIgnorePatterns,
+    onFile: (file: FileInfo) => {
+      filesScanned++;
+      onProgress?.('scanning', filesScanned, 0, file.relativePath);
+    },
+    onError: (path: string, error: Error) => {
+      const msg = `Failed to process: ${error.message}`;
+      warnings.push(`${path}: ${msg}`);
+      onWarning?.(msg, path);
+    },
+  });
 
   const scanDuration = performance.now() - scanStartTime;
   stageDurations.scanning = Math.round(scanDuration);
@@ -246,46 +240,40 @@ export async function runIndexPipeline(
   const chunkStartTime = performance.now();
   onStageStart?.('chunking', scanResult.files.length);
 
-  let chunkResult: BatchChunkResult;
   let filesChunked = 0;
   let lastChunkedFile = '';
 
-  try {
-    // Use structured result API for better error tracking
-    chunkResult = await chunkFilesWithResult(
-      scanResult.files,
-      {
-        ...chunkerConfig,
-        embeddingProvider, // For SemanticChunker on docs
+  // Use structured result API for better error tracking
+  const chunkResult: BatchChunkResult = await chunkFilesWithResult(
+    scanResult.files,
+    {
+      ...chunkerConfig,
+      embeddingProvider, // For SemanticChunker on docs
+    },
+    {
+      onChunk: (chunk: ChunkResult) => {
+        // Track which file we're on for progress
+        if (chunk.file_path !== lastChunkedFile) {
+          filesChunked++;
+          lastChunkedFile = chunk.file_path;
+          onProgress?.('chunking', filesChunked, scanResult.files.length, chunk.file_path);
+        }
       },
-      {
-        onChunk: (chunk: ChunkResult) => {
-          // Track which file we're on for progress
-          if (chunk.file_path !== lastChunkedFile) {
-            filesChunked++;
-            lastChunkedFile = chunk.file_path;
-            onProgress?.('chunking', filesChunked, scanResult.files.length, chunk.file_path);
-          }
-        },
-      }
-    );
-
-    // Aggregate warnings and errors from structured result
-    warnings.push(...chunkResult.warnings);
-    errors.push(...chunkResult.errors);
-
-    // Fire callbacks for warnings/errors (for real-time feedback)
-    for (const warning of chunkResult.warnings) {
-      const [filePath, ...rest] = warning.split(': ');
-      onWarning?.(rest.join(': '), filePath);
     }
-    for (const error of chunkResult.errors) {
-      const [filePath, ...rest] = error.split(': ');
-      onError?.(new Error(rest.join(': ')), filePath);
-    }
-  } catch (error) {
-    // Fatal chunking error
-    throw error;
+  );
+
+  // Aggregate warnings and errors from structured result
+  warnings.push(...chunkResult.warnings);
+  errors.push(...chunkResult.errors);
+
+  // Fire callbacks for warnings/errors (for real-time feedback)
+  for (const warning of chunkResult.warnings) {
+    const [filePath, ...rest] = warning.split(': ');
+    onWarning?.(rest.join(': '), filePath);
+  }
+  for (const error of chunkResult.errors) {
+    const [filePath, ...rest] = error.split(': ');
+    onError?.(new Error(rest.join(': ')), filePath);
   }
 
   // Extract chunks from structured result
@@ -321,25 +309,18 @@ export async function runIndexPipeline(
   const embedStartTime = performance.now();
   onStageStart?.('embedding', chunksCreated.length);
 
-  let embeddedChunks: EmbeddedChunk[] = [];
-
-  try {
-    embeddedChunks = await embedChunks(chunksCreated, embeddingProvider, {
-      batchSize: options.embeddingBatchSize ?? 32,
-      timeout: embeddingTimeout,
-      signal, // Pass signal for cancellation support
-      onProgress: (processed: number, total: number) => {
-        onProgress?.('embedding', processed, total);
-      },
-      onError: (error: Error, chunkId: string) => {
-        errors.push(`Chunk ${chunkId}: ${error.message}`);
-        onError?.(error, chunkId);
-      },
-    });
-  } catch (error) {
-    // Fatal embedding error (or cancellation)
-    throw error;
-  }
+  const embeddedChunks: EmbeddedChunk[] = await embedChunks(chunksCreated, embeddingProvider, {
+    batchSize: options.embeddingBatchSize ?? 32,
+    timeout: embeddingTimeout,
+    signal, // Pass signal for cancellation support
+    onProgress: (processed: number, total: number) => {
+      onProgress?.('embedding', processed, total);
+    },
+    onError: (error: Error, chunkId: string) => {
+      errors.push(`Chunk ${chunkId}: ${error.message}`);
+      onError?.(error, chunkId);
+    },
+  });
 
   const embedDuration = performance.now() - embedStartTime;
   stageDurations.embedding = Math.round(embedDuration);

@@ -81,6 +81,7 @@ import {
   type RAGSearchResult,
   type RAGSource,
 } from './types.js';
+import { errorMessage, toError } from '../utils/error.js';
 
 // ============================================================================
 // ADAPTER: FusionService → SDK Retriever Interface
@@ -251,31 +252,9 @@ export class ContextExpertRAGEngine {
     } catch (error) {
       // Wrap SDK errors in our error type, preserving full context
       const originalError =
-        error instanceof Error ? error : new Error(String(error));
+        toError(error);
       throw new RetrievalError(originalError.message, originalError);
     }
-  }
-
-  /**
-   * Get the underlying SDK RAGEngineImpl.
-   *
-   * Used by AdaptiveRAG to wrap the engine for query-classification-based
-   * pipeline optimization. AdaptiveRAG requires the SDK's RAGEngine interface,
-   * not our Facade wrapper.
-   */
-  getSDKEngine(): RAGEngineImpl {
-    return this.engine;
-  }
-
-  /**
-   * Convert an SDK RAGResult to our RAGSearchResult format.
-   *
-   * Exposed for AdaptiveRAG integration: AdaptiveRAG returns an
-   * AdaptiveRAGResult (extends RAGResult), which we need to convert
-   * through our standard converter.
-   */
-  convertResult(result: RAGResult, totalMs: number): RAGSearchResult {
-    return this.toRAGSearchResult(result, totalMs);
   }
 
   /**
@@ -473,7 +452,7 @@ export async function createRAGEngine(
     dimensions = result.dimensions;
   } catch (error) {
     throw RAGEngineError.embeddingUnavailable(
-      error instanceof Error ? error.message : String(error),
+      errorMessage(error),
       error instanceof Error ? error : undefined
     );
   }
@@ -485,7 +464,7 @@ export async function createRAGEngine(
   const fusionService = createFusionService(
     projectId,
     embeddingProvider,
-    config.search,
+    { ...config.search, rerank: false }, // opt-in only through ctx search --rerank
     {
       denseOptions: { dimensions },
     }

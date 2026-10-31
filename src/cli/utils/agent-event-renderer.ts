@@ -41,6 +41,26 @@ import {
   type StreamChunk as TUIStreamChunk,
 } from '../tui/index.js';
 
+/**
+ * One line for a finished search, shared by the REPL and the TUI: what it
+ * found, or why it failed (a failure is not "0 sources").
+ */
+function describeToolResult(event: Extract<ChatAgentEvent, { type: 'tool_result' }>): string {
+  const timeMs = Math.round(event.durationMs);
+  if (!event.success) {
+    const error = (event.result as { error?: string } | undefined)?.error ?? 'unknown error';
+    return `Search failed: ${error} (${timeMs}ms)`;
+  }
+  // ReActLoop unwraps ToolResult.data, so event.result is the RetrieveKnowledgeOutput itself
+  const data = event.result as RetrieveKnowledgeOutput | undefined;
+  const count = data?.sourceCount ?? 0;
+  return `Found ${count} source${count !== 1 ? 's' : ''} (${timeMs}ms)`;
+}
+
+function styleToolResult(event: Extract<ChatAgentEvent, { type: 'tool_result' }>): string {
+  return (event.success ? chalk.dim : chalk.yellow)(describeToolResult(event));
+}
+
 // ============================================================================
 // REPL Renderer
 // ============================================================================
@@ -139,28 +159,11 @@ export async function renderAgentEventsREPL(
       }
 
       case 'tool_result': {
-        // ReActLoop unwraps ToolResult.data, so event.result is the
-        // RetrieveKnowledgeOutput directly (no .data wrapper)
-        const resultData = event.result as RetrieveKnowledgeOutput | undefined;
-        const sourceCount = resultData?.sourceCount ?? 0;
-        const timeMs = Math.round(event.durationMs);
-
-        // Build display string with optional classification tag
-        const classTag = resultData?.classification
-          ? chalk.dim(` [${resultData.classification.type}]`)
-          : '';
+        const resultData = event.success ? (event.result as RetrieveKnowledgeOutput | undefined) : undefined;
 
         // \x1b[2K clears the entire current line, then \r moves to column 0
         // This prevents remnants of the longer "Searching: ..." text leaking through
-        if (resultData?.classification?.skippedRetrieval) {
-          process.stdout.write(
-            '\x1b[2K\r' + chalk.dim(`Retrieval skipped${classTag} (${timeMs}ms)`) + '\n\n'
-          );
-        } else {
-          process.stdout.write(
-            '\x1b[2K\r' + chalk.dim(`Found ${sourceCount} source${sourceCount !== 1 ? 's' : ''}${classTag} (${timeMs}ms)`) + '\n\n'
-          );
-        }
+        process.stdout.write('\x1b[2K\r' + styleToolResult(event) + '\n\n');
 
         // Collect sources for citation display
         if (resultData?.sources) {
@@ -272,27 +275,9 @@ export function adaptAgentEventsForTUI(
           break;
         }
 
-        case 'tool_result': {
-          // ReActLoop unwraps ToolResult.data, so event.result is the
-          // RetrieveKnowledgeOutput directly (no .data wrapper)
-          const resultData = event.result as RetrieveKnowledgeOutput | undefined;
-          const sourceCount = resultData?.sourceCount ?? 0;
-          const timeMs = Math.round(event.durationMs);
-          const classTag = resultData?.classification
-            ? ` [${resultData.classification.type}]`
-            : '';
-
-          if (resultData?.classification?.skippedRetrieval) {
-            tui.addInfoMessage(
-              chalk.dim(`Retrieval skipped${classTag} (${timeMs}ms)`)
-            );
-          } else {
-            tui.addInfoMessage(
-              chalk.dim(`Found ${sourceCount} source${sourceCount !== 1 ? 's' : ''}${classTag} (${timeMs}ms)`)
-            );
-          }
+        case 'tool_result':
+          tui.addInfoMessage(styleToolResult(event));
           break;
-        }
 
         case 'response_complete':
           // Collect sources for the caller to display after streamResponse()

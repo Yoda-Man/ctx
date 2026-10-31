@@ -103,7 +103,7 @@ describe('scanDirectory', () => {
     const result = await scanDirectory(tempDir);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].relativePath).toBe('index.ts');
+    expect(result.files[0]!.relativePath).toBe('index.ts');
   });
 
   it('respects .gitignore patterns', async () => {
@@ -131,7 +131,7 @@ describe('scanDirectory', () => {
     });
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].relativePath).toBe('index.ts');
+    expect(result.files[0]!.relativePath).toBe('index.ts');
   });
 
   it('skips binary files', async () => {
@@ -142,7 +142,7 @@ describe('scanDirectory', () => {
     const result = await scanDirectory(tempDir);
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].relativePath).toBe('index.ts');
+    expect(result.files[0]!.relativePath).toBe('index.ts');
   });
 
   it('provides accurate file metadata', async () => {
@@ -269,7 +269,7 @@ describe('scanDirectory', () => {
     });
 
     expect(result.files).toHaveLength(1);
-    expect(result.files[0].language).toBe('dockerfile');
+    expect(result.files[0]!.language).toBe('dockerfile');
   });
 
   // ============================================================================
@@ -348,7 +348,7 @@ describe('scanDirectory', () => {
 
       // Should find only the real file, not the symlink
       expect(result.files).toHaveLength(1);
-      expect(result.files[0].relativePath).toBe('real.ts');
+      expect(result.files[0]!.relativePath).toBe('real.ts');
     });
 
     it('follows symlinks when followSymlinks is true', async () => {
@@ -390,7 +390,7 @@ describe('scanDirectory', () => {
       const result = await scanDirectory(tempDir);
 
       expect(result.files).toHaveLength(1);
-      expect(result.files[0].relativePath).toBe('valid.ts');
+      expect(result.files[0]!.relativePath).toBe('valid.ts');
     });
   });
 
@@ -511,8 +511,8 @@ describe('scanDirectories', () => {
     const results = await scanDirectories([tempDir1, tempDir2]);
 
     expect(results).toHaveLength(2);
-    expect(results[0].files).toHaveLength(1);
-    expect(results[1].files).toHaveLength(1);
+    expect(results[0]!.files).toHaveLength(1);
+    expect(results[1]!.files).toHaveLength(1);
   });
 
   it('returns separate results for each directory', async () => {
@@ -522,10 +522,10 @@ describe('scanDirectories', () => {
 
     const results = await scanDirectories([tempDir1, tempDir2]);
 
-    expect(results[0].rootPath).toBe(tempDir1);
-    expect(results[0].files).toHaveLength(2);
-    expect(results[1].rootPath).toBe(tempDir2);
-    expect(results[1].files).toHaveLength(1);
+    expect(results[0]!.rootPath).toBe(tempDir1);
+    expect(results[0]!.files).toHaveLength(2);
+    expect(results[1]!.rootPath).toBe(tempDir2);
+    expect(results[1]!.files).toHaveLength(1);
   });
 
   it('applies same options to all directories', async () => {
@@ -539,10 +539,10 @@ describe('scanDirectories', () => {
     });
 
     // Both directories should only have .ts files
-    expect(results[0].files).toHaveLength(1);
-    expect(results[0].files[0].extension).toBe('ts');
-    expect(results[1].files).toHaveLength(1);
-    expect(results[1].files[0].extension).toBe('ts');
+    expect(results[0]!.files).toHaveLength(1);
+    expect(results[0]!.files[0]!.extension).toBe('ts');
+    expect(results[1]!.files).toHaveLength(1);
+    expect(results[1]!.files[0]!.extension).toBe('ts');
   });
 
   it('handles empty directory array', async () => {
@@ -557,8 +557,8 @@ describe('scanDirectories', () => {
 
     const results = await scanDirectories([tempDir1, tempDir2]);
 
-    expect(results[0].files).toHaveLength(1);
-    expect(results[1].files).toHaveLength(0);
+    expect(results[0]!.files).toHaveLength(1);
+    expect(results[1]!.files).toHaveLength(0);
   });
 });
 

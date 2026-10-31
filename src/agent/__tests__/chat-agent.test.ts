@@ -11,8 +11,8 @@
  * - Error handling and context rollback
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { LLMProvider, ChatMessage, StreamChunk, ChatResponse, ToolDefinition, GenerateOptions } from '../../sdk/core/index.js';
+import { describe, it, expect, vi } from 'vitest';
+import type { LLMProvider, ChatMessage, StreamChunk, ChatResponse, GenerateOptions } from '../../sdk/core/index.js';
 import { ChatAgent, type ChatAgentEvent, type ChatAgentConfig } from '../chat-agent.js';
 import type { RoutingRAGEngine } from '../routing-rag-engine.js';
 import type { ProjectMetadata } from '../query-router.js';
@@ -42,7 +42,7 @@ function createMockLLMProvider(
     } as ChatResponse),
     isAvailable: vi.fn().mockResolvedValue(true),
     streamChat: vi.fn(async function* (_messages: ChatMessage[], _options?: GenerateOptions) {
-      const response = responses[callIndex % responses.length];
+      const response = responses[callIndex % responses.length]!;
       callIndex++;
 
       // Yield text chunks
@@ -111,9 +111,13 @@ function createMockProject(): Project {
     tags: '["test"]',
     file_count: 10,
     chunk_count: 50,
-    created_at: '2024-01-01',
+    ignore_patterns: null,
+    indexed_at: '2024-01-01',
     updated_at: '2024-01-01',
-  } as Project;
+    config: null,
+    embedding_model: null,
+    embedding_dimensions: 1024,
+  };
 }
 
 function createMockProjects(): ProjectMetadata[] {
@@ -297,33 +301,33 @@ describe('ChatAgent', () => {
     });
   });
 
-  describe('updateProject', () => {
-    it('updates project context for tool closures', async () => {
-      const engine1 = createMockRoutingEngine();
-      const engine2 = createMockRoutingEngine();
-      const projects1 = createMockProjects();
-      const projects2: ProjectMetadata[] = [{
-        id: 'project-2',
-        name: 'other-app',
-        description: 'Another project',
-        tags: [],
-        fileCount: 5,
-        chunkCount: 25,
-      }];
+  describe('project context in the system prompt', () => {
+    const systemPrompt = (llm: LLMProvider, call = 0) =>
+      vi.mocked(llm.streamChat).mock.calls[call]![0][0]!.content as string;
 
+    it('names the focused project, and follows updateProject', async () => {
+      const llm = createMockLLMProvider([{ textChunks: ['One'] }, { textChunks: ['Two'] }]);
       const agent = new ChatAgent(createDefaultConfig({
-        routingEngine: engine1,
-        allProjects: projects1,
+        llmProvider: llm,
+        allProjects: createMockProjects(),
         currentProject: createMockProject(),
       }));
 
-      // Switch to a different project
-      const newProject = { ...createMockProject(), id: 'project-2', name: 'other-app' };
-      agent.updateProject(newProject, projects2, engine2);
+      await collectEvents(agent.streamQuestion('what is this project?'));
+      agent.updateProject({ ...createMockProject(), id: 'project-2', name: 'other-app' }, createMockProjects(), null);
+      await collectEvents(agent.streamQuestion('and this one?'));
 
-      // The agent's context should reflect the change
-      // (verified by checking that subsequent operations work)
-      expect(agent.getContext()).toBeDefined();
+      expect(systemPrompt(llm, 0)).toContain('focused on the indexed project "my-app"');
+      expect(systemPrompt(llm, 1)).toContain('focused on the indexed project "other-app"');
+    });
+
+    it('lists the indexed projects when nothing is focused', async () => {
+      const llm = createMockLLMProvider([{ textChunks: ['Hi'] }]);
+      const agent = new ChatAgent(createDefaultConfig({ llmProvider: llm, allProjects: createMockProjects() }));
+
+      await collectEvents(agent.streamQuestion('hello'));
+
+      expect(systemPrompt(llm)).toContain('- my-app: Test project');
     });
   });
 
@@ -339,7 +343,7 @@ describe('ChatAgent', () => {
       // Verify streamChat was called with file reference as system message
       const calls = vi.mocked(llm.streamChat).mock.calls;
       expect(calls).toHaveLength(1);
-      const messages = calls[0][0];
+      const messages = calls[0]![0];
       const fileRefMsg = messages.find(m =>
         m.role === 'system' && typeof m.content === 'string' && m.content.includes('File References')
       );

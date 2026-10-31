@@ -73,7 +73,7 @@ describe('deleteProject cache invalidation', () => {
     const db = new DatabaseOperations();
     const projectId = 'empty-project';
 
-    const result = db.deleteProject(projectId);
+    db.deleteProject(projectId);
 
     // Should still invalidate caches
     expect(getVectorStoreManager().invalidate).toHaveBeenCalledWith(projectId);

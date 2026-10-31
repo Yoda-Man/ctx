@@ -218,7 +218,7 @@ describe('TUIController', () => {
 
       // Access the private chatArea through the mock
       const { createChatAreaManager } = await import('../chat-area.js');
-      const mockChatArea = (createChatAreaManager as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockChatArea = (createChatAreaManager as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       expect(mockChatArea.startStream).toHaveBeenCalled();
       expect(mockChatArea.endStream).toHaveBeenCalled();
@@ -232,7 +232,7 @@ describe('TUIController', () => {
       }
 
       const { createChatAreaManager } = await import('../chat-area.js');
-      const mockChatArea = (createChatAreaManager as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockChatArea = (createChatAreaManager as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       await expect(tui.streamResponse(failingStream())).rejects.toThrow('Stream failed');
       expect(mockChatArea.endStream).toHaveBeenCalled();
@@ -252,7 +252,7 @@ describe('TUIController', () => {
       ]);
 
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       await tui.streamResponse(stream);
 
@@ -269,7 +269,7 @@ describe('TUIController', () => {
       ]);
 
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       await tui.streamResponse(stream);
 
@@ -297,6 +297,7 @@ describe('TUIController', () => {
     });
 
     it('should resume input even on error', async () => {
+      // oxlint-disable-next-line require-yield -- a stream that fails before its first chunk
       async function* failingStream(): AsyncIterable<StreamChunk> {
         throw new Error('fail');
       }
@@ -360,7 +361,7 @@ describe('TUIController', () => {
 
     it('should increment turn count and update status', async () => {
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       tui.incrementTurns();
 
@@ -371,7 +372,7 @@ describe('TUIController', () => {
 
     it('should increment across multiple calls', async () => {
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       tui.incrementTurns();
       tui.incrementTurns();
@@ -390,7 +391,7 @@ describe('TUIController', () => {
 
     it('should update working directory in status', async () => {
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       tui.setWorkingDirectory('~/projects/my-app');
 
@@ -401,7 +402,7 @@ describe('TUIController', () => {
 
     it('should accept null to clear working directory', async () => {
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       tui.setWorkingDirectory(null);
 
@@ -418,7 +419,7 @@ describe('TUIController', () => {
 
     it('should update branch and dirty state', async () => {
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       tui.setGitStatus('main', true);
 
@@ -429,7 +430,7 @@ describe('TUIController', () => {
 
     it('should default dirty to false', async () => {
       const { createStatusLineRenderer } = await import('../status-line.js');
-      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0].value;
+      const mockStatusLine = (createStatusLineRenderer as ReturnType<typeof vi.fn>).mock.results[0]!.value;
 
       tui.setGitStatus('feature/test');
 

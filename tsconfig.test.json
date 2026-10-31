@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Tests use ES2024 APIs (String.prototype.isWellFormed); engines.node >=22.12 provides them.
+    "lib": ["ES2024"],
+    // check-thresholds.test imports scripts/check-eval-thresholds.js; infer its types instead of any
+    "allowJs": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

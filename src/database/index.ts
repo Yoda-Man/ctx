@@ -17,19 +17,13 @@
  */
 
 // Connection management (low-level)
-export { getDb, closeDb, getDbPath, getCtxDir } from './connection.js';
+export { getDb, closeDb, getDbPath, getCtxDir, getDbFileSize } from './connection.js';
 
 // Migration utilities
 export {
   runMigrations,
   hasPendingMigrations,
   getAppliedMigrations,
-  // State tracking (Ticket #52)
-  
-  
-  
-  // Result type (Ticket #52)
-  
 } from './migrate.js';
 
 // Schema types
@@ -45,35 +39,8 @@ export type {
 // Utility functions
 export { generateId, embeddingToBlob, blobToEmbedding } from './schema.js';
 
-// Validation schemas and utilities (Ticket #51)
-export {
-  // Full row schemas
-  
-  
-  
-  // Partial schemas for store loading
-  
-  
-  // Types
-  
-  
-  
-  
-  
-  // Error class
-  
-  // Validation functions
-  
-  
-  
-} from './validation.js';
-
 // High-level database operations
 export {
   getDatabase,
   resetDatabase,
-  
-  
-  
-  
 } from './operations.js';

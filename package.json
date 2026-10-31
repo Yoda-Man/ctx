@@ -1,6 +1,6 @@
 {
   "name": "yodaman-ctx",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Cross-project context agent CLI (ctx): semantic search and Q&A across codebases. YodaMan's maintained fork of Context Expert.",
   "type": "module",
   "bin": {
@@ -22,12 +22,13 @@
     "dev:index": "node ./dist/cli.js index",
     "dev:ask": "node ./dist/cli.js ask",
     "dev:search": "node ./dist/cli.js search",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm run check:latest && npm run build && npm test",
-    "check:latest": "npm outdated"
+    "prepublishOnly": "npm run check:latest && npm run typecheck && npm run lint && npm run build && npm test",
+    "check:latest": "npm outdated",
+    "lint": "oxlint --type-aware --deny-warnings src scripts"
   },
   "keywords": [
     "ai",
@@ -59,33 +60,34 @@
     "registry": "https://registry.npmjs.org/"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.3.1",
+    "@huggingface/transformers": "^4.3.2",
     "@iarna/toml": "^2.2.5",
     "better-sqlite3": "^13.0.3",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
-    "dotenv": "^18.0.9",
     "fast-glob": "^3.3.3",
     "ignore": "^7.0.14",
     "mammoth": "^1.13.0",
-    "marked": "^18.1.1",
+    "marked": "^18.1.2",
     "ora": "^9.4.1",
     "tree-sitter": "^0.25.1",
     "tree-sitter-javascript": "^0.25.0",
     "tree-sitter-python": "^0.25.0",
     "tree-sitter-typescript": "^0.23.2",
     "turndown": "^7.2.4",
-    "unpdf": "^1.9.1",
+    "unpdf": "^2.1.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/turndown": "^5.0.6",
     "@vitest/coverage-v8": "^5.0.5",
+    "oxlint": "^1.90.0",
+    "oxlint-tsgolint": "^7.0.2005",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

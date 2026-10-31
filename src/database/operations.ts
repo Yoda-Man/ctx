@@ -11,9 +11,8 @@
  * - Transaction management for batch operations
  */
 
-import { statSync } from 'node:fs';
 import type Database from 'better-sqlite3';
-import { getDb, getDbPath } from './connection.js';
+import { getDb, getDbFileSize } from './connection.js';
 import { embeddingToBlob, generateId } from './schema.js';
 import type { Project } from './schema.js';
 import {
@@ -96,23 +95,11 @@ export class DatabaseOperations {
   }
 
   /**
-   * Get the current database file size in bytes.
-   * Returns 0 if the database file doesn't exist yet.
-   * Throws for other errors (permissions, disk issues, etc.)
+   * The database's size on disk in bytes (0 before it exists), counting its
+   * write-ahead log.
    */
   getDatabaseSize(): number {
-    try {
-      const dbPath = getDbPath();
-      const stat = statSync(dbPath);
-      return stat.size;
-    } catch (error) {
-      // File doesn't exist yet - that's OK for fresh installs
-      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-        return 0;
-      }
-      // Permission errors, disk issues, etc. should propagate
-      throw error;
-    }
+    return getDbFileSize();
   }
 
   /**
@@ -208,14 +195,6 @@ export class DatabaseOperations {
       chunkCount: stats.chunkCount,
       now: new Date().toISOString(),
     });
-  }
-
-  /**
-   * Delete all chunks for a project (for re-indexing).
-   */
-  deleteProjectChunks(projectId: string): number {
-    const result = this.db.prepare('DELETE FROM chunks WHERE project_id = ?').run(projectId);
-    return result.changes;
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -526,7 +505,6 @@ export class DatabaseOperations {
       conditions.push('timestamp <= @endDate');
       params.endDate = filter.end_date;
     }
-
 
     if (filter.trace_type) {
       conditions.push('trace_type = @traceType');

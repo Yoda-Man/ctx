@@ -358,11 +358,7 @@ export class ConfigError extends RAGEngineError {
  * These are the core types from query-router.ts that RoutingRAGEngine uses.
  * Re-exporting here allows consumers to import everything from types.ts.
  */
-export type {
-  ProjectMetadata,
-  
-  
-} from './query-router.js';
+export type { ProjectMetadata } from './query-router.js';
 
 /**
  * Configuration for RoutingRAGEngine.
@@ -426,18 +422,6 @@ export interface RoutingRAGEngineConfig {
    * Controls confidence thresholds, LLM timeout, retry behavior.
    */
   routerConfig?: import('./query-router.js').LLMProjectRouterConfig;
-
-  /**
-   * Enable AdaptiveRAG pipeline optimization.
-   *
-   * When true, the SDK's AdaptiveRAG wraps per-project engines to:
-   * - Skip retrieval for simple/conversational queries
-   * - Adjust topK and enable query enhancement for complex queries
-   * - Provide query classification metadata in results
-   *
-   * Default: true
-   */
-  adaptive?: boolean;
 }
 
 /**
@@ -468,29 +452,11 @@ export interface RoutingMetadata {
 }
 
 /**
- * Query classification from AdaptiveRAG.
- *
- * Describes how the query was classified for pipeline optimization.
- * Present when adaptive mode is enabled on RoutingRAGEngine.
- */
-export interface QueryClassification {
-  /** Query type: simple (skip), factual (normal), complex (enhanced), conversational */
-  type: 'simple' | 'factual' | 'complex' | 'conversational';
-  /** Classifier confidence (0-1) */
-  confidence: number;
-  /** Whether retrieval was skipped for this query */
-  skippedRetrieval: boolean;
-}
-
-/**
  * Extended RAG result with routing metadata.
  *
- * Includes everything from RAGSearchResult plus routing information
- * and optional query classification from AdaptiveRAG.
+ * Includes everything from RAGSearchResult plus routing information.
  */
 export interface RoutingRAGResult extends RAGSearchResult {
   /** Routing decision metadata */
   routing: RoutingMetadata;
-  /** Query classification from AdaptiveRAG (when adaptive mode is enabled) */
-  classification?: QueryClassification;
 }

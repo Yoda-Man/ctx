@@ -241,7 +241,7 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
           model: this.model,
         };
       });
-    } catch (error) {
+    } catch {
       // Fall back to sequential if batch fails
       const results: EmbeddingResult[] = [];
       for (const text of texts) {

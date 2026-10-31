@@ -29,7 +29,7 @@
    * - config: 256 tokens - Config files are self-contained, small chunks                                                                                               
    *   are sufficient for key-value lookups                                                                                                                             
    */                                                                                                                                                                   
-  export const CHUNK_CONFIG: Record<ContentType, ChunkConfig> = {                                                                                                       
+  const CHUNK_CONFIG: Record<ContentType, ChunkConfig> = {                                                                                                       
     code: {                                                                                                                                                             
       chunkSize: 512,                                                                                                                                                   
       chunkOverlap: 50, // ~10%                                                                                                                                         

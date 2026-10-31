@@ -31,7 +31,7 @@ import {
   listGoldenEntries,
 } from '../golden.js';
 import { EvalError, EvalErrorCodes } from '../types.js';
-import type { GoldenDataset, GoldenEntry } from '../types.js';
+import type { GoldenDataset } from '../types.js';
 
 // ============================================================================
 // SETUP / TEARDOWN

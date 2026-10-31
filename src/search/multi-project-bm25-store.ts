@@ -19,7 +19,7 @@
  *
  * Key Difference from MultiProjectVectorStoreManager:
  * - No validation phase needed - BM25 uses text tokenization, not embeddings
- * - Simpler load options (no dimensions or HNSW config)
+ * - Simpler load options (no dimensions)
  *
  * @example
  * ```typescript

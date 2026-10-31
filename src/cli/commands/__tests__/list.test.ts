@@ -34,6 +34,7 @@ describe('createListCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -246,7 +247,7 @@ describe('createListCommand', () => {
       await program.parseAsync(['node', 'test', 'list']);
 
       expect(mockDb.prepare).toHaveBeenCalled();
-      const sqlCall = mockDb.prepare.mock.calls[0][0];
+      const sqlCall = mockDb.prepare.mock.calls[0]![0];
 
       // Should select from projects table
       expect(sqlCall).toContain('SELECT');

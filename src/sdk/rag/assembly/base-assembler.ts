@@ -146,7 +146,6 @@ export abstract class BaseAssembler implements ContextAssembler {
     const budgetResult = applyTokenBudget(
       working.map((r) => r.chunk),
       maxTokens,
-      this.config.tokenBudget.overflowStrategy,
       this.getFormattingOverhead()
     );
 
@@ -261,7 +260,7 @@ export abstract class BaseAssembler implements ContextAssembler {
       // Build location string from available metadata
       let location: string | undefined;
       if (metadata.startLine !== undefined && metadata.endLine !== undefined) {
-        location = `lines ${metadata.startLine}-${metadata.endLine}`;
+        location = `lines ${Number(metadata.startLine)}-${Number(metadata.endLine)}`;
       } else if (metadata.pageNumber !== undefined) {
         location = `page ${metadata.pageNumber}`;
       } else if (metadata.startIndex !== undefined) {

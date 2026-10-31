@@ -16,7 +16,6 @@ import {
   computeTrend,
   formatTrendReport,
   REGRESSION_THRESHOLD,
-  type TrendResult,
 } from '../aggregator.js';
 import type { EvalRun, RetrievalMetrics } from '../types.js';
 

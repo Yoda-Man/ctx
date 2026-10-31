@@ -25,8 +25,7 @@ import { loadTransformers, withModelDownloadLock } from '../transformers.js';
 
 // Transformers.js types (dynamically imported)
 type Pipeline = (
-  inputs: Array<{ text: string; text_pair: string }>,
-  options?: { padding?: boolean; truncation?: boolean }
+  inputs: Array<{ text: string; text_pair: string }>
 ) => Promise<Array<{ score: number }>>;
 
 /**
@@ -132,40 +131,29 @@ export class BGEReranker extends BaseReranker {
    */
   private async doLoadPipeline(): Promise<Pipeline> {
     try {
-      const { pipeline } = await loadTransformers();
+      const { AutoTokenizer, AutoModelForSequenceClassification } = await loadTransformers();
 
-      // Create the text-classification pipeline for reranking
-      // BGE rerankers use the 'text-classification' task
-      const pipe = await withModelDownloadLock(this.modelName, () => pipeline('text-classification', this.modelName, {
-        ...(this.device === 'auto' ? {} : { device: this.device }),
-        // Quantized models for faster inference
-        dtype: 'q8',
-      })) as unknown as (
-        text: string,
-        options?: { text_pair?: string; padding?: boolean; truncation?: boolean; max_length?: number }
-      ) => Promise<Array<{ label: string; score: number }>>;
+      // Not the 'text-classification' pipeline: it drops text_pair and scores
+      // the query alone, so every document got the same score.
+      const [tokenizer, model] = await withModelDownloadLock(this.modelName, () => Promise.all([
+        AutoTokenizer.from_pretrained(this.modelName),
+        AutoModelForSequenceClassification.from_pretrained(this.modelName, {
+          ...(this.device === 'auto' ? {} : { device: this.device }),
+          // Quantized models for faster inference
+          dtype: 'q8',
+        }),
+      ]));
 
-      // Wrap the pipeline to match our expected signature
-      return async (inputs, options) => {
-        const results: Array<{ score: number }> = [];
-
-        for (const input of inputs) {
-          // Cross-encoders expect [CLS] query [SEP] document [SEP] format
-          // The pipeline handles this automatically with text/text_pair
-          const output = await pipe(input.text, {
-            text_pair: input.text_pair,
-            padding: options?.padding ?? true,
-            truncation: options?.truncation ?? true,
-            max_length: this.maxLength,
-          });
-
-          // Output is [{label: 'LABEL_0', score: X}] - we want the score
-          // For rerankers, higher score = more relevant
-          const score = Array.isArray(output) ? output[0]?.score ?? 0 : 0;
-          results.push({ score });
-        }
-
-        return results;
+      // Cross-encoders read [CLS] query [SEP] document [SEP]; one logit per pair.
+      return async (inputs) => {
+        const encoded = tokenizer(inputs.map((input) => input.text), {
+          text_pair: inputs.map((input) => input.text_pair),
+          padding: true,
+          truncation: true,
+          max_length: this.maxLength,
+        });
+        const { logits } = await model(encoded);
+        return Array.from(logits.data as Float32Array, (score) => ({ score }));
       };
     } catch (error) {
       throw RerankerError.modelLoadFailed(
@@ -195,10 +183,7 @@ export class BGEReranker extends BaseReranker {
 
     try {
       // Score all query-document pairs
-      const scores = await pipe(inputs, {
-        padding: true,
-        truncation: true,
-      });
+      const scores = await pipe(inputs);
 
       // Map scores back to results
       return results.map((r, i) => {

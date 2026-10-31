@@ -80,7 +80,7 @@ const KNOWN_CONFIG_KEYS: Record<string, string[]> = {
     'observability',
   ],
   embedding: ['provider', 'model', 'fallback_provider', 'fallback_model', 'batch_size', 'timeout_ms'],
-  search: ['top_k', 'rerank'],
+  search: ['top_k'],
   rag: ['max_tokens', 'final_k', 'ordering'],
   indexing: ['ignore_patterns'],
   eval: ['golden_path', 'default_k', 'thresholds'],
@@ -116,6 +116,16 @@ function warnUnknownFields(
 }
 
 /**
+ * `search.rerank`, from 1.1.0 and earlier, is retired: reranking is opt-in
+ * per search (`ctx search --rerank`). Every generated config.toml set it to
+ * true, and the reranker then did nothing, so the line is dropped quietly.
+ */
+function dropRetiredKeys(parsed: Record<string, unknown>): void {
+  const search = parsed['search'];
+  if (typeof search === 'object' && search !== null) delete (search as Record<string, unknown>)['rerank'];
+}
+
+/**
  * ctx answers only with a local Ollama model. A config written for a cloud
  * provider (anthropic, openai) would name a model Ollama does not have, so
  * both settings are dropped, with a warning, and the defaults apply.
@@ -124,7 +134,7 @@ function dropCloudProvider(parsed: Record<string, unknown>): void {
   const provider = parsed['default_provider'];
   if (provider === undefined || provider === 'ollama') return;
   console.warn(
-    `Warning: default_provider = "${String(provider)}" is ignored; ctx only uses local Ollama models. ` +
+    `Warning: default_provider = ${JSON.stringify(provider)} is ignored; ctx only uses local Ollama models. ` +
       'Set one with: ctx config set default_model <ollama model>'
   );
   delete parsed['default_provider'];
@@ -166,6 +176,7 @@ export function loadConfig(createIfMissing = true): Config {
 
   // Warn about unknown fields (helps catch typos)
   if (typeof parsed === 'object' && parsed !== null) {
+    dropRetiredKeys(parsed as Record<string, unknown>);
     warnUnknownFields(parsed as Record<string, unknown>);
     dropCloudProvider(parsed as Record<string, unknown>);
   }
@@ -220,6 +231,7 @@ export function setConfigValue(key: string, value: string): void {
   if (fs.existsSync(configPath)) {
     const content = fs.readFileSync(configPath, 'utf-8');
     config = TOML.parse(content) as Record<string, unknown>;
+    dropRetiredKeys(config);
     dropCloudProvider(config);
   }
 

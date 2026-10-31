@@ -17,8 +17,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { Command } from 'commander';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 
 // ============================================================================
 // Mock Setup - MUST be before imports that use these modules
@@ -156,6 +155,7 @@ async function runIndexCommand(args: string[]): Promise<void> {
     options: { verbose: false, json: false },
     log: vi.fn(),
     debug: vi.fn(),
+    warn: vi.fn(),
     error: vi.fn(),
   };
   const cmd = createIndexCommand(() => indexContext);
@@ -227,6 +227,7 @@ describe('Search Command Integration', () => {
       options: { verbose: false, json: false },
       log: vi.fn((msg: string) => capturedOutput.push(msg)),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -253,6 +254,7 @@ describe('Search Command Integration', () => {
         options: { verbose: false, json: true },
         log: vi.fn(),
         debug: vi.fn(),
+        warn: vi.fn(),
         error: vi.fn(),
       };
 
@@ -262,7 +264,7 @@ describe('Search Command Integration', () => {
         await runSearchCommand(['authenticate'], jsonContext);
 
         expect(consoleSpy).toHaveBeenCalled();
-        const jsonString = consoleSpy.mock.calls[0][0];
+        const jsonString = consoleSpy.mock.calls[0]![0];
         const parsed = JSON.parse(jsonString);
 
         expect(parsed).toHaveProperty('query', 'authenticate');
@@ -325,6 +327,7 @@ describe('Search Command Integration', () => {
         options: { verbose: false, json: true },
         log: vi.fn(),
         debug: vi.fn(),
+        warn: vi.fn(),
         error: vi.fn(),
       };
 
@@ -333,7 +336,7 @@ describe('Search Command Integration', () => {
       try {
         await runSearchCommand(['function', '--top', '3'], jsonContext);
 
-        const jsonString = consoleSpy.mock.calls[0][0];
+        const jsonString = consoleSpy.mock.calls[0]![0];
         const parsed = JSON.parse(jsonString);
 
         expect(parsed.results.length).toBeLessThanOrEqual(3);

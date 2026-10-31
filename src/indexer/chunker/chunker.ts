@@ -23,9 +23,10 @@ import {
   RecursiveChunker,
   type Chunk,
   type Document,
+  SemanticChunker,
   type EmbeddingProvider,
 } from '../../sdk/rag/index.js';
-import { SemanticChunker } from '../../sdk/rag/index.js';
+import { errorMessage } from '../../utils/error.js';
 
 import type { FileInfo } from '../types.js';
 import { isConvertedDocument, readAsText } from '../documents.js';
@@ -42,7 +43,6 @@ import {
   isMarkdown,
 } from './extractors/index.js';
 import {
-  CHUNK_CONFIG,
   MAX_FILE_SIZE,
   MIN_CHUNK_SIZE,
   getChunkConfig,
@@ -53,12 +53,6 @@ import {
  * Configuration for the chunker.
  */
 export interface ChunkerConfig {
-  /**
-   * Override default chunk sizes.
-   * Key is content type, value is { chunkSize, chunkOverlap }.
-   */
-  chunkSizeOverrides?: Partial<typeof CHUNK_CONFIG>;
-
   /**
    * Embedding provider for SemanticChunker.
    *
@@ -170,8 +164,7 @@ async function chunkFileWithResult(
     }
 
     // Get chunk configuration for this content type
-    const chunkConfig = config.chunkSizeOverrides?.[segment.contentType]
-      ?? getChunkConfig(segment.contentType);
+    const chunkConfig = getChunkConfig(segment.contentType);
 
     // Estimate token count
     const tokenCount = estimateTokens(segment.content);
@@ -185,52 +178,52 @@ async function chunkFileWithResult(
         content: segment.content,
         metadata: {},
       }];
-    } else if (segment.contentType === 'docs' && config.embeddingProvider) {
-      // Docs content with embedding provider → use SemanticChunker
-      const semanticChunker = new SemanticChunker({
-        embeddingProvider: config.embeddingProvider,
-        similarityThreshold: 0.5,
-        minChunkSize: 100,
-        maxChunkSize: chunkConfig.chunkSize,
-      });
-
-      const document: Document = {
-        id: randomUUID(),
-        content: segment.content,
-        metadata: {},
-        source: fileInfo.relativePath,
-      };
-
-      segmentChunks = await semanticChunker.chunk(document, {
-        chunkSize: chunkConfig.chunkSize,
-        chunkOverlap: chunkConfig.chunkOverlap,
-        sizeUnit: 'tokens',
-      });
     } else {
-      // Code/config content OR no embedding provider → use RecursiveChunker
-      const recursiveChunker = new RecursiveChunker();
-
       const document: Document = {
         id: randomUUID(),
         content: segment.content,
         metadata: {},
         source: fileInfo.relativePath,
       };
-
-      segmentChunks = await recursiveChunker.chunk(document, {
+      const chunkOptions = {
         chunkSize: chunkConfig.chunkSize,
         chunkOverlap: chunkConfig.chunkOverlap,
-        sizeUnit: 'tokens',
-      });
+        sizeUnit: 'tokens' as const,
+      };
+
+      let semanticChunks: Chunk[] | undefined;
+      if (segment.contentType === 'docs' && config.embeddingProvider) {
+        // Docs content with embedding provider → split where the topic changes
+        try {
+          semanticChunks = await new SemanticChunker({
+            embeddingProvider: config.embeddingProvider,
+            similarityThreshold: 0.5,
+            minChunkSize: 100,
+            maxChunkSize: chunkConfig.chunkSize,
+          }).chunk(document, chunkOptions);
+        } catch (error) {
+          // One failed embedding call used to abort the whole index
+          warnings.push(`Semantic chunking failed at line ${segment.startLine} (${errorMessage(error)}); split by size instead`);
+        }
+      }
+
+      // Code/config content, no embedding provider, or a failed semantic split
+      segmentChunks = semanticChunks ?? await new RecursiveChunker().chunk(document, chunkOptions);
     }
 
-    // Map to ChunkResult with full metadata
+    // Map to ChunkResult with full metadata. Chunks come in order and overlap
+    // by at most chunkOverlap, so each is searched for from just before the
+    // previous one's end: a repeated block gets its own lines, not the first copy's.
+    const overlapChars = chunkConfig.chunkOverlap * 4 * 2; // ~4 chars a token, doubled for slack
+    let searchFrom = 0;
     for (const chunk of segmentChunks) {
-      const { startLine, endLine } = computeLineNumbers(
+      const { startLine, endLine, offset } = computeLineNumbers(
         segment.content,
         chunk.content,
-        segment.startLine
+        segment.startLine,
+        searchFrom
       );
+      if (offset !== -1) searchFrom = Math.max(offset + 1, offset + chunk.content.length - overlapChars);
 
       const result: ChunkResult = {
         id: chunk.id,
@@ -436,10 +429,12 @@ function extractSegments(content: string, fileInfo: FileInfo): ExtractionResultW
 function computeLineNumbers(
   segmentContent: string,
   chunkContent: string,
-  segmentStartLine: number
-): { startLine: number; endLine: number } {
+  segmentStartLine: number,
+  searchFrom: number
+): { startLine: number; endLine: number; offset: number } {
   // Find where this chunk starts within the segment
-  const chunkStartOffset = segmentContent.indexOf(chunkContent);
+  let chunkStartOffset = segmentContent.indexOf(chunkContent, searchFrom);
+  if (chunkStartOffset === -1) chunkStartOffset = segmentContent.indexOf(chunkContent);
 
   if (chunkStartOffset === -1) {
     // Chunk not found (shouldn't happen) - use segment boundaries
@@ -447,6 +442,7 @@ function computeLineNumbers(
     return {
       startLine: segmentStartLine,
       endLine: segmentStartLine + chunkLines - 1,
+      offset: -1,
     };
   }
 
@@ -458,7 +454,7 @@ function computeLineNumbers(
   const chunkLines = chunkContent.split('\n').length;
   const endLine = startLine + chunkLines - 1;
 
-  return { startLine, endLine };
+  return { startLine, endLine, offset: chunkStartOffset };
 }
 
 function tooLarge(fileInfo: FileInfo, size: number, warnings: string[]): FileChunkResult {

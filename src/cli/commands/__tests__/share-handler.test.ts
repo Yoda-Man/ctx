@@ -7,7 +7,7 @@ import { existsSync, readFileSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { handleShareCommand, contractPath } from '../share-handler.js';
-import type { ChatState } from '../chat.js';
+import type { ChatState } from '../chat-state.js';
 import type { CommandContext } from '../../types.js';
 
 // Mock execSync to prevent actual clipboard operations

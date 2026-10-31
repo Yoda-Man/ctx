@@ -25,6 +25,7 @@
 
 import { z } from 'zod';
 import type { LLMProvider } from '../sdk/core/index.js';
+import { toError } from '../utils/error.js';
 
 // ============================================================================
 // TYPES
@@ -526,7 +527,18 @@ export class LLMProjectRouter {
       };
     }
 
-    // Step 2: GENERAL intent - try LLM routing
+    // Step 2: GENERAL intent with a focused project: stay in it. Naming another
+    // project or asking about all of them was handled above.
+    if (currentProjectId) {
+      return {
+        projectIds: [currentProjectId],
+        method: 'fallback_all',
+        confidence: 0.6,
+        reason: 'Using current project',
+      };
+    }
+
+    // Step 3: GENERAL intent, nothing focused - try LLM routing
     // Only invoke LLM when 2+ projects exist (single project is always picked by fallback)
     if (this.llmProvider && projects.length >= 2) {
       try {
@@ -560,17 +572,6 @@ export class LLMProjectRouter {
       }
     }
 
-    // Step 3: No LLM available - fallback based on context
-    // If there's a current project, use it
-    if (currentProjectId) {
-      return {
-        projectIds: [currentProjectId],
-        method: 'fallback_all',
-        confidence: 0.6,
-        reason: 'Using current project (no LLM available for routing)',
-      };
-    }
-
     // Last resort: search ALL projects
     return {
       projectIds: projects.map((p) => p.id),
@@ -596,7 +597,7 @@ export class LLMProjectRouter {
         // Parse and validate response
         return this.parseRoutingResponse(response, projects);
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
+        lastError = toError(error);
         // Continue to retry
       }
     }

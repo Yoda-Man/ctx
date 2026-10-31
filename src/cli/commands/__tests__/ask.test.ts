@@ -129,6 +129,7 @@ describe('createAskCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: (msg: string) => errorOutput.push(msg),
     };
 
@@ -154,6 +155,8 @@ describe('createAskCommand', () => {
       embedding: {
         provider: 'huggingface',
         model: 'BAAI/bge-small-en-v1.5',
+        batch_size: 32,
+        timeout_ms: 120000,
       },
       search: {
         top_k: 10,
@@ -219,8 +222,8 @@ describe('createAskCommand', () => {
       const command = createAskCommand(() => mockContext);
       const args = command.registeredArguments;
       expect(args).toHaveLength(1);
-      expect(args[0].name()).toBe('question');
-      expect(args[0].required).toBe(true);
+      expect(args[0]!.name()).toBe('question');
+      expect(args[0]!.required).toBe(true);
     });
 
     it('has --project option', () => {
@@ -643,7 +646,7 @@ describe('createAskCommand', () => {
     it('builds system prompt with RAG context', async () => {
       await runCommand(['How does auth work?']);
 
-      const [[messages]] = mockLLMProvider.streamChat.mock.calls;
+      const messages = mockLLMProvider.streamChat.mock.calls[0]![0];
       const systemMessage = messages.find((m: { role: string }) => m.role === 'system');
       expect(systemMessage.content).toContain('<sources>');
     });
@@ -651,7 +654,7 @@ describe('createAskCommand', () => {
     it('includes user question in messages', async () => {
       await runCommand(['How does auth work?']);
 
-      const [[messages]] = mockLLMProvider.streamChat.mock.calls;
+      const messages = mockLLMProvider.streamChat.mock.calls[0]![0];
       const userMessage = messages.find((m: { role: string }) => m.role === 'user');
       expect(userMessage.content).toBe('How does auth work?');
     });

@@ -7,13 +7,146 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-30
+
+### Added
+- **Linting with oxlint**, type-aware (it runs on TypeScript 7's own engine,
+  which ESLint's TypeScript support cannot yet use), in CI and before every
+  publish: `npm run lint`. Dev dependencies only.
+- **Tests are type-checked** (`npm run typecheck`, in CI and before every
+  publish). They were excluded before and had drifted: 165 errors, including
+  mocks of options and config fields that no longer exist.
+- **Tests run in a temporary home folder**, so they can't read or write a
+  developer's real `~/.ctx` (one test that mocked the database path but not
+  the connection wrote 2,500 chunks into it).
+
+### Changed
+- **Re-index your projects after upgrading** (`ctx index <path> --force`):
+  code and Markdown are now split differently (see Fixed), and line numbers
+  in older indexes can be off.
+- **Search scores run from 0 to 1** again: 1 means ranked first by both
+  keyword and vector search, about 0.5 first by one of them. Without the
+  reranker they showed raw fusion values near 0.03, and a `minScore` above
+  that dropped every result.
+- **Requires Node.js 24** (was 22.12), for unpdf 2, which reads PDFs and no
+  longer runs on Node 22. CI tests Node 24 and 26.
+- **Reranking is opt-in:** `ctx search --rerank`. On 42 questions over two
+  projects, each scored by whether the chunk holding the answer came back,
+  hybrid search alone put the answer first more often (45% against 26%; mean
+  reciprocal rank 0.56 against 0.45). The cross-encoder helped prose answers
+  but ranked Markdown tables and code low. `ctx search`, `ask` and `chat` no
+  longer rerank, and the first search no longer downloads the 280 MB reranker.
+  The `search.rerank` setting is retired: the `rerank = true` line every
+  generated config.toml carries is ignored without a warning.
+- Dependencies: @huggingface/transformers 4.3.2, marked 18.1.2, unpdf 2.1.0.
+- One shared `errorMessage()` / `toError()` helper replaces 33 hand-written
+  copies, and error messages no longer print `[object Object]` for a thrown
+  value that is not an Error.
+- `ctx chat`'s code is split by job: commands, `/index`, questions, shared
+  state, and the session itself. 21 new tests cover the slash commands against
+  a real database.
+
 ### Removed
+- **The `dotenv` dependency.** Node reads `.env` itself (`process.loadEnvFile`,
+  Node 20.12+); values already in the environment still win, and a missing
+  `.env` is still fine. 17 runtime dependencies remain.
 - **Trace feedback**, which nothing could set: the "Fb" column in
   `ctx eval traces` was always empty and filtering traces by feedback never
   matched. The `feedback` column stays in the database, always null.
-- The chat status bar's agent "mode", which was set once and never shown.
+- The chat status bar's agent "mode", which was set once and never shown,
+  descriptions for seven tools ctx's agent does not have, and a source list in
+  the chat window that nothing filled (`ctx chat` prints citations itself).
+- Rethrow-only `try`/`catch` blocks, unused imports and helpers in tests, and
+  an unused database row schema.
+- **Adaptive RAG** (about 1,400 lines). In `ctx chat` it labelled each
+  search query and skipped retrieval for "simple" ones: any query of four
+  words or fewer, such as "auth middleware" or "Why?". The agent writes
+  short keyword queries, and it only searches when it has decided it needs
+  to, so those searches came back empty.
+- **The HNSW index**, used only for projects of 250,000 chunks or more. ctx
+  builds its search index in every process, so HNSW was rebuilt on every
+  search (8.3 seconds for 3,714 vectors), held a second copy of every vector,
+  and a narrow `--language` or `--file-type` filter could return few or no
+  results. Exact search scans 58,728 vectors in 43 ms.
+- The agent's retry and circuit-breaker layer (four files). It only ran when
+  given a setting that ctx never passed.
+- `ctx chat`'s old question path, kept as a fallback for when the agent could
+  not start; the agent always starts, so it never ran. Also tests that only
+  checked `process.stdout.write` itself, and one that ran its own SQL instead
+  of the method it named.
 
 ### Fixed
+- **Code indexing kept only functions and classes.** Constants, exported
+  values, module setup and `if __name__ == "__main__":` blocks were in no
+  chunk, so ctx could not find them; chunks also lost their `export` keyword
+  and their doc comments, and nested functions were indexed twice. Each file
+  is now split at its top-level statements: a definition with its comments,
+  decorators and `export`, and the code between definitions, so every line
+  is indexed once. On 42 code questions over ctx and a Python game, 23
+  answers were in no chunk at all; now every one is, and the answer is in
+  the top 5 results for 69% of questions instead of 21%.
+- **Files in other languages (Go, Rust, Java and the rest) lost their code**
+  when they had a block comment: only the comments were indexed. The whole
+  file is now indexed.
+- **Markdown headings were indexed apart from their text**, so a table or
+  list was found without its title, and each paragraph became its own chunk.
+  A document is now split by section, heading included. On 50 mixed
+  questions the answer is in the top 5 for 78% instead of 60%; for answers in
+  a table, 94% instead of 83%.
+- **Searching many projects took about 30 seconds** the first time in a
+  session (27 s across 14 projects and 58,700 chunks; 16 s to load one
+  23,000-chunk project), long enough for `ctx chat` to give up. Chunks were
+  read with paging that re-read every earlier row. The same search now takes
+  5 s, and that project loads in 0.6 s.
+- **Piped input to `ctx chat`** (`echo "question" | ctx chat --no-tui`)
+  failed with "readline was closed": every line ran at once, so `/exit` or
+  the end of input closed the chat under a question still being answered.
+  Lines now run in order, including a question typed while one is answered.
+- **The index summary said "Database size: +0 B"**: new data waits in
+  SQLite's write-ahead log, which wasn't counted. `ctx status` now counts it
+  too.
+- **One failed embedding call while chunking a document aborted the whole
+  index.** That document is now split by size instead, with a warning.
+- A text repeated within one embedding batch was embedded twice.
+- **The first `ctx index` on a new install failed** with "no such table:
+  projects": it looked for an existing project before creating the database
+  tables.
+- **`ctx chat` answers from the focused project.** A question that did not
+  say "this project" ignored `/focus`. ctx asked the model to pick projects;
+  a local model often took longer than the 5 second limit, and ctx then
+  searched every indexed project. With a dozen projects that took about 50
+  seconds, past the 30 second tool limit, so the answer had no sources.
+  General questions now stay in the focused project (in one test, 8 sources in
+  0.25 seconds instead of none in 48). Naming another project or asking about
+  all of them still searches those.
+- The agent is told which project is focused, or which projects exist, so
+  "what is this project?" searches instead of asking which project.
+- A search that fails now says why in the chat, instead of
+  "Found 0 sources".
+- **`--rerank` works.** The BGE cross-encoder was given the query without the
+  document, so every result scored the same (0.73) and the order never
+  changed, while still costing a model pass per result. It now scores each
+  query and document pair, and the reported scores reflect relevance.
+- The embedding cache keyed vectors by a 32-bit hash of the text, so two
+  texts could share one vector (the first collision appeared after about
+  10,500 snippets). It now keys by the text itself.
+- Long docs sections are chunked correctly:
+  - Text with no full stops, such as a large table or list, became one chunk
+    of any size. It is now split at line breaks, and a single huge line by
+    length, without cutting an emoji in half.
+  - Merging a small last piece could push a chunk over the size limit.
+  - Chunks lost their line breaks (sentences were joined with spaces), which
+    flattened code and tables in docs and could give a chunk the wrong line
+    numbers.
+- Repeated text gets its own line numbers: a chunk whose text also appeared
+  earlier in the file was given the earlier copy's lines.
+- `/index` in `ctx chat`:
+  - A forced re-index that fails no longer leaves the project empty. The old
+    index stays searchable until the new one is ready, as with `ctx index`.
+  - Re-indexing a project whose folder moved no longer fails on its name.
+  - The chat now searches a project it just indexed. Before, the agent kept
+    the previous focus, and a chat started with nothing indexed could not
+    search at all until restarted.
 - The docs: the index event list gains `stage_progress`, the exit codes add 2
   (configuration) and 5 (database), the `eval run`, `eval traces` and
   `golden list` examples show the fields ctx actually returns, unfocused

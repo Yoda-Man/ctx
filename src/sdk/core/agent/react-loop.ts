@@ -2,20 +2,17 @@ import type { LLMProvider, ChatMessage, ToolCall } from '../provider/types';
 import type { Tool } from '../tool/types';
 import type {
   ReActStep,
-  
   Thought,
   Action,
   Observation,
   AgentRunOptions,
-  
   Logger,
   StreamEvent,
 } from './types';
 import { noopLogger } from './types';
-import {  ToolTimeoutError } from '../errors/errors';
+import { ToolTimeoutError } from '../errors/errors';
 import { ToolCallAggregator } from './tool-call-aggregator';
-import type { ErrorRecoveryConfig } from './retry-types';
-import { ErrorRecovery } from './error-recovery';
+import { errorMessage } from '../../../utils/error.js';
 
 const DEFAULT_MAX_ITERATIONS = 10;
 
@@ -40,24 +37,17 @@ export class ReActLoop {
   private readonly tools: Map<string, Tool>;
   private readonly maxIterations: number;
   private readonly logger: Logger;
-  private readonly errorRecovery?: ErrorRecovery;
 
   constructor(
     llm: LLMProvider,
     tools: Tool[] = [],
     maxIterations: number = DEFAULT_MAX_ITERATIONS,
-    logger: Logger = noopLogger,
-    errorRecoveryConfig?: ErrorRecoveryConfig
+    logger: Logger = noopLogger
   ) {
     this.llm = llm;
     this.tools = new Map(tools.map((t) => [t.name, t]));
     this.maxIterations = maxIterations;
     this.logger = logger;
-
-    // Create error recovery if configured
-    if (errorRecoveryConfig) {
-      this.errorRecovery = new ErrorRecovery(errorRecoveryConfig);
-    }
   }
 
   /**
@@ -165,12 +155,11 @@ export class ReActLoop {
           }
         }
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
-        this.logger.error('Stream error', { error: errorMessage });
+        const message = errorMessage(error);
+        this.logger.error('Stream error', { error: message });
         yield {
           type: 'error',
-          error: errorMessage,
+          error: message,
           code: 'STREAM_ERROR',
           timestamp: Date.now(),
         };
@@ -304,51 +293,6 @@ export class ReActLoop {
     }
 
     try {
-      // Wrap execution with error recovery if configured
-      const executeToolFn = async () => {
-        const result = await tool.execute(toolCall.arguments, { signal });
-        if (!result.success) {
-          // Throw to trigger retry on tool-level failures
-          throw new Error(result.error || 'Tool execution failed');
-        }
-        return result;
-      };
-
-      if (this.errorRecovery) {
-        const recoveryResult = await this.errorRecovery.execute(
-          executeToolFn,
-          { toolName: toolCall.name, input: toolCall.arguments },
-          signal
-        );
-
-        if (recoveryResult.success) {
-          const result = recoveryResult.value as {
-            success: boolean;
-            data?: unknown;
-            error?: string;
-          };
-          return {
-            type: 'observation',
-            result: result.data,
-            success: true,
-            timestamp: Date.now(),
-          };
-        } else {
-          return {
-            type: 'observation',
-            result: {
-              error:
-                recoveryResult.error?.message ||
-                'Tool execution failed after retries',
-              attempts: recoveryResult.attempts,
-            },
-            success: false,
-            timestamp: Date.now(),
-          };
-        }
-      }
-
-      // No error recovery configured, execute directly
       const result = await tool.execute(toolCall.arguments, { signal });
       return {
         type: 'observation',
@@ -372,7 +316,7 @@ export class ReActLoop {
       return {
         type: 'observation',
         result: {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         },
         success: false,
         timestamp: Date.now(),

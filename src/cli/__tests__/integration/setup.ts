@@ -264,16 +264,10 @@ export function createMockEmbeddingProvider(dimensions: number = 1024): Embeddin
    * Uses the sum of character codes as a seed, then generates
    * a vector using sin() for smooth, bounded values in [-0.5, 0.5].
    */
-  const generateEmbedding = (text: string): Float32Array => {
+  const generateEmbedding = (text: string): number[] => {
     const hash = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const embedding = new Float32Array(dimensions);
-
-    for (let i = 0; i < dimensions; i++) {
-      // Use sin() for values in [-1, 1], scale to [-0.5, 0.5]
-      embedding[i] = Math.sin(hash + i) * 0.5;
-    }
-
-    return embedding;
+    // Use sin() for values in [-1, 1], scale to [-0.5, 0.5]
+    return Array.from({ length: dimensions }, (_, i) => Math.sin(hash + i) * 0.5);
   };
 
   return {
@@ -285,6 +279,7 @@ export function createMockEmbeddingProvider(dimensions: number = 1024): Embeddin
       return {
         embedding: generateEmbedding(text),
         tokenCount: text.split(/\s+/).length,
+        model: 'mock-model',
       };
     },
 
@@ -292,7 +287,12 @@ export function createMockEmbeddingProvider(dimensions: number = 1024): Embeddin
       return texts.map((text) => ({
         embedding: generateEmbedding(text),
         tokenCount: text.split(/\s+/).length,
+        model: 'mock-model',
       }));
+    },
+
+    async isAvailable(): Promise<boolean> {
+      return true;
     },
   };
 }
@@ -329,15 +329,3 @@ export function countChunksInDb(db: Database.Database, projectId: string): numbe
   return result.count;
 }
 
-/**
- * Get all chunk contents for a project (for search verification).
- *
- * @param db - better-sqlite3 Database instance
- * @param projectId - Project ID
- */
-function getChunkContents(db: Database.Database, projectId: string): string[] {
-  const rows = db
-    .prepare('SELECT content FROM chunks WHERE project_id = ?')
-    .all(projectId) as Array<{ content: string }>;
-  return rows.map((r) => r.content);
-}

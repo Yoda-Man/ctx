@@ -20,6 +20,7 @@ import type {
   RAGTimings,
 } from './types.js';
 import { RAGEngineError } from './errors.js';
+import { errorMessage } from '../../../utils/error.js';
 
 // ============================================================================
 // Cache Key Generation
@@ -193,7 +194,7 @@ export class RAGEngineImpl implements RAGEngine {
     } catch (error) {
       throw RAGEngineError.retrievalFailed(
         this.name,
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
         error instanceof Error ? error : undefined
       );
     }
@@ -229,7 +230,7 @@ export class RAGEngineImpl implements RAGEngine {
     } catch (error) {
       throw RAGEngineError.assemblyFailed(
         this.name,
-        error instanceof Error ? error.message : String(error),
+        errorMessage(error),
         error instanceof Error ? error : undefined
       );
     }

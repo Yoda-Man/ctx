@@ -509,7 +509,7 @@ describe('golden list', () => {
   }
 
   beforeEach(() => {
-    vi.mocked(database.runMigrations).mockReturnValue(undefined);
+    vi.mocked(database.runMigrations).mockReturnValue({ applied: [], failed: [] });
     vi.mocked(database.getDb).mockReturnValue({
       prepare: vi.fn().mockReturnValue({
         get: vi.fn().mockReturnValue(mockProject),
@@ -612,7 +612,7 @@ describe('golden add (non-interactive)', () => {
   }
 
   beforeEach(() => {
-    vi.mocked(database.runMigrations).mockReturnValue(undefined);
+    vi.mocked(database.runMigrations).mockReturnValue({ applied: [], failed: [] });
     vi.mocked(database.getDb).mockReturnValue({
       prepare: vi.fn().mockReturnValue({
         get: vi.fn().mockReturnValue(mockProject),
@@ -756,7 +756,7 @@ describe('eval report', () => {
   }
 
   beforeEach(() => {
-    vi.mocked(database.runMigrations).mockReturnValue(undefined);
+    vi.mocked(database.runMigrations).mockReturnValue({ applied: [], failed: [] });
     vi.mocked(database.getDatabase).mockReturnValue({
       getProjectByName: vi.fn().mockReturnValue(mockProject),
       getEvalRuns: vi.fn().mockReturnValue([]),
@@ -798,7 +798,7 @@ describe('eval report', () => {
       currentRunId: 'run-001',
       previousRunId: 'run-002',
       trends: [
-        { metric: 'mrr', current: 0.85, previous: 0.80, delta: 0.05, direction: 'stable' as const, isRegression: false, isImprovement: false },
+        { metric: 'mrr' as const, current: 0.85, previous: 0.80, delta: 0.05, direction: 'stable' as const, isRegression: false, isImprovement: false },
       ],
       hasRegressions: false,
       hasImprovements: false,
@@ -887,7 +887,6 @@ describe('eval traces --type', () => {
     path: '/tmp/test-project',
   };
 
-  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
 
   function createMockCtx(jsonMode = false): { ctx: CommandContext; logOutput: string[] } {
     const logOutput: string[] = [];
@@ -911,9 +910,9 @@ describe('eval traces --type', () => {
   }
 
   beforeEach(() => {
-    vi.mocked(database.runMigrations).mockReturnValue(undefined);
+    vi.mocked(database.runMigrations).mockReturnValue({ applied: [], failed: [] });
     vi.mocked(fs.existsSync).mockReturnValue(true);
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {}); // keep output quiet
   });
 
   afterEach(() => {

@@ -23,6 +23,7 @@
 
 import { BGEReranker, type RetrievalResult } from '../sdk/rag/index.js';
 import type { SearchResultWithContext, RerankConfig } from './types.js';
+import { toError } from '../utils/error.js';
 
 /**
  * Default reranker model - good balance of quality and speed (~110MB).
@@ -80,7 +81,7 @@ export class RerankerService {
     try {
       await this.reranker.warmup();
     } catch (error) {
-      this.unavailable = error instanceof Error ? error : new Error(String(error));
+      this.unavailable = toError(error);
       console.warn(`Reranking skipped, results keep their search order: ${this.unavailable.message}`);
     }
   }
@@ -161,10 +162,9 @@ export class RerankerService {
       };
     });
 
-    // Min-max normalize scores so they spread meaningfully across 0-1.
-    // BGE reranker sigmoid outputs cluster tightly (e.g., all ~0.73),
-    // making raw scores uninformative. Normalization preserves ordering
-    // while giving users visible score differentiation.
+    // Min-max normalize scores so they spread across 0-1. Sigmoid scores
+    // from the cross-encoder are often all close to 0, which says little to
+    // users; normalizing keeps the order and shows the differences.
     return normalizeScores(mapped);
   }
 
@@ -188,14 +188,8 @@ export class RerankerService {
 }
 
 /**
- * Normalize scores to a meaningful 0-1 range.
- *
- * The BGE cross-encoder reranker applies sigmoid to its logits, but
- * Transformers.js may already apply sigmoid internally (double-sigmoid),
- * compressing all scores to bitwise-identical floats (~0.73). When scores
- * have sufficient spread, min-max normalization is used. When scores are
- * too compressed (range < epsilon), rank-based scoring is used instead —
- * the reranker's ordering is still meaningful even when absolute scores aren't.
+ * Normalize scores to a meaningful 0-1 range: min-max when they differ,
+ * rank-based when they are all equal (identical chunks score the same).
  */
 function normalizeScores(
   results: SearchResultWithContext[]
@@ -211,8 +205,7 @@ function normalizeScores(
 
   const EPSILON = 1e-6;
   if (range < EPSILON) {
-    // Double-sigmoid compressed scores to be effectively identical.
-    // Fall back to rank-based scoring: top result = 1.0, bottom = 0.5.
+    // Rank-based scoring: top result = 1.0, bottom = 0.5.
     const n = results.length;
     return results.map((r, i) => ({
       ...r,

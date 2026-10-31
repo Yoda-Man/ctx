@@ -48,8 +48,6 @@
 export {
   FusionService,
   createFusionService,
-  
-  
 } from './fusion.js';
 
 // Reranking service
@@ -57,14 +55,12 @@ export { RerankerService } from './reranker.js';
 
 // Store management - Vector
 export {
-  
   getVectorStoreManager,
   resetVectorStoreManager,
 } from './store.js';
 
 // Store management - BM25
 export {
-  
   getBM25StoreManager,
   resetBM25StoreManager,
 } from './bm25-store.js';
@@ -76,49 +72,16 @@ export {
 ;
 
 // Store management - Multi-Project Fusion (combines Vector + BM25)
-export {
-  
-  getMultiProjectFusionService,
-  
-} from './multi-project-fusion.js';
+export { getMultiProjectFusionService } from './multi-project-fusion.js';
 
 // Result formatting
 export {
-  
   formatResults,
-  
   formatResultsJSON,
-  
-  
 } from './formatter.js';
 
 // Types
-export type {
-  
-  
-  
-  SearchResultWithContext,
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  // Multi-project types
-  
-  
-  MultiProjectSearchResult,
-  
-  
-  
-  // Multi-project fusion types
-  
-  
-  
-} from './types.js';
+export type { SearchResultWithContext } from './types.js';
 
 // Error types
 export { EmbeddingMismatchError } from './errors.js';

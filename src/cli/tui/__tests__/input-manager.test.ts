@@ -5,10 +5,9 @@
  * Verifies closed state tracking, pause/resume, and processing guard.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { InputManager } from '../input-manager.js';
 import type { TerminalRegionManager } from '../terminal-regions.js';
-import { EventEmitter } from 'node:events';
 import { Readable, Writable } from 'node:stream';
 
 // Create a mock TerminalRegionManager
@@ -54,7 +53,7 @@ describe('InputManager', () => {
   let mockInput: Readable;
   let mockOutput: Writable;
   let inputManager: InputManager;
-  let onLine: ReturnType<typeof vi.fn>;
+  let onLine: Mock<(line: string) => void | Promise<void>>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -146,10 +145,7 @@ describe('InputManager', () => {
   describe('setPrompt', () => {
     it('should update prompt text', () => {
       inputManager.setPrompt('[my-project]> ');
-      // Verify by checking the readline interface
-      const rl = inputManager.getReadlineInterface();
-      // readline stores the prompt internally — we verify via setPrompt call
-      // (no public getter on readline.Interface, so we trust our wrapper)
+      // readline has no public getter for the prompt, so this checks it can change again
       expect(() => inputManager.setPrompt('[another]> ')).not.toThrow();
     });
   });

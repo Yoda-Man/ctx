@@ -50,6 +50,7 @@ import type { ProjectMetadata } from './query-router.js';
 import type { RAGSource } from './types.js';
 import type { Project } from '../database/schema.js';
 import { createRetrieveKnowledgeTool, type RetrieveKnowledgeOutput } from './tools/index.js';
+import { errorMessage } from '../utils/error.js';
 
 // ============================================================================
 // Types
@@ -362,7 +363,7 @@ export class ChatAgent {
 
       yield {
         type: 'error',
-        message: error instanceof Error ? error.message : String(error),
+        message: errorMessage(error),
       };
     }
   }
@@ -422,13 +423,29 @@ export class ChatAgent {
   }
 
   /**
+   * What "this project" means right now. Rebuilt every turn, so it follows
+   * /focus and /unfocus; without it a small model asks which project.
+   */
+  private projectContext(): string {
+    if (this.currentProject) {
+      return `\n\n## Current Project\nThe user is focused on the indexed project "${this.currentProject.name}". ` +
+        '"This project" or "the project" means it: search it to answer questions about it.';
+    }
+    if (this.allProjects.length === 0) return '';
+    const list = this.allProjects
+      .map((p) => `- ${p.name}${p.description ? `: ${p.description}` : ''}`)
+      .join('\n');
+    return `\n\n## Indexed Projects\n${list}`;
+  }
+
+  /**
    * Build the message array for the ReActLoop.
    *
    * Structure: [system, ...conversationHistory, ?fileContext]
    */
   private buildMessages(fileReferenceContext?: string): ChatMessage[] {
     const messages: ChatMessage[] = [
-      { role: 'system', content: this.systemPrompt },
+      { role: 'system', content: this.systemPrompt + this.projectContext() },
     ];
 
     // Add conversation history (excluding any system messages in context)

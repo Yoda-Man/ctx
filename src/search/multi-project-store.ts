@@ -179,7 +179,7 @@ export class MultiProjectVectorStoreManager {
     options: MultiProjectLoadOptions,
     onProgress?: (progress: MultiProjectLoadProgress) => void
   ): Promise<Map<string, InMemoryVectorStore>> {
-    const { projectIds, dimensions, useHNSW, hnswConfig } = options;
+    const { projectIds, dimensions } = options;
 
     // Validate embedding compatibility for cross-project search (2+ projects)
     // Single-project loads skip validation since there's nothing to compare
@@ -203,8 +203,6 @@ export class MultiProjectVectorStoreManager {
       const storeOptions: SearchServiceOptions = {
         projectId,
         dimensions,
-        useHNSW,
-        hnswConfig,
       };
 
       // Load store with progress callback that includes project context

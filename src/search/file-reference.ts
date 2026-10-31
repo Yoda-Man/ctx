@@ -82,7 +82,7 @@ export interface ResolveOptions {
  * - `(@file.ts)` → matches "file.ts" (excludes parens)
  * - `@src/utils.ts, and more` → matches "src/utils.ts" (excludes comma)
  */
-const FILE_REFERENCE_REGEX = /(?<![a-zA-Z0-9])@([^\s@()\[\]{},;:!?'"]+)/g;
+const FILE_REFERENCE_REGEX = /(?<![a-zA-Z0-9])@([^\s@()[\]{},;:!?'"]+)/g;
 
 /**
  * Default options for resolving references.

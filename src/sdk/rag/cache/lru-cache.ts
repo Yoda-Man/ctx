@@ -1,48 +1,20 @@
 /**
  * LRU Cache Provider
  *
- * Generic in-memory cache with Least Recently Used eviction policy.
- * Uses a doubly-linked list + HashMap for O(1) operations.
- *
- * Supports both count-based (maxSize) and memory-based (maxMemoryBytes) limits.
+ * In-memory cache with Least Recently Used eviction and optional TTL.
+ * A Map keeps insertion order, so the least recently used entry is the
+ * first key: reading or writing an entry moves its key to the end.
  */
 
-import type {
-  CacheProvider,
-  
-  LRUCacheConfig,
-  SizeEstimator,
-} from './types.js';
+import type { CacheProvider, LRUCacheConfig } from './types.js';
 
-// ============================================================================
-// Internal Types
-// ============================================================================
-
-/**
- * Node in the doubly-linked list for LRU tracking.
- * Each node stores the value plus optional expiration time.
- */
-interface LRUNode<T> {
-  key: string;
+interface Entry<T> {
   value: T;
   expiresAt: number | null; // null = never expires
-  prev: LRUNode<T> | null;
-  next: LRUNode<T> | null;
-  /** Size in bytes (only tracked when maxMemoryBytes is set) */
-  size: number;
 }
-
-// ============================================================================
-// LRU Cache Provider
-// ============================================================================
 
 /**
  * In-memory LRU (Least Recently Used) cache with optional TTL support.
- *
- * Uses a doubly-linked list + HashMap combination for O(1) operations:
- * - get: O(1) - hash lookup + pointer updates
- * - set: O(1) - hash insert + pointer updates
- * - delete: O(1) - hash delete + pointer updates
  *
  * Eviction Policy:
  * - When cache reaches maxSize, the least recently accessed item is evicted
@@ -52,7 +24,6 @@ interface LRUNode<T> {
  *
  * @example
  * ```typescript
- * // Basic usage
  * const cache = new LRUCacheProvider<string>({ maxSize: 100 });
  * await cache.set('user:1', 'Alice');
  * const user = await cache.get('user:1'); // 'Alice'
@@ -67,296 +38,72 @@ interface LRUNode<T> {
 export class LRUCacheProvider<T = unknown> implements CacheProvider<T> {
   private readonly maxSize: number;
   private readonly defaultTtl: number | null;
-  private readonly cache: Map<string, LRUNode<T>>;
+  private readonly cache = new Map<string, Entry<T>>();
 
-  // Doubly-linked list pointers
-  private head: LRUNode<T> | null = null;
-  private tail: LRUNode<T> | null = null;
-
-  // Statistics
-  private hits = 0;
-  private misses = 0;
-
-  // ==========================================================================
-  // Memory-Based Limits (NFR-103)
-  // ==========================================================================
-
-  /** Maximum memory budget in bytes (0 = use count-based) */
-  private readonly maxMemoryBytes: number;
-
-  /** Function to estimate value sizes */
-  private readonly estimateSize: SizeEstimator<T> | null;
-
-  /** Current tracked memory usage in bytes */
-  private currentMemoryBytes = 0;
-
-  /** Whether to use memory-based eviction */
-  private readonly useMemoryLimit: boolean;
-
-  constructor(config: LRUCacheConfig<T> = {}) {
+  constructor(config: LRUCacheConfig = {}) {
     this.maxSize = config.maxSize ?? 10000;
     this.defaultTtl = config.defaultTtl ?? null;
-    this.cache = new Map();
-
-    // Memory-based configuration
-    this.maxMemoryBytes = config.maxMemoryBytes ?? 0;
-    this.estimateSize = config.estimateSize ?? null;
-    this.useMemoryLimit = this.maxMemoryBytes > 0 && this.estimateSize !== null;
-
-    // Validate: maxMemoryBytes requires estimateSize
-    if (this.maxMemoryBytes > 0 && !this.estimateSize) {
-      throw new Error(
-        'LRUCacheProvider: maxMemoryBytes requires estimateSize function'
-      );
-    }
   }
 
   /**
-   * Retrieve a value from the cache.
-   *
-   * If found and not expired, moves the entry to the front (most recently used).
-   * Expired entries are automatically removed.
-   *
-   * @param key - The cache key
-   * @returns The cached value, or `undefined` if not found or expired
+   * Retrieve a value from the cache, marking it most recently used.
+   * Expired entries are removed and reported as missing.
    */
   get = async (key: string): Promise<T | undefined> => {
-    const node = this.cache.get(key);
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
 
-    if (!node) {
-      this.misses++;
+    // Expires AT the TTL time, not after
+    if (entry.expiresAt !== null && Date.now() >= entry.expiresAt) {
+      this.cache.delete(key);
       return undefined;
     }
 
-    // Check if expired (>= means entry expires AT the TTL time, not after)
-    if (node.expiresAt !== null && Date.now() >= node.expiresAt) {
-      // Remove expired entry
-      await this.delete(key);
-      this.misses++;
-      return undefined;
-    }
-
-    // Move to front (most recently used)
-    this.moveToFront(node);
-    this.hits++;
-    return node.value;
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+    return entry.value;
   };
 
   /**
-   * Store a value in the cache.
+   * Store a value, marking it most recently used and evicting the least
+   * recently used entry when full.
    *
-   * If the key already exists, updates the value and moves to front.
-   * If at capacity (count or memory), evicts least recently used entries.
-   *
-   * @param key - The cache key
-   * @param value - The value to cache
    * @param ttl - Optional TTL in milliseconds (overrides defaultTtl)
    */
   set = async (key: string, value: T, ttl?: number): Promise<void> => {
     const effectiveTtl = ttl ?? this.defaultTtl;
-    const expiresAt = effectiveTtl !== null ? Date.now() + effectiveTtl : null;
-
-    // Calculate size for memory tracking
-    const newSize = this.useMemoryLimit ? this.estimateSize!(value) : 0;
-
-    // Update existing entry
-    const existing = this.cache.get(key);
-    if (existing) {
-      // Adjust memory tracking for size change
-      if (this.useMemoryLimit) {
-        this.currentMemoryBytes -= existing.size;
-        this.currentMemoryBytes += newSize;
-        existing.size = newSize;
-      }
-      existing.value = value;
-      existing.expiresAt = expiresAt;
-      this.moveToFront(existing);
-      return;
+    this.cache.delete(key);
+    if (this.cache.size >= this.maxSize) {
+      const oldest = this.cache.keys().next();
+      if (!oldest.done) this.cache.delete(oldest.value);
     }
-
-    // Evict until we have capacity
-    if (this.useMemoryLimit) {
-      // Memory-based eviction
-      while (
-        this.currentMemoryBytes + newSize > this.maxMemoryBytes &&
-        this.tail
-      ) {
-        this.evictLRU();
-      }
-    } else {
-      // Count-based eviction
-      if (this.cache.size >= this.maxSize) {
-        this.evictLRU();
-      }
-    }
-
-    // Create new node at front
-    const node: LRUNode<T> = {
-      key,
-      value,
-      expiresAt,
-      prev: null,
-      next: this.head,
-      size: newSize,
-    };
-
-    if (this.head) {
-      this.head.prev = node;
-    }
-    this.head = node;
-
-    if (!this.tail) {
-      this.tail = node;
-    }
-
-    this.cache.set(key, node);
-
-    // Track memory
-    if (this.useMemoryLimit) {
-      this.currentMemoryBytes += newSize;
-    }
+    this.cache.set(key, { value, expiresAt: effectiveTtl !== null ? Date.now() + effectiveTtl : null });
   };
 
   /**
    * Remove a value from the cache.
    *
-   * @param key - The cache key
    * @returns `true` if the key existed and was deleted, `false` otherwise
    */
-  delete = async (key: string): Promise<boolean> => {
-    const node = this.cache.get(key);
-    if (!node) {
-      return false;
-    }
-
-    // Release memory tracking
-    if (this.useMemoryLimit) {
-      this.currentMemoryBytes -= node.size;
-    }
-
-    // Remove from linked list
-    this.removeNode(node);
-
-    // Remove from hash map
-    this.cache.delete(key);
-    return true;
-  };
+  delete = async (key: string): Promise<boolean> => this.cache.delete(key);
 
   /**
-   * Check if a key exists in the cache (and is not expired).
-   *
-   * Note: This does NOT update the access order (non-destructive check).
-   *
-   * @param key - The cache key
+   * Check if a key exists and is not expired, without changing its recency.
    */
   has = async (key: string): Promise<boolean> => {
-    const node = this.cache.get(key);
-    if (!node) {
-      return false;
-    }
-
-    // Check expiration without removing (>= for consistency with get())
-    if (node.expiresAt !== null && Date.now() >= node.expiresAt) {
-      return false;
-    }
-
-    return true;
+    const entry = this.cache.get(key);
+    return entry !== undefined && (entry.expiresAt === null || Date.now() < entry.expiresAt);
   };
 
   /**
-   * Remove all entries from the cache and reset statistics.
+   * Remove all entries from the cache.
    */
   clear = async (): Promise<void> => {
     this.cache.clear();
-    this.head = null;
-    this.tail = null;
-    this.hits = 0;
-    this.misses = 0;
-    this.currentMemoryBytes = 0;
   };
 
   /**
    * Get current cache size (number of entries).
    */
-  size = (): number => {
-    return this.cache.size;
-  };
-
-  // ==========================================================================
-  // Private Helpers
-  // ==========================================================================
-
-  /**
-   * Move a node to the front of the list (most recently used).
-   */
-  private moveToFront(node: LRUNode<T>): void {
-    if (node === this.head) {
-      return; // Already at front
-    }
-
-    // Remove from current position
-    this.removeNode(node);
-
-    // Add to front
-    node.prev = null;
-    node.next = this.head;
-    if (this.head) {
-      this.head.prev = node;
-    }
-    this.head = node;
-
-    // Update tail if this was the only node
-    if (!this.tail) {
-      this.tail = node;
-    }
-  }
-
-  /**
-   * Remove a node from the doubly-linked list (but not from hash map).
-   */
-  private removeNode(node: LRUNode<T>): void {
-    if (node.prev) {
-      node.prev.next = node.next;
-    } else {
-      // Node was head
-      this.head = node.next;
-    }
-
-    if (node.next) {
-      node.next.prev = node.prev;
-    } else {
-      // Node was tail
-      this.tail = node.prev;
-    }
-  }
-
-  /**
-   * Evict the least recently used item (tail of list).
-   */
-  private evictLRU(): void {
-    if (!this.tail) {
-      return;
-    }
-
-    const key = this.tail.key;
-    const evictedSize = this.tail.size;
-
-    // Remove from linked list
-    if (this.tail.prev) {
-      this.tail.prev.next = null;
-      this.tail = this.tail.prev;
-    } else {
-      // Only one item
-      this.head = null;
-      this.tail = null;
-    }
-
-    // Remove from hash map
-    this.cache.delete(key);
-
-    // Release memory tracking
-    if (this.useMemoryLimit) {
-      this.currentMemoryBytes -= evictedSize;
-    }
-  }
+  size = (): number => this.cache.size;
 }

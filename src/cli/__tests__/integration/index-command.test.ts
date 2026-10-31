@@ -20,8 +20,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { Command } from 'commander';
 import Database from 'better-sqlite3';
 import { join } from 'node:path';
-import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
 
 // ============================================================================
 // Mock Setup - MUST be before imports that use these modules
@@ -105,10 +104,6 @@ function getTestRoot(): string {
 
 function getTestDataDir(): string {
   return (globalThis as Record<string, unknown>).__testDataDir as string;
-}
-
-function getTestConfigDir(): string {
-  return (globalThis as Record<string, unknown>).__testConfigDir as string;
 }
 
 // ============================================================================
@@ -201,6 +196,7 @@ describe('Index Command Integration', () => {
       options: { verbose: false, json: false },
       log: vi.fn(),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -393,7 +389,7 @@ export function additionalFunction(): number {
         project = getProjectFromDb(db, projectName);
         const newChunkCount = countChunksInDb(db, project!.id);
 
-        expect(newChunkCount).toBeGreaterThan(0);
+        expect(newChunkCount).toBeGreaterThan(originalChunkCount); // the added file was indexed
         expect(project!.name).toBe(projectName);
       } finally {
         db.close();

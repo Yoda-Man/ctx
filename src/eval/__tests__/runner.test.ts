@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import Database from 'better-sqlite3';
 
 import { DatabaseOperations } from '../../database/operations.js';
-import { runEval, type EvalRunnerDeps, type EvalRunOptions, type EvalSearchResult } from '../runner.js';
+import { runEval, type EvalRunnerDeps, type EvalSearchResult } from '../runner.js';
 import { EvalError, EvalErrorCodes, type EvalConfig, type GoldenDataset, type GoldenEntry, type RetrievalMetrics } from '../types.js';
 
 // ============================================================================

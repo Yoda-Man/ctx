@@ -199,7 +199,7 @@ describe('Eval Operations', () => {
       const traces = ops.getTraces({ project_id: projectId });
       expect(traces).toHaveLength(1);
 
-      const trace = traces[0];
+      const trace = traces[0]!;
       expect(trace.id).toBe(traceId);
       expect(trace.project_id).toBe(projectId);
       expect(trace.query).toBe('How does authentication work?');
@@ -227,10 +227,10 @@ describe('Eval Operations', () => {
 
       const traces = ops.getTraces({ project_id: projectId });
       expect(traces).toHaveLength(1);
-      expect(traces[0].id).toBe(traceId);
-      expect(traces[0].answer).toBeNull();
-      expect(traces[0].feedback).toBeNull();
-      expect(traces[0].metadata).toBeNull();
+      expect(traces[0]!.id).toBe(traceId);
+      expect(traces[0]!.answer).toBeNull();
+      expect(traces[0]!.feedback).toBeNull();
+      expect(traces[0]!.metadata).toBeNull();
     });
 
     it('filters by project_id', () => {
@@ -264,7 +264,7 @@ describe('Eval Operations', () => {
 
       const traces = ops.getTraces({ start_date: '2026-02-01', end_date: '2026-02-28' });
       expect(traces).toHaveLength(2);
-      expect(traces[0].query).toBe('newest query'); // DESC order
+      expect(traces[0]!.query).toBe('newest query'); // DESC order
     });
 
     it('stores null langfuse_trace_id when omitted', () => {
@@ -281,7 +281,7 @@ describe('Eval Operations', () => {
 
       const traces = ops.getTraces({ project_id: projectId });
       expect(traces).toHaveLength(1);
-      expect(traces[0].langfuse_trace_id).toBeNull();
+      expect(traces[0]!.langfuse_trace_id).toBeNull();
     });
 
     it('respects limit', () => {
@@ -330,7 +330,7 @@ describe('Eval Operations', () => {
       const runs = ops.getEvalRuns(projectId);
       expect(runs).toHaveLength(1);
 
-      const run = runs[0];
+      const run = runs[0]!;
       expect(run.id).toBe(runId);
       expect(run.project_id).toBe(projectId);
       expect(run.dataset_version).toBe('1.0');
@@ -449,7 +449,7 @@ describe('Eval Operations', () => {
       const results = ops.getEvalResults(runId);
       expect(results).toHaveLength(1);
 
-      const result = results[0];
+      const result = results[0]!;
       expect(result.id).toBe(resultId);
       expect(result.eval_run_id).toBe(runId);
       expect(result.query).toBe('How does auth work?');
@@ -484,9 +484,9 @@ describe('Eval Operations', () => {
 
       const results = ops.getEvalResults(runId);
       expect(results).toHaveLength(1);
-      expect(results[0].id).toBe(resultId);
-      expect(results[0].passed).toBe(false);
-      expect(typeof results[0].passed).toBe('boolean');
+      expect(results[0]!.id).toBe(resultId);
+      expect(results[0]!.passed).toBe(false);
+      expect(typeof results[0]!.passed).toBe('boolean');
     });
 
     it('gets all results for a run with mixed pass/fail', () => {

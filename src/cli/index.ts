@@ -172,4 +172,4 @@ async function main() {
   }
 }
 
-main();
+void main(); // main handles its own errors, and uncaught ones reach the global handler

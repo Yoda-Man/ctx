@@ -30,7 +30,7 @@ describe('an error Ollama reports mid-stream', () => {
   it('ends the stream with Ollama\'s own message, not a connection error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ndjson([text('The version is'), { error: 'EOF' }])));
     const provider = new OllamaProvider({ model: 'qwen3.5:9b' });
-    const seen: Array<{ content?: string; error?: { message: string; code: string } }> = [];
+    const seen: Array<{ content?: string; error?: { message: string; code?: string } }> = [];
 
     await expect(async () => {
       for await (const chunk of provider.streamChat([{ role: 'user', content: '<tool_call>' }])) seen.push(chunk);
@@ -42,7 +42,7 @@ describe('an error Ollama reports mid-stream', () => {
   });
 
   it('a line with neither message nor error is skipped', () => {
-    expect(mapStreamChunk({ model: 'm', created_at: '', done: true }, createStreamingState())).toBeNull();
+    expect(mapStreamChunk({ model: 'm', done: true }, createStreamingState())).toBeNull();
   });
 });
 

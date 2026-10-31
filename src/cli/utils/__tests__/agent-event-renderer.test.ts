@@ -123,6 +123,19 @@ describe('renderAgentEventsREPL', () => {
     expect(writtenOutput).toContain('Found 3 sources');
   });
 
+  it('says a search failed instead of reporting 0 sources', async () => {
+    const events = mockEventStream([
+      { type: 'tool_start', tool: 'retrieve_knowledge', input: { query: 'auth' }, iteration: 1 },
+      { type: 'tool_result', tool: 'retrieve_knowledge', result: { error: 'Tool "retrieve_knowledge" timed out after 30000ms', timedOut: true }, success: false, durationMs: 30001, iteration: 1 },
+      { type: 'response_complete', content: '', trace: { steps: [], iterations: 1, totalTokens: 0, durationMs: 30001 }, sources: [] },
+    ]);
+
+    await renderAgentEventsREPL(events, createMockCtx());
+
+    expect(writtenOutput).toContain('Search failed: Tool "retrieve_knowledge" timed out after 30000ms');
+    expect(writtenOutput).not.toContain('Found 0 sources');
+  });
+
   it('uses ANSI clear-line before writing tool result', async () => {
     const ctx = createMockCtx();
     const events = mockEventStream([
@@ -158,7 +171,7 @@ describe('renderAgentEventsREPL', () => {
     const result = await renderAgentEventsREPL(events, ctx);
 
     expect(result.sources).toHaveLength(1);
-    expect(result.sources[0].filePath).toBe('src/auth.ts');
+    expect(result.sources[0]!.filePath).toBe('src/auth.ts');
     // Should also show "Sources:" via ctx.log
     const logCalls = vi.mocked(ctx.log).mock.calls.flat().join(' ');
     expect(logCalls).toContain('Sources');
@@ -340,6 +353,6 @@ describe('adaptAgentEventsForTUI', () => {
     // After consuming stream, sources should be populated
     await collectTUIChunks(stream);
     expect(getSources()).toHaveLength(1);
-    expect(getSources()[0].filePath).toBe('src/auth.ts');
+    expect(getSources()[0]!.filePath).toBe('src/auth.ts');
   });
 });

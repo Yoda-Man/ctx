@@ -105,20 +105,6 @@ export interface StatusLineState {
 export type MessageRole = 'user' | 'assistant' | 'system' | 'info';
 
 /**
- * RAG source reference for citations.
- */
-export interface SourceReference {
-  /** File path relative to project root */
-  path: string;
-  /** Line numbers if applicable */
-  lines?: { start: number; end: number };
-  /** Relevance score (0-1) */
-  score?: number;
-  /** Snippet of matched content */
-  snippet?: string;
-}
-
-/**
  * Chat message for display in the chat area.
  */
 export interface DisplayMessage {
@@ -130,8 +116,6 @@ export interface DisplayMessage {
   content: string;
   /** When the message was created */
   timestamp: Date;
-  /** RAG sources (for assistant messages) */
-  sources?: SourceReference[];
   /** Is this message currently being streamed? */
   isStreaming?: boolean;
 }

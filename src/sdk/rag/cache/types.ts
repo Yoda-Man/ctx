@@ -51,17 +51,9 @@ export interface CacheProvider<T = unknown> {
 }
 
 /**
- * Function to estimate the memory size of a cached value.
- *
- * @param value - The value to estimate size for
- * @returns Estimated size in bytes
- */
-export type SizeEstimator<T> = (value: T) => number;
-
-/**
  * Configuration for LRU cache provider.
  */
-export interface LRUCacheConfig<T = unknown> {
+export interface LRUCacheConfig {
   /**
    * Maximum number of entries in the cache.
    * When exceeded, least-recently-used entries are evicted.
@@ -75,42 +67,4 @@ export interface LRUCacheConfig<T = unknown> {
    * If not set, entries never expire (only evicted by LRU).
    */
   defaultTtl?: number;
-
-  // ==========================================================================
-  // Memory-Based Limits (NFR-103)
-  // ==========================================================================
-
-  /**
-   * Maximum memory budget in bytes.
-   *
-   * When set, eviction is based on memory usage instead of entry count.
-   * Requires `estimateSize` to be provided.
-   *
-   * @example
-   * ```typescript
-   * // 50MB cache for embeddings
-   * const cache = new LRUCacheProvider<number[]>({
-   *   maxMemoryBytes: 50 * 1024 * 1024,
-   *   estimateSize: (embedding) => embedding.length * 8,
-   * });
-   * ```
-   */
-  maxMemoryBytes?: number;
-
-  /**
-   * Function to estimate the memory size of cached values.
-   *
-   * Required when `maxMemoryBytes` is set.
-   * Should return size in bytes.
-   *
-   * @example
-   * ```typescript
-   * // For embedding arrays
-   * estimateSize: (embedding) => embedding.length * 8
-   *
-   * // For strings
-   * estimateSize: (str) => str.length * 2
-   * ```
-   */
-  estimateSize?: SizeEstimator<T>;
 }

@@ -4,10 +4,9 @@
  * Tests for QueryIntentClassifier and LLMProjectRouter.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   QueryIntentClassifier,
-  LLMProjectRouter,
   createIntentClassifier,
   createProjectRouter,
   type ProjectMetadata,
@@ -485,6 +484,18 @@ describe('LLMProjectRouter', () => {
       expect(mockLLM.chat).toHaveBeenCalled();
       expect(result.method).toBe('llm');
     });
+
+    it('keeps a general question in the focused project without asking the LLM', async () => {
+      // A slow local model timed out here, and the fallback searched every project.
+      const mockLLM = { chat: vi.fn(), streamChat: vi.fn(), name: 'mock', model: 'mock-model' };
+      const router = createProjectRouter(mockLLM as any);
+
+      const result = await router.route('How does authentication work?', mockProjects, 'proj-2');
+
+      expect(mockLLM.chat).not.toHaveBeenCalled();
+      expect(result.projectIds).toEqual(['proj-2']);
+      expect(result.reason).toContain('current project');
+    });
   });
 
   describe('route - LLM hallucinated IDs', () => {
@@ -524,7 +535,7 @@ describe('LLMProjectRouter', () => {
       // Initially, 'new-project' is not known
       let result = await router.route(
         'How does new-project work?',
-        [{ ...mockProjects[0], id: 'new-id', name: 'new-project' }],
+        [{ ...mockProjects[0]!, id: 'new-id', name: 'new-project' }],
         undefined
       );
 
@@ -540,7 +551,6 @@ describe('LLMProjectRouter', () => {
 
 describe('Edge Cases', () => {
   const classifier = createIntentClassifier(['api-service', 'frontend-app']);
-  const router = createProjectRouter(null);
 
   it('should handle empty query', () => {
     const result = classifier.classify('');

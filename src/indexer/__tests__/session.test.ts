@@ -13,10 +13,8 @@ import {
   IndexingSession,
   createIndexingSession,
   type ProgressData,
-  type IndexingSessionStatus,
 } from '../session.js';
-import type { IndexPipelineOptions } from '../pipeline.js';
-import type { IndexPipelineResult, IndexingStage } from '../../cli/utils/progress.js';
+import type { IndexPipelineResult } from '../../cli/utils/progress.js';
 
 // Mock the pipeline module, but preserve IndexingCancelledError
 vi.mock('../pipeline.js', async (importOriginal) => {
@@ -27,7 +25,7 @@ vi.mock('../pipeline.js', async (importOriginal) => {
   };
 });
 
-import { runIndexPipeline, IndexingCancelledError } from '../pipeline.js';
+import { runIndexPipeline } from '../pipeline.js';
 
 describe('IndexingSession', () => {
   let session: IndexingSession;
@@ -84,8 +82,8 @@ describe('IndexingSession', () => {
         () => new Promise(() => {}) // Never resolves
       );
 
-      // Start first run
-      session.run({
+      // Start first run; it never finishes, which is the point
+      void session.run({
         projectPath: '/test',
         projectName: 'test-project',
         embeddingProvider: {} as any,
@@ -168,7 +166,7 @@ describe('IndexingSession', () => {
       expect(progressHandler).toHaveBeenCalled();
 
       // Check that later calls have rate calculated
-      const lastCall = progressHandler.mock.calls[progressHandler.mock.calls.length - 1];
+      const lastCall = progressHandler.mock.calls[progressHandler.mock.calls.length - 1]!;
       const progressData = lastCall[0] as ProgressData;
 
       expect(progressData.stage).toBe('embedding');
@@ -309,7 +307,7 @@ describe('IndexingSession', () => {
         embeddingProvider: {} as any,
       });
 
-      const firstProgress = progressHandler.mock.calls[0][0] as ProgressData;
+      const firstProgress = progressHandler.mock.calls[0]![0] as ProgressData;
       expect(firstProgress.warmingUp).toBe(true);
     });
   });

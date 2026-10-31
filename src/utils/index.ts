@@ -17,5 +17,4 @@ export { safeJsonParse } from './json.js';
 export {
   type Logger,
   consoleLogger,
-  
 } from './logger.js';

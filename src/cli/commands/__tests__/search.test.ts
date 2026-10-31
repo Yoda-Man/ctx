@@ -124,6 +124,7 @@ describe('createSearchCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: (msg: string) => errorOutput.push(msg),
     };
 
@@ -146,23 +147,23 @@ describe('createSearchCommand', () => {
         provider: 'huggingface',
         model: 'BAAI/bge-large-en-v1.5',
         batch_size: 32,
+        timeout_ms: 120000,
       },
       search: {
         top_k: 10,
-        rerank: false,
       },
     });
 
     // Set up mock embedding provider (returns new EmbeddingProviderResult structure)
     vi.mocked(embedder.createEmbeddingProvider).mockResolvedValue({
       provider: {
-        embed: vi.fn().mockResolvedValue({ embedding: new Array(1024).fill(0.1), tokenCount: 10, model: 'mock' }), // Mock EmbeddingResult
+        embed: vi.fn().mockResolvedValue({ embedding: Array.from({ length: 1024 }, () => 0.1), tokenCount: 10, model: 'mock' }), // Mock EmbeddingResult
         embedBatch: vi.fn(),
         dimensions: 1024,
       },
       model: 'BAAI/bge-large-en-v1.5',
       dimensions: 1024,
-    } as unknown as ReturnType<typeof embedder.createEmbeddingProvider>);
+    } as unknown as Awaited<ReturnType<typeof embedder.createEmbeddingProvider>>);
 
     // Set up mock fusion service
     mockFusionService = {
@@ -239,8 +240,8 @@ describe('createSearchCommand', () => {
       const cmd = createSearchCommand(() => mockContext);
       const args = cmd.registeredArguments;
       expect(args.length).toBe(1);
-      expect(args[0].name()).toBe('query');
-      expect(args[0].required).toBe(true);
+      expect(args[0]!.name()).toBe('query');
+      expect(args[0]!.required).toBe(true);
     });
 
     it('has --project option', () => {
@@ -783,6 +784,19 @@ describe('createSearchCommand', () => {
         expect.any(Object), // Embedding provider
         expect.objectContaining({ top_k: 10, rerank: false }), // Search config
         expect.objectContaining({ denseOptions: { dimensions: 1024 } }) // Dimensions from provider
+      );
+    });
+
+    it('reranks only when --rerank asks for it', async () => {
+      const program = new Command();
+      program.addCommand(createSearchCommand(() => mockContext));
+      await program.parseAsync(['node', 'test', 'search', 'query', '--rerank']);
+
+      expect(searchModule.createFusionService).toHaveBeenCalledWith(
+        'proj-123',
+        expect.any(Object),
+        expect.objectContaining({ rerank: true }),
+        expect.any(Object)
       );
     });
   });

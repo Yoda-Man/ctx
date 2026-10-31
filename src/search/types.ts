@@ -23,17 +23,6 @@ export interface SearchServiceOptions {
   projectId: string;
   /** Embedding dimensions (1024 for BGE-large, 768 for BGE-base) */
   dimensions: number;
-  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
-  useHNSW?: boolean;
-  /** HNSW index tuning parameters */
-  hnswConfig?: {
-    /** Max connections per node (default: 16) */
-    M?: number;
-    /** Build quality - higher = better index, slower build (default: 200) */
-    efConstruction?: number;
-    /** Search quality - higher = better recall, slower search (default: 100) */
-    efSearch?: number;
-  };
 }
 
 /**
@@ -173,10 +162,6 @@ export interface FusionConfig {
 interface DenseSearchOptions {
   /** Embedding dimensions - REQUIRED, must match indexed data */
   dimensions: number;
-  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
-  useHNSW?: boolean;
-  /** HNSW index tuning parameters */
-  hnswConfig?: SearchServiceOptions['hnswConfig'];
 }
 
 /**
@@ -293,10 +278,6 @@ export interface MultiProjectLoadOptions {
   projectIds: string[];
   /** Embedding dimensions (must be consistent across all projects) */
   dimensions: number;
-  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
-  useHNSW?: boolean;
-  /** HNSW index tuning parameters */
-  hnswConfig?: SearchServiceOptions['hnswConfig'];
 }
 
 /**
@@ -411,10 +392,6 @@ export interface MultiProjectFusionLoadOptions {
   projectIds: string[];
   /** Embedding dimensions (must be consistent across all projects) */
   dimensions: number;
-  /** Force the HNSW index on or off (default: by size, see HNSW_MIN_VECTORS) */
-  useHNSW?: boolean;
-  /** HNSW index tuning parameters */
-  hnswConfig?: SearchServiceOptions['hnswConfig'];
   /** BM25 configuration (optional, uses defaults if not provided) */
   bm25Config?: BM25Config;
 }

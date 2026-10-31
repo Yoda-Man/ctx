@@ -35,6 +35,7 @@ import type { RAGSearchResult } from '../../agent/types.js';
 import { shouldRecord } from '../../observability/index.js';
 import { getDatabase } from '../../database/index.js';
 import type { TraceInput } from '../../eval/types.js';
+import { errorMessage } from '../../utils/error.js';
 
 // ============================================================================
 // Types
@@ -455,7 +456,7 @@ export function createAskCommand(getContext: () => CommandContext): Command {
               trace_type: 'ask',
             });
           } catch (err) {
-            ctx.debug(`Trace recording failed: ${err}`);
+            ctx.debug(`Trace recording failed: ${errorMessage(err)}`);
           }
         }
         return;
@@ -503,7 +504,7 @@ export function createAskCommand(getContext: () => CommandContext): Command {
               trace_type: 'ask',
             });
           } catch (err) {
-            ctx.debug(`Trace recording failed: ${err}`);
+            ctx.debug(`Trace recording failed: ${errorMessage(err)}`);
           }
         }
         return;
@@ -634,7 +635,7 @@ export function createAskCommand(getContext: () => CommandContext): Command {
           ctx.debug('Trace recorded to eval_traces');
         } catch (err) {
           // Non-blocking: trace recording should never break the command
-          ctx.debug(`Trace recording failed: ${err}`);
+          ctx.debug(`Trace recording failed: ${errorMessage(err)}`);
         }
       }
     });

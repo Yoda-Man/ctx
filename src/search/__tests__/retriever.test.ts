@@ -87,11 +87,12 @@ function createMockDb(chunks: Array<{
         get: vi.fn().mockReturnValue({ count: chunks.length }),
       };
     }
-    if (sql.includes('SELECT id, content')) {
+    if (sql.includes('SELECT rowid, id, content')) {
       return {
         all: vi.fn().mockImplementation(
-          (_projectId: string, limit: number, offset: number) => {
-            return chunks.slice(offset, offset + limit);
+          (_projectId: string, afterRowid: number, limit: number) => {
+            // rowid paging: rows numbered from 1, those after the last one read
+            return chunks.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
           }
         ),
       };
@@ -819,24 +820,6 @@ describe('createSearchService', () => {
       rerank: false,
     }, {
       dimensions: 768,
-    });
-
-    expect(service).toBeInstanceOf(SearchService);
-  });
-
-  it('should create a service with custom HNSW config', () => {
-    const provider = createMockProvider();
-    const service = createSearchService('test', provider, {
-      top_k: 10,
-      rerank: false,
-    }, {
-      dimensions: 1024,
-      useHNSW: true,
-      hnswConfig: {
-        M: 32,
-        efConstruction: 400,
-        efSearch: 200,
-      },
     });
 
     expect(service).toBeInstanceOf(SearchService);

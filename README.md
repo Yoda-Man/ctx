@@ -30,10 +30,10 @@ and works just as well on its own.
 
 | | |
 |---|---|
-| **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion, then reranked by a BGE cross-encoder. |
+| **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion. `ctx search --rerank` adds a BGE cross-encoder. |
 | **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
 | **Across projects** | Index any number of codebases and search one of them or all at once; `ctx chat` routes each question to the projects it is about. |
-| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, not by line count. |
+| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, each with its comments, and indexes the code between them too. Markdown splits by section, heading included. |
 | **Specs and docs too** | Markdown, text, Word (`.docx`) and PDF are indexed alongside code, so answers can come from requirements as well as source. |
 | **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
 | **Private** | Answers come from a local Ollama model; ctx has no cloud provider and needs no API key. |
@@ -47,12 +47,13 @@ and works just as well on its own.
 npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,onnxruntime-node
 ```
 
-Requires **Node.js 22.12** or later. The `--allow-scripts` list lets npm 11.20
+Requires **Node.js 24** or later. The `--allow-scripts` list lets npm 11.20
 and later build ctx's native parts (SQLite, the tree-sitter parsers, the ONNX
 runtime); earlier npm builds them anyway and ignores the flag.
 
-The first search downloads the embedding and reranker models (about 600 MB)
-into `~/.ctx/models`; after that, everything runs offline.
+The first index or search downloads the embedding model (about 340 MB)
+into `~/.ctx/models`, and the first `--rerank` its reranker (about 280 MB);
+after that, everything runs offline.
 
 ## Quick start
 
@@ -83,7 +84,7 @@ For answers, run [Ollama](https://ollama.com) with a model pulled (see
  index   files ──► tree-sitter chunks ──► local BGE embeddings ──► SQLite (~/.ctx)
 
  search  query ──┬─► dense vectors ─┐
-                 └─► BM25 keywords ─┴─► rank fusion ──► BGE reranker ──► results
+                 └─► BM25 keywords ─┴─► rank fusion ──► results
 
  ask     results ──► context assembly ──► local model (Ollama) ──► answer with sources
 ```
@@ -144,7 +145,7 @@ ctx search "authentication" --top 20 --rerank
 |--------|-------------|
 | `--project, -p` | Limit search to specific project |
 | `--top, -k` | Number of results (default: 10) |
-| `--rerank, -r` | Rerank with the BGE cross-encoder (on by default through `search.rerank`) |
+| `--rerank, -r` | Rerank with the BGE cross-encoder (off by default: in testing it ranked tables and code lower) |
 
 ### `ctx ask <question>`
 
@@ -309,7 +310,6 @@ timeout_ms = 120000              # Embedding timeout (default: 2 min)
 # Search settings
 [search]
 top_k = 10
-rerank = true  # Use BGE cross-encoder
 
 # RAG pipeline settings (optional - these are defaults)
 [rag]
@@ -408,7 +408,7 @@ Measure retrieval quality with golden datasets and track every interaction with 
 
 Issues and pull requests are welcome at
 [github.com/Yoda-Man/ctx](https://github.com/Yoda-Man/ctx). Open pull requests
-against `dev`; CI runs the type check, tests and build on Node 22, 24 and 26,
+against `dev`; CI runs the type check, tests and build on Node 24 and 26,
 and fails if any dependency is behind its latest release.
 
 ## License

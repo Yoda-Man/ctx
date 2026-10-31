@@ -8,9 +8,8 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { statSync, existsSync } from 'node:fs';
 import type { CommandContext } from '../types.js';
-import { getDb, runMigrations, getDbPath } from '../../database/index.js';
+import { getDb, runMigrations, getDbPath, getDbFileSize } from '../../database/index.js';
 import { loadConfig, getConfigPath } from '../../config/loader.js';
 import { DatabaseError } from '../../errors/index.js';
 
@@ -84,19 +83,6 @@ function getDbStats(): DbStats {
       error instanceof Error ? error : undefined
     );
   }
-}
-
-/**
- * Get the database file size in bytes
- */
-function getDbFileSize(): number {
-  const dbPath = getDbPath();
-  if (!existsSync(dbPath)) {
-    return 0;
-  }
-
-  const stats = statSync(dbPath);
-  return stats.size;
 }
 
 /**

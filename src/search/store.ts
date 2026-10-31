@@ -20,12 +20,6 @@ import {
 import { safeJsonParse, type Logger, consoleLogger } from '../utils/index.js';
 import type { SearchServiceOptions, IndexBuildProgress } from './types.js';
 
-/**
- * Below this many vectors a brute-force scan beats building an HNSW index
- * (about 180 ms per query at this size, against seconds of index building).
- */
-export const HNSW_MIN_VECTORS = 250_000;
-
 /** Batch size for loading chunks from SQLite (memory efficiency) */
 const LOAD_BATCH_SIZE = 1000;
 
@@ -115,33 +109,23 @@ export class VectorStoreManager {
     onProgress?: (progress: IndexBuildProgress) => void,
     logger: Logger = consoleLogger
   ): Promise<InMemoryVectorStore> {
-    const { projectId, dimensions, hnswConfig } = options;
+    const { projectId, dimensions } = options;
 
     const db = this.getDatabase();
 
-    // Get total chunk count for progress reporting and the index choice
+    // Get total chunk count for progress reporting
     const countResult = db
       .prepare('SELECT COUNT(*) as count FROM chunks WHERE project_id = ?')
       .get(projectId) as { count: number };
     const totalChunks = countResult.count;
 
-    // ctx builds this store afresh in every process, so the index is paid for
-    // on every search. HNSW took 8.3 s to build over 3,714 vectors, while a
-    // brute-force scan of 58,728 takes 43 ms per query and is exact.
-    const useHNSW = options.useHNSW ?? totalChunks >= HNSW_MIN_VECTORS;
-
+    // A brute-force scan: exact, and nothing to build. ctx builds this store
+    // afresh in every process, so an approximate index (HNSW) was paid for on
+    // every search: 8.3 s to build over 3,714 vectors, while a scan of 58,728
+    // takes 43 ms per query.
     const store = new InMemoryVectorStore({
       dimensions,
       distanceMetric: 'cosine',
-      indexType: useHNSW ? 'hnsw' : 'brute-force',
-      hnswConfig: useHNSW
-        ? {
-            M: hnswConfig?.M ?? 16,
-            efConstruction: hnswConfig?.efConstruction ?? 200,
-            efSearch: hnswConfig?.efSearch ?? 100,
-          }
-        : undefined,
-      useFloat32: true, // 50% memory savings
     });
 
     if (totalChunks === 0) {
@@ -150,17 +134,19 @@ export class VectorStoreManager {
     }
 
     // Prepare statement for batch loading
+    // Paged by rowid: each page is an index seek. OFFSET paging re-read every
+    // earlier row per page, so a 23,000-chunk project took 16 s to load.
     const stmt = db.prepare<[string, number, number]>(`
-      SELECT id, content, embedding, file_path, file_type, language,
+      SELECT rowid, id, content, embedding, file_path, file_type, language,
              start_line, end_line, metadata
       FROM chunks
-      WHERE project_id = ?
-      ORDER BY id
-      LIMIT ? OFFSET ?
+      WHERE project_id = ? AND rowid > ?
+      ORDER BY rowid
+      LIMIT ?
     `);
 
     let loaded = 0;
-    let offset = 0;
+    let lastRowid = 0;
 
     // Load in batches
     while (loaded < totalChunks) {
@@ -170,7 +156,7 @@ export class VectorStoreManager {
         total: totalChunks,
       });
 
-      const rawBatch = stmt.all(projectId, LOAD_BATCH_SIZE, offset);
+      const rawBatch = stmt.all(projectId, lastRowid, LOAD_BATCH_SIZE) as Array<{ rowid: number }>;
       const batch: ChunkLoadRow[] = validateRows(
         ChunkLoadRowSchema,
         rawBatch,
@@ -196,8 +182,7 @@ export class VectorStoreManager {
         return {
           id: row.id,
           content: row.content,
-          // Convert Float32Array → number[] for SDK
-          embedding: Array.from(embedding),
+          embedding, // the store keeps its own Float32 copy
           metadata: {
             projectId, // Include projectId for cross-project result attribution
             filePath: row.file_path,
@@ -215,7 +200,7 @@ export class VectorStoreManager {
       await store.insert(chunks);
 
       loaded += batch.length;
-      offset += LOAD_BATCH_SIZE;
+      lastRowid = rawBatch[rawBatch.length - 1]!.rowid;
     }
 
     // Final progress update

@@ -17,8 +17,9 @@ import type { Chunk, ChunkingOptions, Document } from './types.js';
 import type { EmbeddingProvider, EmbeddingResult } from '../embeddings/types.js';
 import { BaseChunker } from './base-chunker.js';
 import { ChunkerError } from './errors.js';
-import { VectorError } from '../embeddings/vector-errors.js';
+import { cosineSimilarity } from '../embeddings/utils.js';
 import { CHARS_PER_TOKEN } from './token-counter.js';
+import { toError } from '../../../utils/error.js';
 
 // ============================================================================
 // Configuration
@@ -77,57 +78,6 @@ const DEFAULT_CONFIG = {
   minChunkSize: 100,
   maxChunkSize: 1000,
 } as const;
-
-// ============================================================================
-// Cosine Similarity Helper
-// ============================================================================
-
-/**
- * Calculate cosine similarity between two vectors.
- *
- * Cosine similarity measures the angle between two vectors:
- * - 1.0 = identical direction (same meaning)
- * - 0.0 = orthogonal (unrelated)
- * - -1.0 = opposite direction (opposite meaning)
- *
- * Formula: cos(θ) = (A · B) / (||A|| × ||B||)
- *
- * @param a - First embedding vector
- * @param b - Second embedding vector
- * @returns Similarity score between -1 and 1
- */
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) {
-    throw VectorError.dimensionMismatch(a.length, b.length);
-  }
-
-  if (a.length === 0) {
-    return 0;
-  }
-
-  // Calculate dot product and magnitudes in single pass
-  let dotProduct = 0;
-  let magnitudeA = 0;
-  let magnitudeB = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    const ai = a[i] ?? 0;
-    const bi = b[i] ?? 0;
-    dotProduct += ai * bi;
-    magnitudeA += ai * ai;
-    magnitudeB += bi * bi;
-  }
-
-  magnitudeA = Math.sqrt(magnitudeA);
-  magnitudeB = Math.sqrt(magnitudeB);
-
-  // Handle zero vectors (shouldn't happen with normalized embeddings)
-  if (magnitudeA === 0 || magnitudeB === 0) {
-    return 0;
-  }
-
-  return dotProduct / (magnitudeA * magnitudeB);
-}
 
 // ============================================================================
 // Sentence Splitting
@@ -227,8 +177,8 @@ export class SemanticChunker extends BaseChunker {
   ): Promise<Chunk[]> {
     const text = document.content;
 
-    // Step 1: Split into sentences
-    const sentences = splitIntoSentences(text);
+    // Step 1: Split into sentences, none bigger than a chunk
+    const sentences = this.splitOversized(splitIntoSentences(text));
 
     if (sentences.length === 0) {
       return [];
@@ -272,7 +222,7 @@ export class SemanticChunker extends BaseChunker {
         this.name,
         'Failed to generate sentence embeddings',
         undefined,
-        error instanceof Error ? error : new Error(String(error))
+        toError(error)
       );
     }
   }
@@ -315,14 +265,14 @@ export class SemanticChunker extends BaseChunker {
       const sentence = sentences[i];
       if (!sentence) continue;
 
-      const sentenceSize = this.estimateTokens(sentence);
+      const sentenceSize = this.sentenceTokens(sentence);
       accumulatedSize += sentenceSize;
 
       // Check if we should split AFTER this sentence
       if (i < sentences.length - 1) {
         const similarity = similarities[i] ?? 0;
         const nextSentence = sentences[i + 1];
-        const nextSize = nextSentence ? this.estimateTokens(nextSentence) : 0;
+        const nextSize = nextSentence ? this.sentenceTokens(nextSentence) : 0;
         const wouldExceedMax = accumulatedSize + nextSize > this.maxChunkSize;
 
         // Split if topic changes OR we'd exceed max size
@@ -385,15 +335,14 @@ export class SemanticChunker extends BaseChunker {
     for (const group of groups) {
       const groupSize = this.estimateGroupTokens(group);
 
-      if (result.length === 0 || groupSize >= this.minChunkSize) {
-        // Start new group
+      const lastGroup = result[result.length - 1];
+      if (!lastGroup || groupSize >= this.minChunkSize ||
+          this.estimateGroupTokens(lastGroup) + groupSize > this.maxChunkSize) {
+        // Start new group (a small one too, when merging would pass the maximum)
         result.push(group);
       } else {
         // Merge with previous group
-        const lastGroup = result[result.length - 1];
-        if (lastGroup) {
-          lastGroup.push(...group);
-        }
+        lastGroup.push(...group);
       }
     }
 
@@ -418,12 +367,6 @@ export class SemanticChunker extends BaseChunker {
         continue;
       }
 
-      const content = group.join(' ');
-
-      if (!content || content.trim().length === 0) {
-        continue;
-      }
-
       // Find position in original text
       const firstSentence = group[0];
       const lastSentence = group[group.length - 1];
@@ -436,6 +379,11 @@ export class SemanticChunker extends BaseChunker {
       const endIndex =
         originalText.indexOf(lastSentence, startIndex) + lastSentence.length;
 
+      // The text as written: joining sentences with spaces lost line breaks,
+      // flattening code and tables, and the chunk could no longer be found
+      // in the file to number its lines.
+      const content = originalText.slice(startIndex, endIndex);
+
       chunks.push(
         this.createChunk(content, document, i, startIndex, endIndex, options)
       );
@@ -447,16 +395,47 @@ export class SemanticChunker extends BaseChunker {
   }
 
   /**
-   * Estimate token count for a sentence.
+   * Split any sentence bigger than a chunk: at line breaks first (tables and
+   * lists have no full stops), then by length. Pieces stay exact substrings.
    */
-  private estimateTokens(text: string): number {
-    return Math.ceil(text.length / CHARS_PER_TOKEN);
+  private splitOversized(sentences: string[]): string[] {
+    const maxChars = this.maxChunkSize * CHARS_PER_TOKEN;
+    const pieces: string[] = [];
+    for (const sentence of sentences) {
+      if (this.sentenceTokens(sentence) <= this.maxChunkSize) {
+        pieces.push(sentence);
+        continue;
+      }
+      let packed = '';
+      for (const line of sentence.split('\n')) {
+        if (packed && packed.length + 1 + line.length > maxChars) {
+          pieces.push(packed);
+          packed = '';
+        }
+        packed = packed ? `${packed}\n${line}` : line;
+        while (packed.length > maxChars) {
+          // Don't cut between the two halves of a surrogate pair (emoji)
+          let cut = maxChars;
+          const code = packed.charCodeAt(cut);
+          if (code >= 0xdc00 && code <= 0xdfff) cut--;
+          pieces.push(packed.slice(0, cut));
+          packed = packed.slice(cut);
+        }
+      }
+      if (packed) pieces.push(packed);
+    }
+    return pieces.map((p) => p.trim()).filter((p) => p.length > 0);
+  }
+
+  /** Tokens a sentence takes in a chunk, counting the break before the next. */
+  private sentenceTokens(sentence: string): number {
+    return Math.ceil((sentence.length + 1) / CHARS_PER_TOKEN);
   }
 
   /**
    * Estimate total tokens in a group of sentences.
    */
   private estimateGroupTokens(group: string[]): number {
-    return group.reduce((total, s) => total + this.estimateTokens(s), 0);
+    return group.reduce((total, s) => total + this.sentenceTokens(s), 0);
   }
 }

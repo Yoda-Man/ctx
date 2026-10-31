@@ -24,7 +24,7 @@ vi.mock('../../../config/loader.js', () => ({
 const { createConfigCommand } = await import('../config.js');
 
 function run(json: boolean, ...args: string[]) {
-  const ctx: CommandContext = { options: { verbose: false, json }, log: vi.fn(), debug: vi.fn(), error: vi.fn() };
+  const ctx: CommandContext = { options: { verbose: false, json }, log: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const program = new Command();
   program.addCommand(createConfigCommand(() => ctx));
   return program.parseAsync(['node', 'ctx', 'config', 'reset', ...args]);

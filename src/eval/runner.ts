@@ -30,6 +30,7 @@ import { loadGoldenDataset as defaultLoadGoldenDataset } from './golden.js';
 import type { DatabaseOperations } from '../database/operations.js';
 import type { ContextExpertRAGEngine } from '../agent/rag-engine.js';
 import type { Config } from '../config/schema.js';
+import { errorMessage } from '../utils/error.js';
 
 // ============================================================================
 // TYPES
@@ -287,10 +288,10 @@ export async function runEval(
     };
   } catch (error) {
     // Mark run as failed in the database
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     try {
       db.updateEvalRun(runId, {
-        notes: `status:failed | ${errorMessage}`,
+        notes: `status:failed | ${message}`,
       });
     } catch {
       // Swallow secondary DB error — the original error is more important
@@ -302,7 +303,7 @@ export async function runEval(
     }
 
     throw EvalError.evalRunFailed(
-      errorMessage,
+      message,
       error instanceof Error ? error : undefined,
     );
   }

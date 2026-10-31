@@ -5,25 +5,17 @@
  * - Renders user messages and assistant responses
  * - Handles streaming output (character by character)
  * - Formats markdown for terminal display
- * - Shows citations/sources
  *
  * The chat area lives in the scroll region managed by TerminalRegionManager.
  * Content written here scrolls within the region; status/input stay fixed.
  */
 
 import chalk from 'chalk';
-import type { TerminalRegionManager } from './terminal-regions.js';
+import { ANSI_ESCAPE_PATTERN, type TerminalRegionManager } from './terminal-regions.js';
 
-/**
- * Pattern matching ANSI escape sequences: CSI, DEC save/restore, and OSC.
- * Used to strip raw sequences from untrusted content (e.g. LLM output)
- * before rendering, preventing terminal injection attacks.
- */
-const ANSI_ESCAPE_PATTERN = /\x1b\[[0-9;]*[a-zA-Z]|\x1b[78]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g;
 import type {
   DisplayMessage,
   MessageRole,
-  SourceReference,
 } from './types.js';
 
 /**
@@ -65,7 +57,7 @@ const ROLE_STYLES: Record<MessageRole, { prefix: string; color: typeof chalk }> 
  * for await (const chunk of llmStream) {
  *   chat.streamChunk(chunk);
  * }
- * chat.endStream(sources);
+ * chat.endStream();
  * ```
  */
 export class ChatAreaManager {
@@ -173,19 +165,15 @@ export class ChatAreaManager {
    *
    * Writes trailing content while still in streaming mode (cursor in chat area),
    * then calls endChatStream() to return cursor to the input area.
-   * Sources and trailing blank line use writeToChatArea (cursor save/restore).
-   *
-   * @param sources - Optional RAG sources to display
+   * The trailing blank line uses writeToChatArea (cursor save/restore).
    */
-  endStream(sources?: SourceReference[]): void {
+  endStream(): void {
     if (!this.isStreaming) {
       return;
     }
 
     // Create the complete message record
-    const message = this.createMessage('assistant', this.streamBuffer);
-    message.sources = sources;
-    this.messages.push(message);
+    this.messages.push(this.createMessage('assistant', this.streamBuffer));
 
     // Trailing newline while still in streaming mode
     this.regionManager.streamToChatArea('\n');
@@ -193,10 +181,7 @@ export class ChatAreaManager {
     // Exit streaming mode — cursor returns to input area
     this.regionManager.endChatStream();
 
-    // Sources and trailing blank line use writeToChatArea (cursor save/restore)
-    if (sources && sources.length > 0) {
-      this.displaySources(sources);
-    }
+    // Trailing blank line uses writeToChatArea (cursor save/restore)
     this.write('\n');
 
     this.isStreaming = false;
@@ -208,17 +193,11 @@ export class ChatAreaManager {
    * Add a complete assistant message (non-streaming).
    *
    * @param content - The full message content
-   * @param sources - Optional RAG sources
    */
-  addAssistantMessage(content: string, sources?: SourceReference[]): void {
+  addAssistantMessage(content: string): void {
     const message = this.createMessage('assistant', content);
-    message.sources = sources;
     this.messages.push(message);
     this.displayMessage(message);
-
-    if (sources && sources.length > 0) {
-      this.displaySources(sources);
-    }
   }
 
   /**
@@ -304,31 +283,6 @@ export class ChatAreaManager {
     const trailing = options?.compact ? '\n' : '\n\n';
     this.write(display + trailing);
     this.needsNewline = false;
-  }
-
-  /**
-   * Display RAG sources/citations.
-   */
-  private displaySources(sources: SourceReference[]): void {
-    if (sources.length === 0) return;
-
-    this.write(chalk.dim('\nSources:\n'));
-
-    sources.forEach((source, index) => {
-      const num = `[${index + 1}]`;
-      let line = `  ${chalk.cyan(num)} ${source.path}`;
-
-      if (source.lines) {
-        line += chalk.dim(` (lines ${source.lines.start}-${source.lines.end})`);
-      }
-
-      if (source.score !== undefined) {
-        const scorePercent = Math.round(source.score * 100);
-        line += chalk.dim(` - ${scorePercent}% relevant`);
-      }
-
-      this.write(line + '\n');
-    });
   }
 
   /**

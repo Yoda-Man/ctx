@@ -165,7 +165,7 @@ describe('embedChunks', () => {
       name: 'FailingBatchProvider',
       dimensions: 1024,
       maxBatchSize: 32,
-      async embed(text: string): Promise<EmbeddingResult> {
+      async embed(): Promise<EmbeddingResult> {
         return {
           embedding: Array.from({ length: 1024 }, () => 0.1),
           tokenCount: 10,
@@ -178,7 +178,7 @@ describe('embedChunks', () => {
         if (batchCallCount === 1 && texts.length > 1) {
           throw new Error('Batch processing failed');
         }
-        return texts.map((text) => ({
+        return texts.map(() => ({
           embedding: Array.from({ length: 1024 }, () => 0.1),
           tokenCount: 10,
           model: 'mock',

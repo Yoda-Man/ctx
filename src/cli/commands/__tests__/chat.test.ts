@@ -14,13 +14,19 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { createChatCommand, parseREPLCommand, createCompleter, parseIndexArgs } from '../chat.js';
+import { createChatCommand, createCompleter } from '../chat.js';
+import { parseREPLCommand } from '../chat-commands.js';
+import { parseIndexArgs } from '../chat-index.js';
 import type { CommandContext } from '../../types.js';
 import * as database from '../../../database/index.js';
 import * as configLoader from '../../../config/loader.js';
+import type { Config } from '../../../config/schema.js';
 import * as ragEngine from '../../../agent/rag-engine.js';
 import * as llmProvider from '../../../providers/llm.js';
 import * as fs from 'node:fs';
+import * as readline from 'node:readline';
+import { EventEmitter } from 'node:events';
+import { handleQuestionWithAgent } from '../chat-questions.js';
 
 // Mock the database module
 vi.mock('../../../database/index.js', () => ({
@@ -29,7 +35,6 @@ vi.mock('../../../database/index.js', () => ({
   getDatabase: vi.fn().mockReturnValue({
     getProjectByPath: vi.fn().mockReturnValue(null),
     getProjectById: vi.fn().mockReturnValue(null),
-    deleteProjectChunks: vi.fn(),
   }),
 }));
 
@@ -93,6 +98,11 @@ vi.mock('../../../agent/citations.js', () => ({
   formatCitations: vi.fn().mockReturnValue('  [1] src/file.ts:10-20'),
 }));
 
+vi.mock('../chat-questions.js', () => ({
+  handleQuestionWithAgent: vi.fn(),
+  handleQuestionTUIWithAgent: vi.fn(),
+}));
+
 // Mock readline to prevent actual REPL from starting
 // Uses event-based pattern (rl.on) - no async iterator needed
 vi.mock('node:readline', () => ({
@@ -114,7 +124,7 @@ describe('createChatCommand', () => {
   let logOutput: string[];
   let errorOutput: string[];
   let mockDb: { prepare: ReturnType<typeof vi.fn> };
-  let mockRAGEngine: { search: ReturnType<typeof vi.fn> };
+  let mockRAGEngine: { search: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> };
   let mockLLMProvider: {
     streamChat: ReturnType<typeof vi.fn>;
   };
@@ -132,15 +142,16 @@ describe('createChatCommand', () => {
     config: null,
   };
 
-  const mockConfig = {
+  const mockConfig: Config = {
+    default_provider: 'ollama',
+    default_model: 'llama3.2',
     embedding: {
       provider: 'huggingface',
       model: 'BAAI/bge-small-en-v1.5',
+      batch_size: 32,
+      timeout_ms: 120000,
     },
-    llm: {
-      provider: 'ollama',
-      model: 'llama3.2',
-    },
+    search: { top_k: 10 },
   };
 
   beforeEach(() => {
@@ -150,6 +161,7 @@ describe('createChatCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: (msg: string) => errorOutput.push(msg),
     };
 
@@ -172,7 +184,7 @@ describe('createChatCommand', () => {
     );
 
     // Mock config
-    vi.mocked(configLoader.loadConfig).mockReturnValue(mockConfig as ReturnType<typeof configLoader.loadConfig>);
+    vi.mocked(configLoader.loadConfig).mockReturnValue(mockConfig);
 
     // Mock RAG engine
     mockRAGEngine = {
@@ -184,7 +196,7 @@ describe('createChatCommand', () => {
       dispose: vi.fn(),
     };
     vi.mocked(ragEngine.createRAGEngine).mockResolvedValue(
-      mockRAGEngine as unknown as ReturnType<typeof ragEngine.createRAGEngine>
+      mockRAGEngine as unknown as Awaited<ReturnType<typeof ragEngine.createRAGEngine>>
     );
 
     // Mock LLM provider with streaming
@@ -322,6 +334,29 @@ describe('createChatCommand', () => {
       expect(ragEngine.createRAGEngine).not.toHaveBeenCalled();
     });
 
+    it('handles piped lines one at a time and finishes them before exiting', async () => {
+      // A pipe delivers every line and then EOF at once. Lines used to run
+      // together, and the chat closed under a question still being answered.
+      const events: string[] = [];
+      vi.mocked(handleQuestionWithAgent).mockImplementation(async (question) => {
+        events.push(`start ${question}`);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        events.push(`end ${question}`);
+      });
+      const rl = Object.assign(new EventEmitter(), { prompt: vi.fn(), close: vi.fn(), setPrompt: vi.fn() });
+      vi.mocked(readline.createInterface).mockReturnValueOnce(rl as unknown as readline.Interface);
+
+      const done = createChatCommand(() => mockContext).parseAsync(['node', 'test']);
+      await vi.waitFor(() => expect(rl.listenerCount('line')).toBe(1));
+      rl.emit('line', 'first');
+      rl.emit('line', 'second');
+      rl.emit('close');
+      await done;
+
+      expect(events).toEqual(['start first', 'end first', 'start second', 'end second']);
+      expect(rl.prompt).toHaveBeenCalledTimes(1); // the first prompt; none once input has closed
+    });
+
     it('skips stale project when path does not exist', async () => {
       // Mock existsSync to return false (path doesn't exist)
       vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -373,69 +408,6 @@ describe('createChatCommand', () => {
 
       await expect(command.parseAsync(['node', 'test'])).resolves.not.toThrow();
     });
-  });
-});
-
-describe('streaming output safety (ticket #104)', () => {
-  // Regression test: streamResponse() uses process.stdout.write() directly,
-  // not printf/sprintf. Verify special characters pass through verbatim.
-  let writeSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    writeSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
-  });
-
-  afterEach(() => {
-    writeSpy.mockRestore();
-  });
-
-  it('should write % characters verbatim via stdout.write', () => {
-    const chunks = [
-      'The value is 100% complete',
-      'Use %s for string formatting',
-      'Multiple %%d patterns %f here',
-    ];
-
-    for (const chunk of chunks) {
-      process.stdout.write(chunk);
-    }
-
-    expect(writeSpy).toHaveBeenCalledWith('The value is 100% complete');
-    expect(writeSpy).toHaveBeenCalledWith('Use %s for string formatting');
-    expect(writeSpy).toHaveBeenCalledWith('Multiple %%d patterns %f here');
-  });
-
-  it('should write unicode special characters verbatim', () => {
-    const chunks = [
-      'Emoji: \u{1F680}\u{1F4A1}\u{2728}',
-      'CJK: \u4F60\u597D\u4E16\u754C',
-      'Arabic: \u0645\u0631\u062D\u0628\u0627',
-      'Zero-width: foo\u200Bbar\u200Cbaz',
-    ];
-
-    for (const chunk of chunks) {
-      process.stdout.write(chunk);
-    }
-
-    for (const chunk of chunks) {
-      expect(writeSpy).toHaveBeenCalledWith(chunk);
-    }
-  });
-
-  it('should write ANSI escape sequences verbatim', () => {
-    const chunks = [
-      'Normal text \x1b[31mred text\x1b[0m normal',
-      'Cursor move: \x1b[2A\x1b[3B',
-      'Clear: \x1b[2J\x1b[H',
-    ];
-
-    for (const chunk of chunks) {
-      process.stdout.write(chunk);
-    }
-
-    for (const chunk of chunks) {
-      expect(writeSpy).toHaveBeenCalledWith(chunk);
-    }
   });
 });
 

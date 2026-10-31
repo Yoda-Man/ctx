@@ -22,9 +22,9 @@ vi.mock('../../../database/index.js', () => {
   return {
     runMigrations: vi.fn(),
     getDb: vi.fn(() => ({
-      prepare: vi.fn((sql: string) => ({
+      prepare: vi.fn(() => ({
         all: vi.fn((...args: unknown[]) => {
-          const projectId = args[0] as number;
+          const projectId = args[0] as string;
 
           // Handle getAllProjectFiles query (just projectId param)
           if (args.length === 1) {

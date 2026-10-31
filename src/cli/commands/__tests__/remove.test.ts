@@ -54,6 +54,7 @@ describe('createRemoveCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -97,8 +98,8 @@ describe('createRemoveCommand', () => {
       // Commander registers arguments in _args array
       const args = (cmd as unknown as { registeredArguments: Array<{ required: boolean; name: () => string }> }).registeredArguments;
       expect(args).toHaveLength(1);
-      expect(args[0].required).toBe(true);
-      expect(args[0].name()).toBe('name');
+      expect(args[0]!.required).toBe(true);
+      expect(args[0]!.name()).toBe('name');
     });
 
     it('has --force option', () => {
@@ -282,7 +283,7 @@ describe('createRemoveCommand', () => {
 
       // Should output structured JSON error to stderr
       expect(consoleErrorSpy).toHaveBeenCalled();
-      const errorOutput = JSON.parse(consoleErrorSpy.mock.calls[0][0]);
+      const errorOutput = JSON.parse(consoleErrorSpy.mock.calls[0]![0]);
       expect(errorOutput.error).toBe('confirmation_required');
       expect(errorOutput.action).toBe('remove');
       expect(errorOutput.project.name).toBe('test-project');

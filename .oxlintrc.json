@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["dist", "coverage", "fixtures"],
+  "overrides": [
+    {
+      "files": ["**/__tests__/**", "**/*.test.ts"],
+      "rules": {
+        "typescript/unbound-method": "off",
+        "eslint/no-control-regex": "off"
+      }
+    }
+  ]
+}

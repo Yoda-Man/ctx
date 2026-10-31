@@ -2,8 +2,6 @@
  * Vendored from @contextaisdk/rag (MIT, github.com/draco28/contextai); see ../LICENSE.
  * Only what ctx uses is kept. Exported from where each name is defined.
  */
-export { AdaptiveRAG } from './adaptive/adaptive-rag.js';
-export type { AdaptiveRAGResult } from './adaptive/types.js';
 export type { AssembledContext, OrderingStrategy, SourceAttribution } from './assembly/types.js';
 export { XMLAssembler } from './assembly/xml-assembler.js';
 export { LRUCacheProvider } from './cache/lru-cache.js';

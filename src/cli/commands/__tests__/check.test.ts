@@ -66,6 +66,7 @@ describe('createCheckCommand', () => {
       options: { verbose: false, json: false },
       log: (msg: string) => logOutput.push(msg),
       debug: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
 
@@ -91,10 +92,10 @@ describe('createCheckCommand', () => {
         provider: 'huggingface',
         model: 'BAAI/bge-large-en-v1.5',
         batch_size: 32,
+        timeout_ms: 120000,
       },
       search: {
         top_k: 5,
-        rerank: true,
       },
     });
 
@@ -139,8 +140,8 @@ describe('createCheckCommand', () => {
       const cmd = createCheckCommand(() => mockContext);
       const args = (cmd as unknown as { registeredArguments: Array<{ required: boolean; name: () => string }> }).registeredArguments;
       expect(args).toHaveLength(1);
-      expect(args[0].required).toBe(true);
-      expect(args[0].name()).toBe('project');
+      expect(args[0]!.required).toBe(true);
+      expect(args[0]!.name()).toBe('project');
     });
   });
 
@@ -248,10 +249,10 @@ describe('createCheckCommand', () => {
           provider: 'ollama',
           model: 'nomic-embed-text',
           batch_size: 32,
+          timeout_ms: 120000,
         },
         search: {
           top_k: 5,
-          rerank: true,
         },
       });
     });

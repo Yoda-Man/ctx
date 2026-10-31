@@ -11,7 +11,6 @@
 
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import type {
-  RetrievalResult,
   RAGResult,
   SourceAttribution,
   RAGSearchMetadata,
@@ -111,6 +110,7 @@ function createMockRAGResult(overrides: Partial<RAGResult> = {}): RAGResult {
     chunkCount: 3,
     deduplicatedCount: 0,
     droppedCount: 2,
+    chunks: [],
   };
 
   return {
@@ -411,48 +411,6 @@ describe('ContextExpertRAGEngine', () => {
       );
 
       expect(engine.getProjectId()).toBe('my-project');
-    });
-  });
-
-  describe('getSDKEngine', () => {
-    it('should return the underlying RAGEngineImpl instance', () => {
-      const mockEngine = createMockRAGEngineImpl();
-      const fusionService = createMockFusionService();
-
-      const engine = new ContextExpertRAGEngine(
-        mockEngine as any,
-        fusionService,
-        defaultConfig
-      );
-
-      expect(engine.getSDKEngine()).toBe(mockEngine);
-    });
-  });
-
-  describe('convertResult', () => {
-    it('should convert SDK RAGResult to RAGSearchResult format', () => {
-      const mockEngine = createMockRAGEngineImpl();
-      const fusionService = createMockFusionService();
-
-      const engine = new ContextExpertRAGEngine(
-        mockEngine as any,
-        fusionService,
-        defaultConfig
-      );
-
-      const sdkResult = createMockRAGResult();
-      const result = engine.convertResult(sdkResult, 75);
-
-      // Should produce the same format as search() would
-      expect(result.content).toContain('<sources>');
-      expect(result.estimatedTokens).toBe(150);
-      expect(result.sources).toHaveLength(1);
-      expect(result.sources[0]).toMatchObject({
-        index: 1,
-        filePath: 'src/auth/handler.ts',
-        score: 0.95,
-      });
-      expect(result.metadata.totalMs).toBe(75);
     });
   });
 

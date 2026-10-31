@@ -34,7 +34,6 @@ export const DEFAULT_CONFIG: Config = {
   // Search settings - sensible defaults
   search: {
     top_k: 10,      // Return top 10 results
-    rerank: true,   // Reranking improves relevance significantly
   },
 
   // Indexing settings - no extra ignores by default
@@ -86,7 +85,6 @@ timeout_ms = ${DEFAULT_CONFIG.embedding.timeout_ms}  # 2 minutes (allows for mod
 # Search Settings
 [search]
 top_k = ${DEFAULT_CONFIG.search.top_k}
-rerank = ${DEFAULT_CONFIG.search.rerank}
 
 # Indexing Settings
 # Additional gitignore-style patterns to exclude from indexing
