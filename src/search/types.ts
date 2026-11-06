@@ -138,21 +138,6 @@ export interface FusionConfig {
    * RRF paper (Cormack, Clarke & Büttcher, 2009).
    */
   k: number;
-  /**
-   * Optional weights for each retrieval source.
-   *
-   * When provided, RRF scores are multiplied by these weights:
-   * - dense: Weight for vector/semantic search results
-   * - bm25: Weight for keyword/BM25 search results
-   *
-   * Default behavior (no weights): Equal contribution from both sources.
-   */
-  weights?: {
-    /** Weight multiplier for dense vector results (default: 1.0) */
-    dense: number;
-    /** Weight multiplier for BM25 keyword results (default: 1.0) */
-    bm25: number;
-  };
 }
 
 /**

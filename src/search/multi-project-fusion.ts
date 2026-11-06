@@ -97,10 +97,9 @@ export class MultiProjectFusionService {
     this.vectorManager = getMultiProjectVectorStoreManager();
     this.bm25Manager = getMultiProjectBM25StoreManager();
 
-    // Configure RRF fusion (defaults to k=60, equal weights)
+    // Configure RRF fusion (defaults to k=60)
     this.fusionConfig = {
       k: config.fusionConfig?.k ?? DEFAULT_RRF_K,
-      weights: config.fusionConfig?.weights,
     };
 
     // Configure reranking (disabled by default)

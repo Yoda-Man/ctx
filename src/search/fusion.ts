@@ -42,11 +42,11 @@ export { DEFAULT_RRF_K };
  * Compute Reciprocal Rank Fusion scores for two ranked result lists.
  *
  * Uses the ContextAI SDK's reciprocalRankFusion() internally, with a wrapper
- * to handle our SearchResultWithContext format and custom weights.
+ * to handle our SearchResultWithContext format.
  *
  * @param denseResults - Results from dense/vector search (already sorted by score desc)
  * @param bm25Results - Results from BM25/keyword search (already sorted by score desc)
- * @param config - RRF configuration (k constant, optional weights)
+ * @param config - RRF configuration (k constant)
  * @returns Fused results sorted by RRF score descending, scaled to 0-1: 1 means
  *   ranked first by both searches, about 0.5 first by one of them
  *
@@ -61,9 +61,7 @@ export function computeRRF(
   bm25Results: SearchResultWithContext[],
   config: FusionConfig
 ): SearchResultWithContext[] {
-  const { k, weights } = config;
-  const denseWeight = weights?.dense ?? 1.0;
-  const bm25Weight = weights?.bm25 ?? 1.0;
+  const { k } = config;
 
   // Build a lookup map to preserve full SearchResultWithContext metadata
   // (SDK's RRFResult only has chunk data, not our full context)
@@ -105,35 +103,13 @@ export function computeRRF(
 
   // Raw RRF tops out near 0.03 (2/61), which read as a poor match and made
   // any 0-1 minScore drop every result; divide by the best possible score.
-  const bestPossible = (denseWeight + bm25Weight) / (k + 1);
+  const bestPossible = 2 / (k + 1);
 
-  // Convert back to SearchResultWithContext and apply custom weights
-  const fusedResults: SearchResultWithContext[] = rrfResults.map((rrf) => {
-    const original = resultLookup.get(rrf.id)!;
-
-    // Apply custom weights by adjusting contributions
-    let adjustedScore = rrf.score;
-    if (denseWeight !== 1.0 || bm25Weight !== 1.0) {
-      // Recalculate score with weights applied to each contribution
-      adjustedScore = 0;
-      for (const contrib of rrf.contributions) {
-        const weight = contrib.name === 'dense' ? denseWeight : bm25Weight;
-        adjustedScore += contrib.contribution * weight;
-      }
-    }
-
-    return {
-      ...original,
-      score: bestPossible > 0 ? adjustedScore / bestPossible : adjustedScore,
-    };
-  });
-
-  // Re-sort if weights changed the order
-  if (denseWeight !== 1.0 || bm25Weight !== 1.0) {
-    fusedResults.sort((a, b) => b.score - a.score);
-  }
-
-  return fusedResults;
+  // Convert back to SearchResultWithContext
+  return rrfResults.map((rrf) => ({
+    ...resultLookup.get(rrf.id)!,
+    score: rrf.score / bestPossible,
+  }));
 }
 
 /**
@@ -180,7 +156,6 @@ export class FusionService {
     this.defaultTopK = searchConfig.top_k;
     this.fusionConfig = {
       k: options.fusionConfig?.k ?? DEFAULT_RRF_K,
-      weights: options.fusionConfig?.weights,
     };
 
     // Configure reranking - only create service if enabled

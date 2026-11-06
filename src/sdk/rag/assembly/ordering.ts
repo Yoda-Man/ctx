@@ -120,25 +120,32 @@ function orderBySandwich(
  * Order chronologically by document position.
  *
  * Uses chunk metadata to determine original document order:
- * 1. Sort by documentId (group chunks from same document)
- * 2. Then by startIndex within each document
+ * 1. Sort by documentId, else filePath (group chunks from same document)
+ * 2. Then by startIndex, else startLine, within each document
  *
  * Falls back to relevance order if metadata is missing.
  */
 function orderChronologically(
   results: RerankerResult[]
 ): RerankerResult[] {
+  // ctx's chunks carry filePath and startLine, not documentId and startIndex;
+  // without this fallback every chunk tied and the order stayed by relevance.
+  const documentOf = (r: RerankerResult): string =>
+    r.chunk.documentId ?? (r.chunk.metadata?.filePath as string | undefined) ?? '';
+  const positionOf = (r: RerankerResult): number =>
+    (r.chunk.metadata?.startIndex ?? r.chunk.metadata?.startLine ?? Number.MAX_SAFE_INTEGER) as number;
+
   return [...results].sort((a, b) => {
     // First, group by document
-    const docA = a.chunk.documentId ?? '';
-    const docB = b.chunk.documentId ?? '';
+    const docA = documentOf(a);
+    const docB = documentOf(b);
     if (docA !== docB) {
       return docA.localeCompare(docB);
     }
 
     // Within same document, order by position
-    const posA = a.chunk.metadata?.startIndex ?? Number.MAX_SAFE_INTEGER;
-    const posB = b.chunk.metadata?.startIndex ?? Number.MAX_SAFE_INTEGER;
+    const posA = positionOf(a);
+    const posB = positionOf(b);
     if (posA !== posB) {
       return posA - posB;
     }

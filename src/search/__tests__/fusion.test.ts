@@ -199,46 +199,6 @@ describe('computeRRF', () => {
     });
   });
 
-  describe('weighted fusion', () => {
-    it('should apply weights to RRF scores', () => {
-      const denseResults = createMockResults(['A']);
-      const bm25Results = createMockResults(['B']);
-
-      // Give dense 2x weight
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: 2.0, bm25: 1.0 },
-      });
-
-      const scoreA = fused.find((r) => r.id === 'A')!.score;
-      const scoreB = fused.find((r) => r.id === 'B')!.score;
-
-      // A (dense) should have 2x the score of B (bm25)
-      expect(scoreA).toBeCloseTo(scoreB * 2, 5);
-    });
-
-    it('should handle zero weight for one source', () => {
-      const denseResults = createMockResults(['A', 'B']);
-      const bm25Results = createMockResults(['C', 'D']);
-
-      // Zero weight for BM25 - effectively dense-only
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: 1.0, bm25: 0 },
-      });
-
-      // BM25 results should have 0 score
-      const scoreC = fused.find((r) => r.id === 'C')!.score;
-      const scoreD = fused.find((r) => r.id === 'D')!.score;
-      expect(scoreC).toBe(0);
-      expect(scoreD).toBe(0);
-
-      // Dense results should still have scores
-      const scoreA = fused.find((r) => r.id === 'A')!.score;
-      expect(scoreA).toBeGreaterThan(0);
-    });
-  });
-
   describe('edge cases', () => {
     it('should handle empty dense results', () => {
       const denseResults: SearchResultWithContext[] = [];
@@ -347,38 +307,6 @@ describe('computeRRF', () => {
       // Should complete in reasonable time (< 100ms for pure function)
       // 500ms threshold gives headroom for slow CI runners (actual: <10ms)
       expect(elapsed).toBeLessThan(500);
-    });
-
-    it('should handle negative weights correctly', () => {
-      const denseResults = createMockResults(['A']);
-      const bm25Results = createMockResults(['B']);
-
-      // Negative weight - unusual but should not crash
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: -1, bm25: 1 },
-      });
-
-      expect(fused.length).toBe(2);
-      // Dense result should have negative score
-      const scoreA = fused.find(r => r.id === 'A')!.score;
-      expect(scoreA).toBeLessThan(0);
-    });
-
-    it('should handle zero weights for both sources', () => {
-      const denseResults = createMockResults(['A', 'B']);
-      const bm25Results = createMockResults(['C', 'D']);
-
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: 0, bm25: 0 },
-      });
-
-      expect(fused.length).toBe(4);
-      // All scores should be 0
-      fused.forEach(result => {
-        expect(result.score).toBe(0);
-      });
     });
 
     it('should handle single result in dense only', () => {
@@ -839,7 +767,7 @@ describe('createFusionService', () => {
       rerank: false,
     }, {
       denseOptions: { dimensions: 1024 },
-      fusionConfig: { k: 30, weights: { dense: 1.5, bm25: 0.8 } },
+      fusionConfig: { k: 30 },
     });
 
     expect(service).toBeInstanceOf(FusionService);

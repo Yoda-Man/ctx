@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`ordering = "chronological"` gave relevance order.** It sorted by
+  `documentId` and `startIndex`, which ctx's chunks never have, so every
+  chunk tied. It now falls back to each chunk's file path and start line.
+
+### Removed
+- RRF weights (`fusionConfig.weights`): nothing set them, so both searches
+  always counted equally. Fusion behaves exactly as before.
+- A QueryEnhancer step in the RAG engine's architecture diagram; the stage
+  was removed in 1.0.0.
+
 ## [1.3.1] - 2026-11-06
 
 The first npm release of the 1.3.0 changes below: the 1.3.0 tag and GitHub

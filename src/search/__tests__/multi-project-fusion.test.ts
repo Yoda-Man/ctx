@@ -754,7 +754,6 @@ describe('MultiProjectFusionService', () => {
       const service = new MultiProjectFusionService({
         fusionConfig: {
           k: 30,
-          weights: { dense: 1.2, bm25: 0.8 },
         },
       });
       expect(service).toBeDefined();
