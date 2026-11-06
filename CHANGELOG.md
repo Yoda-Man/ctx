@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-06
+
+### Changed
+- **Re-index your projects after upgrading** (`ctx index <path> --force`):
+  BGE embeddings now use the pooling the model was trained with (see Fixed),
+  so vectors in older indexes no longer match new queries.
+- **Keyword search splits camelCase.** `getUserById` is indexed as the whole
+  word and as `get`, `user`, `by`, `id`, so "get user by id" finds it too.
+  The exact identifier still matches. No re-index needed for this: the
+  keyword index is built when a search starts.
+
+### Fixed
+- **BGE models were mean-pooled.** BAAI trained bge-large-en-v1.5 to use the
+  first ([CLS]) token (its `1_Pooling/config.json`); ctx averaged all tokens.
+  BGE models now use CLS pooling; other models keep mean pooling.
+- **The token budget dropped the wrong chunks.** It ran after sandwich
+  ordering, which puts the 4th and 5th best chunks last, so those were cut
+  first. The budget now keeps the most relevant chunks, and the ordering is
+  applied to what fits.
+- **`minScore` was checked against three different scales.** It was passed to
+  the vector search (cosine), the keyword search (BM25 scaled to its best hit)
+  and then the fused score. It now applies to the fused 0-1 score only.
+- **File-type and language filters ran after the keyword search's top-k
+  cut**, so a filtered keyword search could come back short or empty. They
+  now filter before ranking, as the vector search already did.
+
+### Measured
+- On the fixture eval (`fixtures/eval`, 8 questions over 8 files, real BGE
+  model), 1.3.0 scores the same as 1.2.0: MRR 0.94, recall 0.94, NDCG 0.91,
+  hit rate 1.0. The set is too small to show an improvement; it shows none of
+  these changes moved an expected file out of the top 5.
+- Not changed: each search still returns only the final top-k before fusion.
+  Fetching 50 from each was tried and lost an expected file on the fixture
+  (recall 0.94 to 0.88): with deep lists, chunks ranked low by both searches
+  outscore one ranked first by one.
+
 ## [1.2.0] - 2026-10-30
 
 ### Added

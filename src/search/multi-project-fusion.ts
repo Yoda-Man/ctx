@@ -208,11 +208,12 @@ export class MultiProjectFusionService {
     } = options;
 
     // Build search options for both managers
-    // Over-fetch to improve RRF quality - more candidates = better ranking
+    // Over-fetch to improve RRF quality - more candidates = better ranking.
+    // minScore applies to the fused score only: cosine and BM25 scores are
+    // on other scales.
     const searchOptions = {
       topKPerProject,
       topK: topKPerProject * Math.max(this.vectorManager.loadedProjectCount, 1),
-      minScore,
       fileType,
       language,
     };

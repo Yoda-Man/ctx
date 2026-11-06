@@ -50,6 +50,14 @@ type TransformersPipeline = (
 /** Default HuggingFace model for embeddings */
 const DEFAULT_MODEL = 'Xenova/bge-large-en-v1.5';
 
+/**
+ * Pooling a model was trained with. BGE models use the [CLS] token (their
+ * 1_Pooling/config.json sets pooling_mode_cls_token); sentence-transformers
+ * models such as all-MiniLM use the mean of all tokens.
+ */
+export const poolingFor = (model: string): 'cls' | 'mean' =>
+  /(^|\/)bge-/i.test(model) ? 'cls' : 'mean';
+
 /** Default dimensions for BGE-large model */
 const DEFAULT_DIMENSIONS = 1024;
 
@@ -184,7 +192,7 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
     try {
       // Run inference
       const output = await pipe(text, {
-        pooling: 'mean',
+        pooling: poolingFor(this.model),
         normalize: false, // Base class handles normalization
       });
 
@@ -219,7 +227,7 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
     try {
       // Run batch inference
       const output = await pipe(texts, {
-        pooling: 'mean',
+        pooling: poolingFor(this.model),
         normalize: false,
       });
 

@@ -332,4 +332,24 @@ describe('createAssembler', () => {
       expect(result.content).toContain('score=');
     });
   });
+  describe('token budget and ordering', () => {
+    it('drops the least relevant chunks, then orders what fits', async () => {
+      // Each chunk: 100 tokens of content + 25 of XML overhead; 4 fit in 520
+      const result = (rank: number) => ({
+        id: `c${rank}`,
+        chunk: { id: `c${rank}`, content: `word${rank} `.repeat(400 / 6).padEnd(400, '.'), metadata: {} },
+        score: 1 - rank / 10,
+        originalRank: rank,
+        newRank: rank,
+        scores: { originalScore: 1 - rank / 10, rerankerScore: 1 - rank / 10 },
+      });
+      const assembler = createAssembler({ maxTokens: 520, ordering: 'sandwich' });
+
+      const assembled = await assembler.assemble([1, 2, 3, 4, 5].map(result));
+
+      // Before: sandwich first ([1,2,3,5,4]), then the budget dropped 4th-ranked c4
+      expect(assembled.chunks.map((c) => c.id)).toEqual(['c1', 'c2', 'c4', 'c3']);
+      expect(assembled.droppedCount).toBe(1);
+    });
+  });
 });

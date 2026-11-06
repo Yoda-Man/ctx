@@ -604,6 +604,26 @@ describe('FusionService', () => {
       expect(results.length).toBeLessThanOrEqual(5);
     });
 
+    it('passes topK but not minScore to each search', async () => {
+      const { SearchService } = await import('../retriever.js');
+      const { BM25SearchService } = await import('../bm25-retriever.js');
+      const dense = vi.spyOn(SearchService.prototype, 'search').mockResolvedValue([]);
+      const bm25 = vi.spyOn(BM25SearchService.prototype, 'search').mockResolvedValue([]);
+      const denseInit = vi.spyOn(SearchService.prototype, 'ensureInitialized').mockResolvedValue();
+      const bm25Init = vi.spyOn(BM25SearchService.prototype, 'ensureInitialized').mockResolvedValue();
+
+      const service = createFusionService('test-project', createMockProvider(), {
+        top_k: 10,
+        rerank: false,
+      }, { denseOptions: { dimensions: 1024 } });
+      await service.search('database content', { topK: 5, minScore: 0.5 });
+
+      for (const spy of [dense, bm25]) {
+        expect(spy.mock.calls[0]![1]).toMatchObject({ topK: 5, minScore: undefined });
+      }
+      for (const spy of [dense, bm25, denseInit, bm25Init]) spy.mockRestore();
+    });
+
     it('should respect minScore option', async () => {
       const { getDb } = await import('../../database/connection.js');
 

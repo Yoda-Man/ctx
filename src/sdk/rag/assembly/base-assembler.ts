@@ -106,8 +106,8 @@ export abstract class BaseAssembler implements ContextAssembler {
    * 1. Validate input
    * 2. Apply topK limit
    * 3. Deduplicate similar chunks
-   * 4. Apply ordering strategy
-   * 5. Apply token budget
+   * 4. Apply token budget (in relevance order)
+   * 5. Apply ordering strategy to the chunks that fit
    * 6. Build source attributions
    * 7. Format output (delegated to subclass)
    *
@@ -136,11 +136,10 @@ export abstract class BaseAssembler implements ContextAssembler {
     working = deduplicationResult.unique;
     const deduplicatedCount = deduplicationResult.duplicates.length;
 
-    // Step 4: Apply ordering
-    const ordering = options?.ordering ?? this.config.ordering;
-    working = applyOrdering(working, ordering, this.config.sandwichStartCount);
-
-    // Step 5: Apply token budget
+    // Step 4: Apply token budget in relevance order, so the budget drops the
+    // least relevant chunks. Applied after ordering, it dropped whatever the
+    // ordering put last: for sandwich, the 4th and 5th best.
+    working = [...working].sort((a, b) => b.score - a.score);
     const maxTokens =
       options?.maxTokens ?? calculateTokenBudget(this.config.tokenBudget);
     const budgetResult = applyTokenBudget(
@@ -148,20 +147,23 @@ export abstract class BaseAssembler implements ContextAssembler {
       maxTokens,
       this.getFormattingOverhead()
     );
-
-    // Map back to results for chunks that were included
     const includedChunkIds = new Set(budgetResult.included.map((c) => c.id));
-    const includedResults = working.filter((r) =>
-      includedChunkIds.has(r.chunk.id)
+    const droppedCount = working.length - includedChunkIds.size;
+
+    // Step 5: Apply ordering to what fits
+    const ordering = options?.ordering ?? this.config.ordering;
+    const includedResults = applyOrdering(
+      working.filter((r) => includedChunkIds.has(r.chunk.id)),
+      ordering,
+      this.config.sandwichStartCount
     );
-    const droppedCount = working.length - includedResults.length;
 
     // Step 6: Build source attributions
     const sources = this.buildSourceAttributions(includedResults);
 
     // Step 7: Format output (delegated to subclass)
     const formattedContent = await this._format(
-      budgetResult.included,
+      includedResults.map((r) => r.chunk),
       sources,
       options
     );
@@ -184,7 +186,7 @@ export abstract class BaseAssembler implements ContextAssembler {
       deduplicatedCount,
       droppedCount,
       sources,
-      chunks: budgetResult.included,
+      chunks: includedResults.map((r) => r.chunk),
     };
   };
 
