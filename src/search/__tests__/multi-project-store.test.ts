@@ -68,7 +68,7 @@ function createMockProject(
     embedding_model: options.embeddingModel ?? 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: options.embeddingDimensions ?? 1024,
     description: null,
-    index_version: 2,
+    index_version: 3,
   };
 }
 

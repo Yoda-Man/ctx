@@ -117,7 +117,7 @@ function createMockProject(): Project {
     config: null,
     embedding_model: null,
     embedding_dimensions: 1024,
-    index_version: 2,
+    index_version: 3,
   };
 }
 

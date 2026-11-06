@@ -7,10 +7,11 @@
  * indexes are built from the stored chunks when a search starts.
  *
  * History:
- * - none: indexed before ctx recorded a version (before 1.3.2)
+ * - none: indexed before ctx recorded a version
  * - 2: 1.3.0, BGE vectors use CLS pooling (were mean-pooled)
+ * - 3: Go and Rust files are split by top-level item (were split by size)
  */
-export const INDEX_VERSION = 2;
+export const INDEX_VERSION = 3;
 
 /**
  * Why a project's index is stale, or null if it is current.

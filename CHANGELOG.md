@@ -13,9 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chatting or evaluating a project built by an older format prints a warning
   with the exact re-index command, and `ctx check` lists it as a warning.
   Projects indexed before this release have no recorded version, so they get
-  the warning once until re-indexed, including ones already re-indexed for
-  1.3.0. Only a finished index records the version: editing a project's
-  description or tags does not.
+  the warning until re-indexed, including ones already re-indexed for 1.3.0.
+  Only a finished index records the version: editing a project's description
+  or tags does not.
+- **Go and Rust are split by tree-sitter**, like TypeScript, JavaScript and
+  Python: each func, method, type, struct, enum, trait or impl is a chunk
+  with its doc comments and `#[...]` attributes, and the code between them
+  (imports, consts) is indexed too. They were split by size. Re-index Go and
+  Rust projects (index version 3). Install now needs `tree-sitter-go` and
+  `tree-sitter-rust` in the `--allow-scripts` list (see the README).
 
 ### Fixed
 - **Windows:**
