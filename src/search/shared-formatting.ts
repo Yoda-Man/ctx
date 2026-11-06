@@ -13,7 +13,7 @@ import type { SearchResultWithContext, SearchQueryOptions } from './types.js';
  * Format a retriever result chunk into our standard result format.
  *
  * This is the SINGLE source of truth for converting raw retrieval results
- * (from DenseRetriever or BM25Retriever) into SearchResultWithContext objects.
+ * (from DenseRetriever or FtsRetriever) into SearchResultWithContext objects.
  *
  * Both SearchService and BM25SearchService use this to ensure consistent
  * result structure across all search types.

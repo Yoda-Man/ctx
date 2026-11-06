@@ -190,13 +190,10 @@ describe('MultiProjectFusionService', () => {
         },
         undefined
       );
-      expect(mockBM25Manager.loadRetrievers).toHaveBeenCalledWith(
-        {
-          projectIds: ['proj-1', 'proj-2'],
-          bm25Config: undefined,
-        },
-        undefined
-      );
+      // Keyword search has nothing to load or report progress on
+      expect(mockBM25Manager.loadRetrievers).toHaveBeenCalledWith({
+        projectIds: ['proj-1', 'proj-2'],
+      });
     });
 
     it('should pass all options to managers', async () => {
@@ -207,7 +204,6 @@ describe('MultiProjectFusionService', () => {
       await service.loadProjects({
         projectIds: ['proj-1'],
         dimensions: 768,
-        bm25Config: { k1: 1.5, b: 0.8 },
       });
 
       expect(mockVectorManager.loadStores).toHaveBeenCalledWith(
@@ -217,10 +213,7 @@ describe('MultiProjectFusionService', () => {
         undefined
       );
       expect(mockBM25Manager.loadRetrievers).toHaveBeenCalledWith(
-        expect.objectContaining({
-          bm25Config: { k1: 1.5, b: 0.8 },
-        }),
-        undefined
+        expect.objectContaining({ projectIds: ['proj-1'] })
       );
     });
 
@@ -277,12 +270,8 @@ describe('MultiProjectFusionService', () => {
         onProgress
       );
 
-      // Progress callback should be passed to both managers
+      // Vector stores report loading progress; keyword search loads nothing
       expect(mockVectorManager.loadStores).toHaveBeenCalledWith(
-        expect.anything(),
-        onProgress
-      );
-      expect(mockBM25Manager.loadRetrievers).toHaveBeenCalledWith(
         expect.anything(),
         onProgress
       );
@@ -754,7 +743,6 @@ describe('MultiProjectFusionService', () => {
       const service = new MultiProjectFusionService({
         fusionConfig: {
           k: 30,
-          weights: { dense: 1.2, bm25: 0.8 },
         },
       });
       expect(service).toBeDefined();

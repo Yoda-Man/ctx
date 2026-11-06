@@ -97,10 +97,9 @@ export class MultiProjectFusionService {
     this.vectorManager = getMultiProjectVectorStoreManager();
     this.bm25Manager = getMultiProjectBM25StoreManager();
 
-    // Configure RRF fusion (defaults to k=60, equal weights)
+    // Configure RRF fusion (defaults to k=60)
     this.fusionConfig = {
       k: config.fusionConfig?.k ?? DEFAULT_RRF_K,
-      weights: config.fusionConfig?.weights,
     };
 
     // Configure reranking (disabled by default)
@@ -148,7 +147,7 @@ export class MultiProjectFusionService {
     options: MultiProjectFusionLoadOptions,
     onProgress?: (progress: MultiProjectLoadProgress) => void
   ): Promise<void> {
-    const { projectIds, dimensions, bm25Config } = options;
+    const { projectIds, dimensions } = options;
 
     // Validate embedding compatibility for cross-project search (2+ projects)
     // This is a fail-fast check before we start loading any stores
@@ -166,7 +165,7 @@ export class MultiProjectFusionService {
         { projectIds, dimensions },
         onProgress
       ),
-      this.bm25Manager.loadRetrievers({ projectIds, bm25Config }, onProgress),
+      this.bm25Manager.loadRetrievers({ projectIds }),
     ];
 
     // Warmup reranker in parallel if enabled

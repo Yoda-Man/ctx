@@ -13,6 +13,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
+import { resolve } from 'node:path';
 import { createIndexCommand } from '../index.js';
 import type { CommandContext } from '../../types.js';
 
@@ -237,7 +238,8 @@ describe('createIndexCommand', () => {
       // Check that runIndexPipeline was called with an absolute path
       expect(indexer.runIndexPipeline).toHaveBeenCalledWith(
         expect.objectContaining({
-          projectPath: expect.stringMatching(/^\/.*my-project$/),
+          // Absolute on every platform (C:\... on Windows, /... elsewhere)
+          projectPath: resolve('./my-project'),
         })
       );
     });

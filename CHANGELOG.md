@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Keyword search runs in SQLite FTS5.** Each process used to load every
+  chunk of a project and build a BM25 index in memory on its first search.
+  On synthetic projects that build took 1.2 s at 25,000 chunks and 12.4 s at
+  200,000, most of the 1.5 s and 15 s spent loading a project for search
+  (which then held 0.5 and 3.5 GB, vectors included). Each chunk's tokens now sit in an FTS5
+  index (`chunks_fts`, migration 008), kept current by triggers on every
+  insert, re-index swap, update and delete, so a search starts at once.
+  Upgrading needs no re-index: the migration fills the index from the chunks
+  already stored. Tokens come from ctx's own tokenizer on both sides
+  (`ctx_tokens()` SQL function), so camelCase splitting is unchanged.
+  Scoring is FTS5's `bm25()` with the same k1 = 1.2 and b = 0.75, with two
+  differences: term rarity (IDF) is counted over all indexed projects, not
+  one, and a term in half or more of all chunks adds almost nothing (FTS5
+  floors its IDF at 1e-6; ctx's formula kept a small positive weight).
+  A manual `VACUUM` can renumber the rowids the index is keyed on; ctx never
+  runs one.
+
+### Added
+- **Stale index warnings.** Each project now records the index format it was
+  built with (`index_version`, new migration 007). Searching, asking,
+  chatting or evaluating a project built by an older format prints a warning
+  with the exact re-index command, and `ctx check` lists it as a warning.
+  Projects indexed before this release have no recorded version, so they get
+  the warning until re-indexed, including ones already re-indexed for 1.3.0.
+  Only a finished index records the version: editing a project's description
+  or tags does not.
+- **A real-model eval over ctx's own source.** `fixtures/eval/ctx-source-golden.json`
+  has 56 questions (exact names, paraphrases, docs), each checked against the
+  files that answer it; `npx tsx scripts/eval-source.ts` indexes this
+  repository (180 files, 1,529 chunks) in a temporary home and scores it.
+  The 8-question fixture scores 0.94 MRR and could not show a change either
+  way; this set scores MRR 0.53, hit rate 0.75, recall 0.72, NDCG 0.56 at
+  the time of writing, so it has room to show both gains and losses.
+  Questions named by an exact identifier score MRR 0.81; paraphrased ones
+  0.43. CHANGELOG.md, which describes most features in plain words, often
+  takes a top-5 place. A test fails if a file the set names is renamed or
+  removed. Relevance is still judged by file, not by chunk.
+- **Go and Rust are split by tree-sitter**, like TypeScript, JavaScript and
+  Python: each func, method, type, struct, enum, trait or impl is a chunk
+  with its doc comments and `#[...]` attributes, and the code between them
+  (imports, consts) is indexed too. They were split by size. Re-index Go and
+  Rust projects (index version 3). Install now needs `tree-sitter-go` and
+  `tree-sitter-rust` in the `--allow-scripts` list (see the README).
+
+### Fixed
+- **Windows:**
+  - Tab completion of folders in `ctx chat` (`/index`) recognised only `/`
+    after a folder name and `~/` for the home folder: `C:\code\` and `~\code`
+    now complete too, and completions end with the platform's separator.
+  - Scanned file paths kept fast-glob's forward slashes (`C:/code/x.ts`);
+    they now use the platform's separators.
+  - All 1,852 tests pass on Windows; 14 used to fail because tests assumed `/`-rooted
+    paths, a POSIX shell, and that a folder can be deleted while a database
+    in it is open. CI now runs the suite on Windows as well as Linux.
+- **`ordering = "chronological"` gave relevance order.** It sorted by
+  `documentId` and `startIndex`, which ctx's chunks never have, so every
+  chunk tied. It now falls back to each chunk's file path and start line.
+
+### Removed
+- The in-memory `BM25Retriever` (about 290 lines) and the BM25 `k1`/`b`
+  options, which no command or config set. Only its tokenizer remains.
+- RRF weights (`fusionConfig.weights`): nothing set them, so both searches
+  always counted equally. Fusion behaves exactly as before.
+- A QueryEnhancer step in the RAG engine's architecture diagram; the stage
+  was removed in 1.0.0.
+
 ## [1.3.1] - 2026-11-06
 
 The first npm release of the 1.3.0 changes below: the 1.3.0 tag and GitHub

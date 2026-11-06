@@ -38,6 +38,7 @@ export type {
 
 // Utility functions
 export { generateId, embeddingToBlob, blobToEmbedding } from './schema.js';
+export { INDEX_VERSION, staleIndexReason } from './index-version.js';
 
 // High-level database operations
 export {

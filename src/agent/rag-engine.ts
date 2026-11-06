@@ -12,14 +12,12 @@
  * ┌─────────────────────────────────────────────────────────────────┐
  * │  RAGEngineImpl (SDK Orchestrator)                               │
  * │    │                                                            │
- * │    ├── [Optional] QueryEnhancer (rewrite/expand query)          │
- * │    │                                                            │
  * │    ├── FusionServiceAdapter ─────────────────────────┐          │
  * │    │                                                 │          │
  * │    │   ┌─────────────────────────────────────────────▼────────┐ │
  * │    │   │  FusionService (existing infrastructure)             │ │
  * │    │   │    ├── DenseRetriever (vector search)                │ │
- * │    │   │    ├── BM25Retriever (keyword search)                │ │
+ * │    │   │    ├── FtsRetriever (keyword search, SQLite FTS5)    │ │
  * │    │   │    ├── RRF Fusion (combine results)                  │ │
  * │    │   │    └── [Optional] BGE Reranker                       │ │
  * │    │   └──────────────────────────────────────────────────────┘ │

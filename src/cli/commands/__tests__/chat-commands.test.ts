@@ -40,7 +40,7 @@ vi.mock('../../../indexer/embedder/index.js', async (importOriginal) => {
 });
 
 const { parseREPLCommand } = await import('../chat-commands.js');
-const { getDatabase, runMigrations, getDb } = await import('../../../database/index.js');
+const { getDatabase, runMigrations, getDb, closeDb } = await import('../../../database/index.js');
 const { createRAGEngine } = await import('../../../agent/rag-engine.js');
 const { RAGEngineError, RAGErrorCodes } = await import('../../../agent/types.js');
 const { createEmbeddingProvider } = await import('../../../indexer/embedder/index.js');
@@ -50,6 +50,8 @@ import type { CommandContext } from '../../types.js';
 
 const scratch = mkdtempSync(join(tmpdir(), 'ctx-chat-projects-'));
 afterAll(() => {
+  // Windows cannot delete a folder holding an open file: close the database first
+  closeDb();
   rmSync(scratch, { recursive: true, force: true });
   rmSync((globalThis as Record<string, unknown>).__chatCommandsRoot as string, { recursive: true, force: true });
 });

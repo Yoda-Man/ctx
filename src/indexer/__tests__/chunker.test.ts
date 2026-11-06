@@ -47,9 +47,14 @@ describe('Code Extractor', () => {
       expect(isLanguageSupported('python')).toBe(true);
     });
 
+    it('should support Go and Rust', () => {
+      expect(isLanguageSupported('go')).toBe(true);
+      expect(isLanguageSupported('rust')).toBe(true);
+    });
+
     it('should not support unsupported languages', () => {
-      expect(isLanguageSupported('rust')).toBe(false);
-      expect(isLanguageSupported('go')).toBe(false);
+      expect(isLanguageSupported('java')).toBe(false);
+      expect(isLanguageSupported('ruby')).toBe(false);
     });
   });
 
@@ -312,11 +317,87 @@ def calculate(x, y):
     });
 
     it('other languages: keeps the code, not only the comments', () => {
-      const code = '/* Entry point */\nfn main() {\n    println!("Hello, Rust!");\n}';
+      const code = '/* Entry point */\nclass Main {\n    void run() {}\n}';
+
+      const { segments } = extractCodeSegments(code, 'java');
+
+      expectFullCoverage(code, segments);
+    });
+
+    it('Go and Rust: every line once', () => {
+      const go = 'package main\n\nimport "fmt"\n\n// Greet says hello.\nfunc Greet() {\n\tfmt.Println("hi")\n}\n\nconst Max = 3\n';
+      expectFullCoverage(go, extractCodeSegments(go, 'go').segments);
+
+      const rust = 'use std::fmt;\n\n/// A point.\n#[derive(Debug)]\nstruct Point { x: i32 }\n\nimpl Point {\n    fn new() -> Self { Point { x: 0 } }\n}\n\nconst MAX: i32 = 3;\n';
+      expectFullCoverage(rust, extractCodeSegments(rust, 'rust').segments);
+    });
+  });
+
+  describe('extractCodeSegments - Go', () => {
+    it('splits funcs, methods and types, with their doc comments', () => {
+      const code = [
+        'package shapes',
+        '',
+        'import "math"',
+        '',
+        '// Circle is a round shape.',
+        'type Circle struct {',
+        '\tR float64',
+        '}',
+        '',
+        '// Area returns the area.',
+        'func (c Circle) Area() float64 {',
+        '\treturn math.Pi * c.R * c.R',
+        '}',
+        '',
+        'func New(r float64) Circle { return Circle{R: r} }',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'go');
+
+      expect(segments.map((s) => [s.metadata.symbolType, s.metadata.symbolName])).toEqual([
+        ['module', undefined],
+        ['type', 'Circle'],
+        ['function', 'Area'],
+        ['function', 'New'],
+      ]);
+      expect(segments[1]!.content.startsWith('// Circle is a round shape.')).toBe(true);
+      expect(segments[2]!.content.startsWith('// Area returns the area.')).toBe(true);
+    });
+  });
+
+  describe('extractCodeSegments - Rust', () => {
+    it('splits items, keeping doc comments and attributes with them', () => {
+      const code = [
+        'use std::fmt;',
+        '',
+        '/// A point in 2D.',
+        '#[derive(Debug, Clone)]',
+        'pub struct Point {',
+        '    x: i32,',
+        '}',
+        '',
+        'impl fmt::Display for Point {',
+        '    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.x) }',
+        '}',
+        '',
+        'pub trait Shape {',
+        '    fn area(&self) -> f64;',
+        '}',
+        '',
+        'pub fn origin() -> Point { Point { x: 0 } }',
+      ].join('\n');
 
       const { segments } = extractCodeSegments(code, 'rust');
 
-      expectFullCoverage(code, segments);
+      expect(segments.map((s) => [s.metadata.symbolType, s.metadata.symbolName])).toEqual([
+        ['module', undefined],
+        ['type', 'Point'],
+        ['class', 'Point'],
+        ['interface', 'Shape'],
+        ['function', 'origin'],
+      ]);
+      expect(segments[1]!.content.startsWith('/// A point in 2D.\n#[derive(Debug, Clone)]')).toBe(true);
     });
   });
 
@@ -324,12 +405,12 @@ def calculate(x, y):
     it('keeps the whole file for unsupported languages', () => {
       const code = `
 /* This is a block comment */
-fn main() {
-    println!("Hello, Rust!");
+class Main {
+    void run() {}
 }
 `;
 
-      const result = extractCodeSegments(code, 'rust');
+      const result = extractCodeSegments(code, 'java');
 
       // It used to keep only the comment and drop the code
       expect(result.segments).toHaveLength(1);

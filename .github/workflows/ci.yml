@@ -13,13 +13,18 @@ concurrency:
 
 jobs:
   test:
-    name: Test (Node ${{ matrix.node-version }})
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         node-version: [24, 26]
+        # Windows paths, shells and file locking differ: run the suite there too
+        include:
+          - os: windows-latest
+            node-version: 24
 
     steps:
       - name: Checkout repository

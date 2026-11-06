@@ -15,7 +15,7 @@
  */
 
 import { readdirSync, statSync } from 'node:fs';
-import { dirname, basename, join } from 'node:path';
+import { dirname, basename, join, sep } from 'node:path';
 import { homedir } from 'node:os';
 
 /**
@@ -46,7 +46,8 @@ const SKIP_DIRECTORIES = new Set([
  * @returns Path with ~ expanded to home directory
  */
 export function expandTilde(path: string): string {
-  if (path.startsWith('~/')) {
+  // ~\ too: on Windows both separators work
+  if (path.startsWith('~/') || path.startsWith(`~${sep}`)) {
     return join(homedir(), path.slice(2));
   }
   if (path === '~') {
@@ -63,7 +64,7 @@ export function expandTilde(path: string): string {
  */
 export function contractTilde(path: string): string {
   const home = homedir();
-  if (path.startsWith(home + '/')) {
+  if (path.startsWith(home + '/') || path.startsWith(home + sep)) {
     return '~' + path.slice(home.length);
   }
   if (path === home) {
@@ -114,7 +115,7 @@ export function completeDirectoryPath(partial: string): string[] {
   let displayPrefix: string;
 
   // Check if the partial path ends with a slash (user wants contents of that dir)
-  if (partial.endsWith('/')) {
+  if (partial.endsWith('/') || partial.endsWith(sep)) {
     searchDir = expanded;
     prefix = '';
     displayPrefix = partial;
@@ -129,7 +130,7 @@ export function completeDirectoryPath(partial: string): string[] {
   const matches = listDirectories(searchDir, prefix, displayPrefix);
 
   // If we had tilde, ensure output preserves it
-  if (hadTilde && !partial.endsWith('/')) {
+  if (hadTilde && !partial.endsWith('/') && !partial.endsWith(sep)) {
     return matches.map((m) => {
       // The displayPrefix already has the tilde if it was in the input
       return m;
@@ -170,7 +171,7 @@ function listDirectories(
 
       // Check if name matches prefix (case-insensitive)
       if (entry.name.toLowerCase().startsWith(lowerPrefix)) {
-        matches.push(displayPrefix + entry.name + '/');
+        matches.push(displayPrefix + entry.name + sep);
       }
 
       // Stop if we have enough matches

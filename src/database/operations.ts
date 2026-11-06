@@ -14,6 +14,7 @@
 import type Database from 'better-sqlite3';
 import { getDb, getDbFileSize } from './connection.js';
 import { embeddingToBlob, generateId } from './schema.js';
+import { INDEX_VERSION } from './index-version.js';
 import type { Project } from './schema.js';
 import {
   ProjectRowSchema,
@@ -185,15 +186,19 @@ export class DatabaseOperations {
       UPDATE projects
       SET file_count = @fileCount,
           chunk_count = @chunkCount,
-          updated_at = @now
+          updated_at = @now,
+          index_version = @indexVersion
       WHERE id = @id
     `);
 
+    // Only a finished index records the version, so editing a project's
+    // description or tags never marks a stale index as current.
     stmt.run({
       id: projectId,
       fileCount: stats.fileCount,
       chunkCount: stats.chunkCount,
       now: new Date().toISOString(),
+      indexVersion: INDEX_VERSION,
     });
   }
 

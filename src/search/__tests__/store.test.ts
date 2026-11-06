@@ -153,7 +153,7 @@ describe('VectorStoreManager', () => {
       expect(store1).toBe(store2);
 
       // Database should only be queried once
-      expect(mockDb.prepare).toHaveBeenCalledTimes(2); // COUNT + SELECT
+      expect(mockDb.prepare).toHaveBeenCalledTimes(3); // index version + COUNT + SELECT
     });
 
     it('should handle concurrent initialization requests', async () => {

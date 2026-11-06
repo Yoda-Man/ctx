@@ -58,6 +58,7 @@ describe('createCheckCommand', () => {
     embedding_model: 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: 1024,
     description: 'Test project for unit tests',
+    index_version: 3,
   };
 
   beforeEach(() => {
@@ -274,6 +275,23 @@ describe('createCheckCommand', () => {
     it('does not set exit code for warnings only', async () => {
       await runCheck('test-project');
       expect(process.exitCode).toBeUndefined();
+    });
+  });
+
+  describe('index version (warning)', () => {
+    it('warns when the index was built by an older ctx', async () => {
+      mockDb.prepare = vi.fn((sql: string) => {
+        if (sql.includes('file_hashes')) return { all: vi.fn().mockReturnValue([]) };
+        return { get: vi.fn().mockReturnValue({ ...mockProject, index_version: null }) };
+      });
+      mockContext.options.json = true;
+      await runCheck('test-project');
+
+      const output = JSON.parse(consoleLogSpy.mock.calls[0]![0] as string);
+      expect(output.ready).toBe(true); // a warning does not block
+      expect(output.issues).toEqual([
+        expect.objectContaining({ severity: 'warning', message: expect.stringContaining('older ctx') }),
+      ]);
     });
   });
 
