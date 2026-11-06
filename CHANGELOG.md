@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-11-06
+
 ### Changed
 - **Vector search runs in SQLite.** The sqlite-vec extension (new dependency,
   prebuilt for Linux and macOS on x64 and arm64 and Windows on x64; no
