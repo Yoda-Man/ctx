@@ -156,6 +156,7 @@ export class FusionService {
   private readonly bm25Service: BM25SearchService;
   private readonly rerankerService: RerankerService | null = null;
   private readonly shouldRerank: boolean;
+  private readonly defaultTopK: number;
   private initialized = false;
 
   constructor(
@@ -176,6 +177,7 @@ export class FusionService {
     }
 
     this.projectId = projectId;
+    this.defaultTopK = searchConfig.top_k;
     this.fusionConfig = {
       k: options.fusionConfig?.k ?? DEFAULT_RRF_K,
       weights: options.fusionConfig?.weights,
@@ -214,10 +216,16 @@ export class FusionService {
     // Ensure all services are initialized (including reranker warmup)
     await this.ensureInitialized();
 
-    // Run both searches in parallel for performance
+    const topK = options?.topK ?? this.defaultTopK;
+
+    // minScore is not passed down: cosine and BM25 scores are on other scales
+    // from the fused 0-1 score. Each search returns topK, not more: deeper
+    // lists (50) let chunks ranked low in both outscore one ranked first in
+    // one, and the fixture eval lost an expected file (recall 0.94 -> 0.88).
+    const candidateOptions = { ...options, topK, minScore: undefined };
     const [denseResults, bm25Results] = await Promise.all([
-      this.denseService.search(query, options),
-      this.bm25Service.search(query, options),
+      this.denseService.search(query, candidateOptions),
+      this.bm25Service.search(query, candidateOptions),
     ]);
 
     // Fuse results using RRF
@@ -226,7 +234,6 @@ export class FusionService {
     // Apply reranking if enabled
     // Reranker takes top N candidates (default 50) and returns top K after reranking
     if (this.shouldRerank && this.rerankerService) {
-      const topK = options?.topK ?? 10;
       fusedResults = await this.rerankerService.rerank(query, fusedResults, topK);
     }
 
@@ -235,12 +242,7 @@ export class FusionService {
       fusedResults = fusedResults.filter((r) => r.score >= options.minScore!);
     }
 
-    // Apply topK limit (reranker already limits if enabled, but this handles non-reranked case)
-    if (options?.topK !== undefined && !this.shouldRerank) {
-      fusedResults = fusedResults.slice(0, options.topK);
-    }
-
-    return fusedResults;
+    return fusedResults.slice(0, topK);
   }
 
   /**

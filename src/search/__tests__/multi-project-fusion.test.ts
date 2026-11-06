@@ -499,11 +499,13 @@ describe('MultiProjectFusionService', () => {
         expect.any(Array),
         expect.objectContaining({
           topKPerProject: 30,
-          minScore: 0.5,
           fileType: 'code',
           language: 'typescript',
         })
       );
+      // minScore is on the fused scale: it is not passed to either search
+      expect(mockVectorManager.search.mock.calls[0]![1]).not.toHaveProperty('minScore');
+      expect(mockBM25Manager.search.mock.calls[0]![1]).not.toHaveProperty('minScore');
     });
   });
 

@@ -16,7 +16,7 @@ vi.mock('../../transformers.js', async (importOriginal) => {
   };
 });
 
-import { HuggingFaceEmbeddingProvider } from '../huggingface-provider.js';
+import { HuggingFaceEmbeddingProvider, poolingFor } from '../huggingface-provider.js';
 import { EmbeddingError } from '../errors.js';
 import { loadTransformers, withModelDownloadLock } from '../../transformers.js';
 
@@ -45,13 +45,13 @@ describe('HuggingFaceEmbeddingProvider', () => {
     expect(new HuggingFaceEmbeddingProvider({ dimensions: 384, batchSize: 8 })).toMatchObject({ dimensions: 384, maxBatchSize: 8 });
   });
 
-  it('loads the q8 feature-extraction model under the download lock and mean-pools without normalising', async () => {
+  it('loads the q8 feature-extraction model under the download lock and CLS-pools (BGE) without normalising', async () => {
     const onProgress = vi.fn();
     const result = await ctxProvider(onProgress).embed('hello');
 
     expect(withModelDownloadLock).toHaveBeenCalledWith(MODEL, expect.any(Function));
     expect(hf.pipeline).toHaveBeenCalledWith('feature-extraction', MODEL, { dtype: 'q8', progress_callback: onProgress });
-    expect(pipe).toHaveBeenCalledWith('hello', { pooling: 'mean', normalize: false });
+    expect(pipe).toHaveBeenCalledWith('hello', { pooling: 'cls', normalize: false });
     expect(result.model).toBe(MODEL);
     expect(result.tokenCount).toBe(2); // ceil(5 / 4)
     // [15, 20] L2-normalised by the base class
@@ -133,12 +133,21 @@ describe('HuggingFaceEmbeddingProvider', () => {
   });
 });
 
+describe('poolingFor', () => {
+  it('CLS for BGE models, mean for the rest', () => {
+    expect(poolingFor('Xenova/bge-large-en-v1.5')).toBe('cls');
+    expect(poolingFor('BAAI/bge-small-en-v1.5')).toBe('cls');
+    expect(poolingFor('Xenova/all-MiniLM-L6-v2')).toBe('mean');
+    expect(poolingFor('nomic-embed-text')).toBe('mean');
+  });
+});
+
 describe('HuggingFaceEmbeddingProvider.embedBatch', () => {
   it('runs one inference for the batch and keeps input order', async () => {
     const results = await ctxProvider().embedBatch(['a', 'bbbbb', 'cc']);
 
     expect(pipe).toHaveBeenCalledTimes(1);
-    expect(pipe).toHaveBeenCalledWith(['a', 'bbbbb', 'cc'], { pooling: 'mean', normalize: false });
+    expect(pipe).toHaveBeenCalledWith(['a', 'bbbbb', 'cc'], { pooling: 'cls', normalize: false });
     expect(results.map((r) => r.tokenCount)).toEqual([1, 2, 1]);
     for (const r of results) {
       expect(r.embedding[0]).toBeCloseTo(0.6, 6);

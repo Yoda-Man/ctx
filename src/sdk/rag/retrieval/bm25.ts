@@ -37,21 +37,29 @@ const DEFAULT_MAX_DOC_FREQ_RATIO = 1.0;
 // Tokenization
 // ============================================================================
 
+/** Boundaries inside a camelCase or PascalCase word: getUser|By|Id, HTTP|Server. */
+const CAMEL_BOUNDARY = /(?<=\p{Ll})(?=\p{Lu})|(?<=\p{Lu})(?=\p{Lu}\p{Ll})/u;
+
 /**
  * Default tokenizer: lowercase, split on whitespace and punctuation.
+ *
+ * A camelCase word gives the whole word and its parts (getUserById →
+ * getuserbyid, get, user, by, id), so both the exact identifier and a query
+ * that spells it out in words can match.
  *
  * This is a simple but effective tokenizer for English text.
  * For production use with other languages, consider providing a custom tokenizer.
  */
-const defaultTokenizer = (text: string): string[] => {
-  return text
-    .toLowerCase()
-    // Replace punctuation and non-alphanumeric with spaces
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    // Split on whitespace
-    .split(/\s+/)
-    // Filter empty strings and very short tokens
-    .filter((token) => token.length >= 2);
+export const defaultTokenizer = (text: string): string[] => {
+  const tokens: string[] = [];
+  // Split on punctuation and non-alphanumeric characters
+  for (const word of text.split(/[^\p{L}\p{N}]+/u)) {
+    const parts = word.split(CAMEL_BOUNDARY);
+    if (parts.length > 1) tokens.push(word.toLowerCase());
+    for (const part of parts) tokens.push(part.toLowerCase());
+  }
+  // Filter empty strings and very short tokens
+  return tokens.filter((token) => token.length >= 2);
 };
 
 // ============================================================================
@@ -265,8 +273,15 @@ export class BM25Retriever implements Retriever {
     }
 
     // Score each candidate document
+    // Filter before ranking, as the vector store does: filtering after the
+    // topK cut could leave few or no results. Equality conditions only.
+    const filter = options.filter ? Object.entries(options.filter) : [];
+
     for (const docId of candidateDocs) {
       const doc = this.documents.get(docId)!;
+      if (!filter.every(([key, value]) => doc.chunk.metadata?.[key] === value)) {
+        continue;
+      }
       let score = 0;
 
       for (const term of queryTerms) {
