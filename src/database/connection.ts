@@ -8,6 +8,7 @@
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { CTX_DIR, DB_PATH, getCtxDir, getDbPath } from '../config/paths.js';
+import * as sqliteVec from 'sqlite-vec';
 import { defaultTokenizer } from '../sdk/rag/retrieval/bm25.js';
 
 // Module-level singleton instance
@@ -18,11 +19,21 @@ let db: Database.Database | null = null;
  * the keyword search tokens for the chunks_fts triggers (migration 008),
  * from ctx's own tokenizer, so camelCase splitting matches between index
  * and query. Writing chunks on a connection without it fails.
+ *
+ * Also loads the sqlite-vec extension, so vector search can score stored
+ * embeddings in SQL (search/sqlite-vector-store.ts). It ships binaries for
+ * Linux, macOS and Windows on x64 and Linux and macOS on arm64; elsewhere it
+ * fails to load and search falls back to scanning vectors in memory.
  */
 export function registerSqlFunctions(database: Database.Database): void {
   database.function('ctx_tokens', { deterministic: true }, (text) =>
     defaultTokenizer(String(text ?? '')).join(' ')
   );
+  try {
+    sqliteVec.load(database);
+  } catch {
+    // No sqlite-vec binary for this platform: in-memory vector search
+  }
 }
 
 /**

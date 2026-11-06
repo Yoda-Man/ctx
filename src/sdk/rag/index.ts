@@ -21,4 +21,11 @@ export { DEFAULT_RRF_K, reciprocalRankFusion } from './retrieval/rrf.js';
 export type { RankingList } from './retrieval/rrf.js';
 export type { RetrievalOptions, RetrievalResult, Retriever } from './retrieval/types.js';
 export { InMemoryVectorStore } from './vector-store/memory-store.js';
-export type { Chunk, MetadataFilter, SearchOptions } from './vector-store/types.js';
+export type {
+  Chunk,
+  ChunkWithEmbedding,
+  MetadataFilter,
+  SearchOptions,
+  SearchResult,
+  VectorStore,
+} from './vector-store/types.js';

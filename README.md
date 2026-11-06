@@ -55,6 +55,11 @@ The first index or search downloads the embedding model (about 340 MB)
 into `~/.ctx/models`, and the first `--rerank` its reranker (about 280 MB);
 after that, everything runs offline.
 
+Search runs inside SQLite: keyword search through its FTS5 index, and vector
+search through the [sqlite-vec](https://github.com/asg017/sqlite-vec)
+extension, which ships for Linux and macOS (x64 and arm64) and Windows (x64).
+On other platforms ctx loads a project's vectors into memory to search them.
+
 ## Quick start
 
 ```bash
