@@ -4,8 +4,8 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
+import { homedir, tmpdir } from 'node:os';
 import {
   completeDirectoryPath,
   expandTilde,
@@ -38,9 +38,9 @@ describe('path-completer', () => {
 
   describe('expandTilde', () => {
     it('expands ~ to home directory', () => {
-      const result = expandTilde('~/foo');
-      expect(result).not.toContain('~');
-      expect(result).toContain('foo');
+      // Not "contains no ~": a Windows short path such as C:\Users\JOHNDO~1 has one
+      expect(expandTilde('~/foo')).toBe(join(homedir(), 'foo'));
+      expect(expandTilde(`~${sep}foo`)).toBe(join(homedir(), 'foo'));
     });
 
     it('leaves non-tilde paths unchanged', () => {
@@ -67,11 +67,14 @@ describe('path-completer', () => {
       expect(results).toContain(join(testDir, 'src/'));
     });
 
-    it('lists directories when path ends with /', () => {
-      const results = completeDirectoryPath(testDir + '/');
-      expect(results).toContain(join(testDir, 'src/'));
-      expect(results).toContain(join(testDir, 'scripts/'));
-      expect(results).toContain(join(testDir, 'tests/'));
+    it('lists directories when path ends with / (or the platform separator)', () => {
+      // What the user typed is kept; each completion ends with the separator
+      for (const end of ['/', sep]) {
+        const results = completeDirectoryPath(testDir + end);
+        expect(results).toContain(`${testDir}${end}src${sep}`);
+        expect(results).toContain(`${testDir}${end}scripts${sep}`);
+        expect(results).toContain(`${testDir}${end}tests${sep}`);
+      }
     });
 
     it('excludes hidden directories unless explicitly requested', () => {

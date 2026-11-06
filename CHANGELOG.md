@@ -18,6 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   description or tags does not.
 
 ### Fixed
+- **Windows:**
+  - Tab completion of folders in `ctx chat` (`/index`) recognised only `/`
+    after a folder name and `~/` for the home folder: `C:\code\` and `~\code`
+    now complete too, and completions end with the platform's separator.
+  - Scanned file paths kept fast-glob's forward slashes (`C:/code/x.ts`);
+    they now use the platform's separators.
+  - All 1,852 tests pass on Windows; 14 used to fail because tests assumed `/`-rooted
+    paths, a POSIX shell, and that a folder can be deleted while a database
+    in it is open. CI now runs the suite on Windows as well as Linux.
 - **`ordering = "chronological"` gave relevance order.** It sorted by
   `documentId` and `startIndex`, which ctx's chunks never have, so every
   chunk tied. It now falls back to each chunk's file path and start line.

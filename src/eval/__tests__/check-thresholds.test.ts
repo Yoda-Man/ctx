@@ -9,8 +9,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
+import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFileSync, unlinkSync, mkdtempSync, readdirSync, rmdirSync } from 'node:fs';
@@ -28,7 +27,6 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT_PATH = resolve(__dirname, '../../../scripts/check-eval-thresholds.js');
-const execAsync = promisify(exec);
 
 // ============================================================================
 // Test Data Factory
@@ -465,58 +463,31 @@ describe('integration: subprocess', () => {
   });
 
   /**
-   * Helper to run the script via shell pipe (echo '...' | node script.js).
-   *
-   * Uses exec() (not execFile) so the shell handles stdin piping and EOF
-   * correctly — matching how the script is invoked in real CI pipelines.
+   * Run the script with node directly, no shell: a POSIX `echo '...' |` pipe
+   * fails under Windows cmd.exe, as does an unquoted C:\Program Files path.
+   * `input` is written to stdin, which is then closed (EOF), as in CI pipes.
    */
-  async function runScript(
-    input: string,
+  function run(
+    args: string[],
+    input: string | undefined,
     env?: Record<string, string>,
-  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    // Escape single quotes in the JSON for shell safety
-    const escaped = input.replace(/'/g, "'\\''");
-    const cmd = `echo '${escaped}' | ${process.execPath} ${SCRIPT_PATH}`;
-
-    try {
-      const { stdout, stderr } = await execAsync(cmd, {
-        env: { ...process.env, ...env },
-        timeout: 10000,
-      });
-      return { stdout, stderr, exitCode: 0 };
-    } catch (err: unknown) {
-      const error = err as { stdout?: string; stderr?: string; code?: number };
-      return {
-        stdout: error.stdout ?? '',
-        stderr: error.stderr ?? '',
-        exitCode: error.code ?? 1,
-      };
-    }
+  ): { stdout: string; stderr: string; exitCode: number } {
+    const result = spawnSync(process.execPath, [SCRIPT_PATH, ...args], {
+      input: input ?? '',
+      env: { ...process.env, ...env },
+      encoding: 'utf-8',
+      timeout: 10000,
+    });
+    return { stdout: result.stdout, stderr: result.stderr, exitCode: result.status ?? 1 };
   }
 
-  /**
-   * Helper to run the script with a file argument (no stdin).
-   */
-  async function runScriptWithFile(
-    filePath: string,
-    env?: Record<string, string>,
-  ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
-    const cmd = `${process.execPath} ${SCRIPT_PATH} ${filePath}`;
+  async function runScript(input: string, env?: Record<string, string>) {
+    return run([], input, env);
+  }
 
-    try {
-      const { stdout, stderr } = await execAsync(cmd, {
-        env: { ...process.env, ...env },
-        timeout: 10000,
-      });
-      return { stdout, stderr, exitCode: 0 };
-    } catch (err: unknown) {
-      const error = err as { stdout?: string; stderr?: string; code?: number };
-      return {
-        stdout: error.stdout ?? '',
-        stderr: error.stderr ?? '',
-        exitCode: error.code ?? 1,
-      };
-    }
+  /** Run the script with a file argument (empty stdin). */
+  async function runScriptWithFile(filePath: string, env?: Record<string, string>) {
+    return run([filePath], undefined, env);
   }
 
   it('exits 0 when all metrics pass via stdin', async () => {

@@ -408,7 +408,7 @@ Measure retrieval quality with golden datasets and track every interaction with 
 
 Issues and pull requests are welcome at
 [github.com/Yoda-Man/ctx](https://github.com/Yoda-Man/ctx). Open pull requests
-against `dev`; CI runs the type check, tests and build on Node 24 and 26,
+against `dev`; CI runs the type check, tests and build on Node 24 and 26 (Linux) and Node 24 (Windows),
 and fails if any dependency is behind its latest release.
 
 ## License

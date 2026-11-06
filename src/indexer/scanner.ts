@@ -6,7 +6,7 @@
  */
 
 import { statSync } from 'node:fs';
-import { resolve, relative, extname, basename } from 'node:path';
+import { resolve, relative, extname, basename, normalize } from 'node:path';
 import fg from 'fast-glob';
 
 import {
@@ -110,7 +110,10 @@ export async function scanDirectory(
     });
 
     // Process each discovered file
-    for (const absolutePath of entries) {
+    for (const entry of entries) {
+      // fast-glob returns C:/x/y on Windows; use the platform's separators
+      const absolutePath = normalize(entry);
+
       // Get relative path for ignore checking
       const relativePath = relative(absoluteRoot, absolutePath);
 
