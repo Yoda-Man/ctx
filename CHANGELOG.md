@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-06
+
+The first npm release of the 1.3.0 changes below: the 1.3.0 tag and GitHub
+release exist, but its npm publish failed, so 1.3.0 is not on npm.
+
 ### Changed
 - Dependencies: ora 10.0.0, marked 18.1.3, turndown 7.2.5; dev: vitest and
   @vitest/coverage-v8 5.1.0, oxlint 1.91.0, oxlint-tsgolint 7.0.2006. The
-  1.3.0 npm publish stopped on `npm outdated` because these had new releases.
+  1.3.0 npm publish stopped on `npm outdated` (run before every publish)
+  because these had new releases.
 
 ## [1.3.0] - 2026-11-06
 
