@@ -31,9 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and 1.1 GB at 200,000 (was 3.5); the rest is vectors. A keyword query now
   runs in SQLite each time: 9 ms at 25,000 chunks (was 3), 198 ms at 200,000
   (was 23). Indexing pays about 0.3 ms a chunk for the FTS5 trigger, small
-  next to embedding the chunk. On the 56-question eval the scores did not
-  move beyond a question or two (MRR 0.53 before, 0.55 after; hit rate 0.75
-  both; recall 0.72, 0.69).
+  next to embedding the chunk. On the 56-question eval it made no
+  measurable difference: MRR 0.53 before, 0.55 and 0.53 in two runs after,
+  hit rate 0.75 throughout.
 
 ### Added
 - **Stale index warnings.** Each project now records the index format it was
@@ -48,13 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   has 56 questions (exact names, paraphrases, docs), each checked against the
   files that answer it; `npx tsx scripts/eval-source.ts` indexes this
   repository (180 files, 1,529 chunks) in a temporary home and scores it.
-  The 8-question fixture scores 0.94 MRR and could not show a change either
-  way; this set scores MRR 0.53, hit rate 0.75, recall 0.72, NDCG 0.56 at
-  the time of writing, so it has room to show both gains and losses.
-  Questions named by an exact identifier score MRR 0.81; paraphrased ones
-  0.43. CHANGELOG.md, which describes most features in plain words, often
-  takes a top-5 place. A test fails if a file the set names is renamed or
-  removed. Relevance is still judged by file, not by chunk.
+  The 8-question fixture scores 0.94 MRR, close to its ceiling; on 1.3.2
+  this set scores MRR 0.53, hit rate 0.75, recall 0.69, NDCG 0.55, so it has
+  room to show both gains and losses. Questions about the database and
+  embeddings score MRR 0.83 to 0.88; about the agent 0.15, and indexing and
+  the CLI about 0.44 (3 to 11 questions each, so indications only).
+  CHANGELOG.md, which describes most features in plain words, often takes a
+  top-5 place. Each expected file comes with a pattern it must contain, and
+  a test fails if a file is renamed, removed or no longer contains the
+  answer. Relevance is still judged by file, not by chunk.
 - **Go and Rust are split by tree-sitter**, like TypeScript, JavaScript and
   Python: each func, method, type, struct, enum, trait or impl is a chunk
   with its doc comments and `#[...]` attributes, and the code between them
