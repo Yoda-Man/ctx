@@ -22,6 +22,7 @@ import type { CommandContext } from '../types.js';
 import { getDb, runMigrations } from '../../database/index.js';
 import { loadConfig } from '../../config/loader.js';
 import { createEmbeddingProvider } from '../../indexer/embedder/index.js';
+import { embedQuery } from '../../sdk/rag/index.js';
 import {
   createFusionService,
   getMultiProjectFusionService,
@@ -269,7 +270,7 @@ export function createSearchCommand(
 
         // Generate query embedding for dense search
         ctx.debug('Generating query embedding...');
-        const embeddingResult = await embeddingProvider.embed(trimmedQuery);
+        const embeddingResult = await embedQuery(embeddingProvider, trimmedQuery);
 
         // Execute cross-project hybrid search
         ctx.debug(`Executing multi-project hybrid search${shouldRerank ? ' with reranking' : ''}...`);

@@ -11,6 +11,7 @@
 
 import type { EmbeddingProvider, EmbeddingResult } from './types.js';
 import { BaseEmbeddingProvider } from './base-provider.js';
+import { embedQuery } from './utils.js';
 import { LRUCacheProvider } from '../cache/index.js';
 
 // ============================================================================
@@ -199,6 +200,9 @@ export class CachedEmbeddingProvider extends BaseEmbeddingProvider {
   /**
    * Check if the underlying provider is available.
    */
+  /** Queries go to the wrapped provider, which may add a query instruction. */
+  embedQuery = (query: string): Promise<EmbeddingResult> => embedQuery(this.provider, query);
+
   isAvailable = async (): Promise<boolean> => {
     return this.provider.isAvailable();
   };

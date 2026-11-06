@@ -14,6 +14,7 @@ import {
   FusionService,
   createFusionService,
   DEFAULT_RRF_K,
+  DOCS_WEIGHT,
 } from '../fusion.js';
 import { resetVectorStoreManager } from '../store.js';
 import { resetBM25StoreManager } from '../bm25-store.js';
@@ -44,6 +45,21 @@ function createMockResults(
 }
 
 describe('computeRRF', () => {
+  describe('documentation weight', () => {
+    it('prefers code over docs on a near-tie, but not over docs both searches rank', () => {
+      const docs = (ids: string[]) => createMockResults(ids).map((r) => ({ ...r, fileType: 'docs' as const }));
+
+      // Docs D1 first in dense only, code C1 first in BM25 only: a tie broken for code
+      const tie = computeRRF(docs(['D1']), createMockResults(['C1']), { k: 60 });
+      expect(tie.map((r) => r.id)).toEqual(['C1', 'D1']);
+      expect(tie[1]!.score).toBeCloseTo(0.5 * DOCS_WEIGHT, 5);
+
+      // Docs D2 ranked by both searches still beats code found by one
+      const both = computeRRF(docs(['D2', 'X']), [...docs(['D2']), ...createMockResults(['C2'])], { k: 60 });
+      expect(both[0]!.id).toBe('D2');
+    });
+  });
+
   describe('basic fusion', () => {
     it('should combine results from both sources', () => {
       // Dense: A, B, C (in rank order)

@@ -16,7 +16,7 @@ vi.mock('../../transformers.js', async (importOriginal) => {
   };
 });
 
-import { HuggingFaceEmbeddingProvider, poolingFor } from '../huggingface-provider.js';
+import { HuggingFaceEmbeddingProvider, poolingFor, queryInstructionFor, BGE_QUERY_INSTRUCTION } from '../huggingface-provider.js';
 import { EmbeddingError } from '../errors.js';
 import { loadTransformers, withModelDownloadLock } from '../../transformers.js';
 
@@ -130,6 +130,24 @@ describe('HuggingFaceEmbeddingProvider', () => {
 
     vi.mocked(loadTransformers).mockRejectedValueOnce(new Error('Cannot find package'));
     expect(await provider.isAvailable()).toBe(false);
+  });
+});
+
+describe('query instruction', () => {
+  it('is the BGE retrieval instruction for English BGE models only', () => {
+    expect(queryInstructionFor('Xenova/bge-large-en-v1.5')).toBe(BGE_QUERY_INSTRUCTION);
+    expect(queryInstructionFor('BAAI/bge-small-en-v1.5')).toBe(BGE_QUERY_INSTRUCTION);
+    expect(queryInstructionFor('BAAI/bge-large-zh-v1.5')).toBe('');
+    expect(queryInstructionFor('Xenova/all-MiniLM-L6-v2')).toBe('');
+  });
+
+  it('is put before queries, not before passages', async () => {
+    const provider = ctxProvider();
+    await provider.embedQuery('where are sessions refreshed');
+    await provider.embed('a passage');
+
+    expect(pipe).toHaveBeenNthCalledWith(1, BGE_QUERY_INSTRUCTION + 'where are sessions refreshed', expect.anything());
+    expect(pipe).toHaveBeenNthCalledWith(2, 'a passage', expect.anything());
   });
 });
 

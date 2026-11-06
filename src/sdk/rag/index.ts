@@ -10,6 +10,7 @@ export { SemanticChunker } from './chunking/semantic-chunker.js';
 export { CachedEmbeddingProvider } from './embeddings/cache.js';
 export { HuggingFaceEmbeddingProvider } from './embeddings/huggingface-provider.js';
 export { OllamaEmbeddingProvider } from './embeddings/ollama-provider.js';
+export { embedQuery } from './embeddings/utils.js';
 export type { EmbeddingProvider, EmbeddingResult } from './embeddings/types.js';
 export { RAGEngineImpl } from './engine/rag-engine.js';
 export type { RAGResult, RAGSearchMetadata, RAGTimings } from './engine/types.js';

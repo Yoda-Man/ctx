@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Better answers to plain-language questions.** Two changes, each scored
+  on the 56-question eval against the same index; MRR 0.51 to 0.59, top-5
+  hit rate 0.73 to 0.86, recall 0.68 to 0.79:
+  - Search queries to English BGE models start with the instruction BAAI's
+    model card gives for retrieval ("Represent this sentence for searching
+    relevant passages: "); stored chunks do not, so no re-index is needed.
+    Alone: MRR 0.51 to 0.55, hit rate 0.73 to 0.80 (8 questions better,
+    4 worse).
+  - Documentation chunks' fused scores are multiplied by 0.9, so code wins
+    near-ties with docs that describe it. Fused scores lie close together,
+    so any weight from 0.6 to 0.95 gave the same ranking; on top of the
+    instruction it improved 12 questions and worsened none, documentation
+    questions included.
+
 ## [1.3.2] - 2026-11-06
 
 ### Changed

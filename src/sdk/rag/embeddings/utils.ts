@@ -5,6 +5,7 @@
  */
 
 import { VectorError } from './vector-errors.js';
+import type { EmbeddingProvider, EmbeddingResult } from './types.js';
 
 /**
  * Compute the dot product of two vectors.
@@ -160,3 +161,11 @@ export const euclideanDistance = (a: ArrayLike<number>, b: ArrayLike<number>): n
   }
   return Math.sqrt(sumOfSquares);
 };
+
+/**
+ * Embed a search query: the provider's embedQuery() if it has one (it may add
+ * the instruction its model expects before queries), else embed().
+ */
+export function embedQuery(provider: EmbeddingProvider, query: string): Promise<EmbeddingResult> {
+  return provider.embedQuery ? provider.embedQuery(query) : provider.embed(query);
+}
