@@ -19,6 +19,7 @@ import { resetVectorStoreManager } from '../store.js';
 import { resetBM25StoreManager } from '../bm25-store.js';
 import { embeddingToBlob } from '../../database/schema.js';
 import type { SearchResultWithContext } from '../types.js';
+import { createSearchTestDb } from '../../test-utils/search-db.js';
 
 /**
  * Helper to create mock search results for testing.
@@ -331,7 +332,8 @@ describe('DEFAULT_RRF_K', () => {
 
 // Service tests require database mocking, similar to other search services
 // Mock the database module (top level: vitest hoists it there regardless)
-vi.mock('../../database/connection.js', () => ({
+vi.mock('../../database/connection.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../database/connection.js')>()),
   getDb: vi.fn(),
 }));
 
@@ -420,38 +422,8 @@ describe('FusionService', () => {
       embedding: createTestEmbedding(1024, idx),
     }));
 
-    const mockPrepare = vi.fn().mockImplementation((sql: string) => {
-      if (sql.includes('COUNT(*)')) {
-        return {
-          get: vi.fn().mockReturnValue({ count: chunks.length }),
-        };
-      }
-      // BM25 query (no embedding column)
-      if (sql.includes('SELECT rowid, id, content') && !sql.includes('embedding')) {
-        return {
-          all: vi.fn().mockImplementation(
-            (_projectId: string, afterRowid: number, limit: number) => {
-              // rowid paging: rows numbered from 1, those after the last one read
-              return chunks.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
-            }
-          ),
-        };
-      }
-      // Dense query (includes embedding column)
-      if (sql.includes('embedding')) {
-        return {
-          all: vi.fn().mockImplementation(
-            (_projectId: string, afterRowid: number, limit: number) => {
-              // rowid paging: rows numbered from 1, those after the last one read
-              return chunksWithEmbeddings.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
-            }
-          ),
-        };
-      }
-      return { get: vi.fn(), all: vi.fn() };
-    });
-
-    return { prepare: mockPrepare };
+    // A real in-memory database: keyword search runs in SQLite FTS5
+    return createSearchTestDb(chunksWithEmbeddings);
   }
 
   describe('search', () => {

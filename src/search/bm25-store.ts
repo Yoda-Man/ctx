@@ -1,265 +1,159 @@
 /**
  * BM25 Store Manager
  *
- * Manages the lifecycle of BM25Retriever instances:
- * - Lazy loading from SQLite on first search
- * - Project-scoped indexes (one per project)
- * - Memory-efficient batch loading
+ * Keyword (BM25) search over a project's chunks, answered by SQLite's FTS5
+ * index (chunks_fts, migration 008). Before, every process loaded all of a
+ * project's chunks and built a BM25 index in memory on its first search:
+ * 12 s and about 2.7 GB for 200,000 chunks. FTS5 keeps the index on disk,
+ * so a search starts at once and holds no copy of the chunks.
  *
- * Architecture mirrors VectorStoreManager for consistency:
- * - Singleton pattern per project
- * - Concurrent build prevention
- * - Progress reporting during load
+ * Scoring is FTS5's bm25() with k1 = 1.2 and b = 0.75, the values ctx used.
+ * One difference: FTS5 counts term rarity (IDF) over every indexed chunk,
+ * not one project's. Tokens come from ctx's own tokenizer (camelCase split),
+ * applied at index time by ctx_tokens() and here to the query.
  */
 
-import { BM25Retriever } from '../sdk/rag/index.js';
-import type { Chunk, BM25Document } from '../sdk/rag/index.js';
 import type Database from 'better-sqlite3';
 
+import { defaultTokenizer } from '../sdk/rag/retrieval/bm25.js';
+import { RetrieverError } from '../sdk/rag/retrieval/errors.js';
+import type { RetrievalOptions, RetrievalResult } from '../sdk/rag/index.js';
 import { getDb } from '../database/connection.js';
-import {
-  ChunkLoadNoEmbeddingSchema,
-  validateRows,
-  type ChunkLoadNoEmbeddingRow,
-} from '../database/validation.js';
+import { ChunkLoadNoEmbeddingSchema, validateRows } from '../database/validation.js';
 import { safeJsonParse, type Logger, consoleLogger } from '../utils/index.js';
-import type { BM25Config, IndexBuildProgress } from './types.js';
-
-/** Batch size for loading chunks from SQLite (memory efficiency) */
-const LOAD_BATCH_SIZE = 1000;
-
-/** Default BM25 parameters (standard values from literature) */
-const DEFAULT_BM25_CONFIG: Required<BM25Config> = {
-  k1: 1.2,
-  b: 0.75,
-};
 
 /**
- * Options for initializing a BM25 store.
+ * Options for a project's keyword retriever.
  */
 export interface BM25StoreOptions {
-  /** Project ID to scope the index */
+  /** Project ID to scope the search */
   projectId: string;
-  /** BM25 configuration options */
-  bm25Config?: BM25Config;
 }
 
+/** Chunk metadata columns that a search filter can match. */
+const FILTER_COLUMNS: Record<string, string> = { fileType: 'file_type', language: 'language' };
+
 /**
- * Manages BM25 retrievers for projects.
- *
- * Uses lazy initialization - indexes are only built on first search.
- * Implements singleton pattern per project for memory efficiency.
- *
- * @example
- * ```typescript
- * const manager = getBM25StoreManager();
- * const retriever = await manager.getRetriever({
- *   projectId: 'abc-123',
- * });
- * const results = await retriever.retrieve('PostgreSQL function', { topK: 5 });
- * ```
+ * Keyword retriever for one project, backed by chunks_fts.
  */
-export class BM25StoreManager {
-  /** Cache of initialized retrievers by project ID */
-  private retrievers = new Map<string, BM25Retriever>();
+export class FtsRetriever {
+  constructor(
+    private readonly db: Database.Database,
+    private readonly projectId: string,
+    private readonly logger: Logger = consoleLogger
+  ) {}
 
-  /** Tracks in-progress builds to prevent concurrent builds for same project */
-  private buildingRetrievers = new Map<string, Promise<BM25Retriever>>();
-
-  /** Database connection (lazy) */
-  private db: Database.Database | null = null;
-
-  /**
-   * Get the database connection (lazy initialization).
-   */
-  private getDatabase(): Database.Database {
-    if (!this.db) {
-      this.db = getDb();
-    }
-    return this.db;
+  /** Number of chunks in the project. */
+  get documentCount(): number {
+    return (
+      this.db.prepare('SELECT COUNT(*) AS count FROM chunks WHERE project_id = ?').get(this.projectId) as {
+        count: number;
+      }
+    ).count;
   }
 
   /**
-   * Get or create a BM25 retriever for a project.
-   *
-   * Lazy loads from SQLite on first access. Subsequent calls return cached retriever.
-   *
-   * @param options - Store configuration including projectId and BM25 config
-   * @param onProgress - Optional callback for progress updates during loading
-   * @param logger - Optional logger for warnings (defaults to console)
-   * @returns The initialized BM25 retriever
+   * Chunks matching any query token, best BM25 score first, scaled so the
+   * best is 1. `filter` matches fileType and language before the topK cut.
    */
-  async getRetriever(
-    options: BM25StoreOptions,
-    onProgress?: (progress: IndexBuildProgress) => void,
-    logger: Logger = consoleLogger
-  ): Promise<BM25Retriever> {
-    const { projectId } = options;
+  retrieve = async (query: string, options: RetrievalOptions = {}): Promise<RetrievalResult[]> => {
+    if (!query.trim()) throw RetrieverError.invalidQuery('FtsRetriever', 'Query cannot be empty');
+    const tokens = [...new Set(defaultTokenizer(query))];
+    if (tokens.length === 0) return [];
 
-    // Return cached retriever if available
-    if (this.retrievers.has(projectId)) {
-      return this.retrievers.get(projectId)!;
+    // Tokens are letters and digits only, so quoting each is a safe phrase
+    const match = tokens.map((t) => `"${t}"`).join(' OR ');
+    const params: unknown[] = [match, this.projectId];
+    let where = '';
+    for (const [key, value] of Object.entries(options.filter ?? {})) {
+      const column = FILTER_COLUMNS[key];
+      if (!column) throw new Error(`Keyword search cannot filter on "${key}"`);
+      where += ` AND c.${column} = ?`;
+      params.push(value);
     }
+    params.push(options.topK ?? 10);
 
-    // Check if retriever is already being built (prevent concurrent builds)
-    if (this.buildingRetrievers.has(projectId)) {
-      return this.buildingRetrievers.get(projectId)!;
-    }
+    // bm25() is lower for a better match; negate it so higher is better
+    const rows = this.db
+      .prepare(
+        `SELECT c.id, c.content, c.file_path, c.file_type, c.language, c.start_line, c.end_line, c.metadata,
+                -bm25(chunks_fts) AS score
+         FROM chunks_fts JOIN chunks c ON c.rowid = chunks_fts.rowid
+         WHERE chunks_fts MATCH ? AND c.project_id = ?${where}
+         ORDER BY score DESC
+         LIMIT ?`
+      )
+      .all(...params) as Array<{ score: number }>;
 
-    // Build new retriever
-    const buildPromise = this.buildRetriever(options, onProgress, logger);
-    this.buildingRetrievers.set(projectId, buildPromise);
+    const chunks = validateRows(ChunkLoadNoEmbeddingSchema, rows, `chunks_fts project_id=${this.projectId}`);
+    const best = rows[0]?.score && rows[0].score > 0 ? rows[0].score : 1;
+    const minScore = options.minScore ?? 0;
 
-    try {
-      const retriever = await buildPromise;
-      this.retrievers.set(projectId, retriever);
-      return retriever;
-    } finally {
-      this.buildingRetrievers.delete(projectId);
-    }
-  }
-
-  /**
-   * Build a BM25 retriever by loading chunks from SQLite.
-   *
-   * Loads in batches for memory efficiency.
-   */
-  private async buildRetriever(
-    options: BM25StoreOptions,
-    onProgress?: (progress: IndexBuildProgress) => void,
-    logger: Logger = consoleLogger
-  ): Promise<BM25Retriever> {
-    const { projectId, bm25Config } = options;
-
-    const db = this.getDatabase();
-
-    // Merge with defaults
-    const config: Required<BM25Config> = {
-      ...DEFAULT_BM25_CONFIG,
-      ...bm25Config,
-    };
-
-    // Create BM25 retriever with config (index built separately)
-    const retriever = new BM25Retriever({
-      k1: config.k1,
-      b: config.b,
-    });
-
-    // Get total chunk count for progress reporting
-    const countResult = db
-      .prepare('SELECT COUNT(*) as count FROM chunks WHERE project_id = ?')
-      .get(projectId) as { count: number };
-    const totalChunks = countResult.count;
-
-    // Collect all documents for BM25 indexing
-    const documents: BM25Document[] = [];
-
-    if (totalChunks === 0) {
-      // No chunks to load - build empty index and return
-      retriever.buildIndex([]);
-      return retriever;
-    }
-
-    // Prepare statement for batch loading (no embedding column needed)
-    // Paged by rowid: each page is an index seek. OFFSET paging re-read every
-    // earlier row per page, so a 23,000-chunk project took 16 s to load.
-    const stmt = db.prepare<[string, number, number]>(`
-      SELECT rowid, id, content, file_path, file_type, language,
-             start_line, end_line, metadata
-      FROM chunks
-      WHERE project_id = ? AND rowid > ?
-      ORDER BY rowid
-      LIMIT ?
-    `);
-
-    let loaded = 0;
-    let lastRowid = 0;
-
-    // Load in batches
-    while (loaded < totalChunks) {
-      onProgress?.({
-        phase: 'loading',
-        loaded,
-        total: totalChunks,
-      });
-
-      const rawBatch = stmt.all(projectId, lastRowid, LOAD_BATCH_SIZE) as Array<{ rowid: number }>;
-      const batch: ChunkLoadNoEmbeddingRow[] = validateRows(
-        ChunkLoadNoEmbeddingSchema,
-        rawBatch,
-        `chunks.project_id=${projectId}`
-      );
-
-      if (batch.length === 0) break;
-
-      // Convert to BM25Document format (requires id, content, and chunk)
-      for (const row of batch) {
-        const chunk: Chunk = {
+    return chunks
+      .map((row, i) => ({
+        id: row.id,
+        score: rows[i]!.score / best,
+        chunk: {
           id: row.id,
           content: row.content,
           metadata: {
-            projectId, // Include projectId for cross-project result attribution
+            projectId: this.projectId,
             filePath: row.file_path,
             fileType: row.file_type,
             language: row.language,
             startLine: row.start_line,
             endLine: row.end_line,
             ...safeJsonParse(row.metadata, {}, (err) => {
-              logger.warn(`[BM25Store] Skipping corrupted metadata for chunk ${row.id}: ${err.message}`);
+              this.logger.warn(`[BM25Store] Skipping corrupted metadata for chunk ${row.id}: ${err.message}`);
             }),
           },
-        };
+        },
+      }))
+      .filter((result) => result.score > minScore);
+  };
+}
 
-        documents.push({
-          id: row.id,
-          content: row.content,
-          chunk,
-        });
-      }
+/**
+ * Hands out a keyword retriever per project. There is nothing to build:
+ * the index lives in SQLite and is kept current by triggers on chunks.
+ */
+export class BM25StoreManager {
+  private retrievers = new Map<string, FtsRetriever>();
 
-      loaded += batch.length;
-      lastRowid = rawBatch[rawBatch.length - 1]!.rowid;
+  /**
+   * Get the keyword retriever for a project. Async and with an unused
+   * progress callback to keep the interface of the in-memory index it replaced.
+   */
+  async getRetriever(
+    options: BM25StoreOptions,
+    _onProgress?: unknown,
+    logger: Logger = consoleLogger
+  ): Promise<FtsRetriever> {
+    const { projectId } = options;
+    let retriever = this.retrievers.get(projectId);
+    if (!retriever) {
+      retriever = new FtsRetriever(getDb(), projectId, logger);
+      this.retrievers.set(projectId, retriever);
     }
-
-    // Final progress update - building index
-    onProgress?.({
-      phase: 'building',
-      loaded: totalChunks,
-      total: totalChunks,
-    });
-
-    // Build the BM25 index with all documents
-    retriever.buildIndex(documents);
-
     return retriever;
   }
 
-  /**
-   * Check if a retriever is cached for a project.
-   */
+  /** Check if a retriever is cached for a project. */
   hasRetriever(projectId: string): boolean {
     return this.retrievers.has(projectId);
   }
 
-  /**
-   * Invalidate cached retriever for a project.
-   *
-   * Call this after re-indexing to force rebuild on next search.
-   */
+  /** Forget a project's retriever (after re-indexing or removal). */
   invalidate(projectId: string): void {
     this.retrievers.delete(projectId);
   }
 
-  /**
-   * Clear all cached retrievers.
-   */
+  /** Forget all retrievers. */
   clearAll(): void {
     this.retrievers.clear();
   }
 
-  /**
-   * Get the number of cached retrievers.
-   */
+  /** Number of cached retrievers. */
   get cacheSize(): number {
     return this.retrievers.size;
   }
@@ -283,8 +177,6 @@ export function getBM25StoreManager(): BM25StoreManager {
 
 /**
  * Reset the singleton instance.
- *
- * Useful for testing or when you need to clear all cached retrievers.
  */
 export function resetBM25StoreManager(): void {
   if (managerInstance) {

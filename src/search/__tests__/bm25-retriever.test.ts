@@ -8,14 +8,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { BM25SearchService, createBM25SearchService } from '../bm25-retriever.js';
-import { resetBM25StoreManager } from '../bm25-store.js';
+import { getBM25StoreManager, resetBM25StoreManager } from '../bm25-store.js';
 
 // Mock the database module
-vi.mock('../../database/connection.js', () => ({
+vi.mock('../../database/connection.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../database/connection.js')>()),
   getDb: vi.fn(),
 }));
 
 import { getDb } from '../../database/connection.js';
+import { createSearchTestDb } from '../../test-utils/search-db.js';
 
 /**
  * Row shape matching what we load from SQLite.
@@ -32,29 +34,11 @@ interface ChunkRow {
 }
 
 /**
- * Create a mock database with test chunks.
+ * A real in-memory database holding the chunks for 'test-project'
+ * (keyword search runs in SQLite FTS5, so there is no SQL to fake).
  */
 function createMockDb(chunks: ChunkRow[]) {
-  const mockPrepare = vi.fn().mockImplementation((sql: string) => {
-    if (sql.includes('COUNT(*)')) {
-      return {
-        get: vi.fn().mockReturnValue({ count: chunks.length }),
-      };
-    }
-    if (sql.includes('SELECT rowid, id, content')) {
-      return {
-        all: vi.fn().mockImplementation(
-          (_projectId: string, afterRowid: number, limit: number) => {
-            // rowid paging: rows numbered from 1, those after the last one read
-            return chunks.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
-          }
-        ),
-      };
-    }
-    return { get: vi.fn(), all: vi.fn() };
-  });
-
-  return { prepare: mockPrepare };
+  return createSearchTestDb(chunks);
 }
 
 describe('BM25SearchService', () => {
@@ -494,11 +478,8 @@ describe('BM25SearchService', () => {
       expect(service.isInitialized()).toBe(false);
 
       // First search triggers initialization
-      await service.search('test');
+      expect(await service.search('test')).toHaveLength(1);
       expect(service.isInitialized()).toBe(true);
-
-      // Database should be queried
-      expect(mockDb.prepare).toHaveBeenCalled();
     });
 
     it('should reuse retriever across searches', async () => {
@@ -523,15 +504,10 @@ describe('BM25SearchService', () => {
         rerank: false,
       });
 
-      // Multiple searches
-      await service.search('query 1');
-      const callsAfterFirst = mockDb.prepare.mock.calls.length;
-
-      await service.search('query 2');
-      const callsAfterSecond = mockDb.prepare.mock.calls.length;
-
-      // Should not call prepare again (retriever is cached)
-      expect(callsAfterSecond).toBe(callsAfterFirst);
+      // Multiple searches share one retriever; each is a query against SQLite FTS5
+      expect(await service.search('keywords')).toHaveLength(1);
+      expect(await service.search('content')).toHaveLength(1);
+      expect(getBM25StoreManager().cacheSize).toBe(1);
     });
   });
 
@@ -595,7 +571,7 @@ describe('BM25SearchService', () => {
         rerank: false,
       });
 
-      // SDK BM25Retriever validates and rejects empty queries
+      // Empty queries are rejected, as the in-memory BM25 index did
       await expect(service.search('')).rejects.toThrow(/Query cannot be empty/);
     });
 
@@ -919,21 +895,11 @@ describe('createBM25SearchService', () => {
     resetBM25StoreManager();
   });
 
-  it('should create a service with default BM25 config', () => {
+  it('should create a service', () => {
     const service = createBM25SearchService('test', {
       top_k: 10,
       rerank: false,
     });
-
-    expect(service).toBeInstanceOf(BM25SearchService);
-  });
-
-  it('should create a service with custom BM25 config', () => {
-    const service = createBM25SearchService(
-      'test',
-      { top_k: 10, rerank: false },
-      { bm25Config: { k1: 2.0, b: 0.5 } }
-    );
 
     expect(service).toBeInstanceOf(BM25SearchService);
   });

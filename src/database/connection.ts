@@ -8,9 +8,22 @@
 import Database from 'better-sqlite3';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { CTX_DIR, DB_PATH, getCtxDir, getDbPath } from '../config/paths.js';
+import { defaultTokenizer } from '../sdk/rag/retrieval/bm25.js';
 
 // Module-level singleton instance
 let db: Database.Database | null = null;
+
+/**
+ * SQL functions ctx's schema needs on every connection: ctx_tokens() gives
+ * the keyword search tokens for the chunks_fts triggers (migration 008),
+ * from ctx's own tokenizer, so camelCase splitting matches between index
+ * and query. Writing chunks on a connection without it fails.
+ */
+export function registerSqlFunctions(database: Database.Database): void {
+  database.function('ctx_tokens', { deterministic: true }, (text) =>
+    defaultTokenizer(String(text ?? '')).join(' ')
+  );
+}
 
 /**
  * Get the singleton database instance.
@@ -42,6 +55,8 @@ export function getDb(): Database.Database {
 
   // Enable WAL mode for better concurrent read performance
   db.pragma('journal_mode = WAL');
+
+  registerSqlFunctions(db);
 
   // Register cleanup on process exit
   process.on('exit', () => closeDb());

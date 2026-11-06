@@ -207,69 +207,6 @@ export interface Retriever {
 }
 
 // ============================================================================
-// BM25 Configuration
-// ============================================================================
-
-/**
- * Configuration for BM25 sparse retriever.
- *
- * BM25 (Best Matching 25) is a bag-of-words retrieval function that
- * ranks documents based on query term frequency and document length.
- */
-export interface BM25Config {
-  /**
-   * Term frequency saturation parameter.
-   * Controls how much a term's frequency contributes to the score.
-   * Higher values give more weight to term frequency.
-   * Default: 1.2 (standard value)
-   */
-  k1?: number;
-
-  /**
-   * Document length normalization parameter.
-   * Controls how much document length affects scoring.
-   * - 0 = no length normalization
-   * - 1 = full length normalization
-   * Default: 0.75 (standard value)
-   */
-  b?: number;
-
-  /**
-   * Custom tokenizer function.
-   * If not provided, uses default whitespace + punctuation tokenizer.
-   */
-  tokenizer?: (text: string) => string[];
-
-  /**
-   * Minimum document frequency for a term to be included.
-   * Terms appearing in fewer documents are ignored.
-   * Default: 1 (include all terms)
-   */
-  minDocFreq?: number;
-
-  /**
-   * Maximum document frequency ratio for a term (0-1).
-   * Terms appearing in more than this ratio of documents are ignored.
-   * Useful for filtering common words.
-   * Default: 1.0 (include all terms)
-   */
-  maxDocFreqRatio?: number;
-}
-
-/**
- * A document prepared for BM25 indexing.
- * Must have an id and content at minimum.
- */
-export interface BM25Document {
-  /** Unique identifier */
-  id: string;
-  /** Text content to index */
-  content: string;
-  /** Original chunk (preserved for retrieval results) */
-  chunk: Chunk;
-}
-
-// ============================================================================
 // Dense Retriever Configuration
 // ============================================================================
 

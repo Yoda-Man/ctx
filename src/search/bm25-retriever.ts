@@ -1,7 +1,7 @@
 /**
  * BM25 Search Service
  *
- * High-level BM25 search API wrapping BM25Retriever.
+ * High-level BM25 search API over a project's FtsRetriever (SQLite FTS5).
  * Handles result formatting and metadata filtering.
  *
  * Use this for keyword-based search where exact term matching matters:
@@ -10,9 +10,8 @@
  * - Matching exact phrases in documentation
  */
 
-import type { BM25Retriever } from '../sdk/rag/index.js';
 
-import { getBM25StoreManager } from './bm25-store.js';
+import { getBM25StoreManager, type FtsRetriever } from './bm25-store.js';
 import { formatSearchResult, matchesFilters } from './shared-formatting.js';
 import type {
   SearchConfig,
@@ -51,16 +50,14 @@ import type {
  * ```
  */
 export class BM25SearchService {
-  private retriever: BM25Retriever | null = null;
+  private retriever: FtsRetriever | null = null;
   private chunkCount: number = 0;
   private readonly projectId: string;
   private readonly config: SearchConfig;
-  private readonly bm25Config?: BM25ServiceOptions['bm25Config'];
 
   constructor(config: SearchConfig, options: BM25ServiceOptions) {
     this.config = config;
     this.projectId = options.projectId;
-    this.bm25Config = options.bm25Config;
   }
 
   /**
@@ -74,17 +71,11 @@ export class BM25SearchService {
   ): Promise<void> {
     if (this.retriever) return;
 
-    const storeManager = getBM25StoreManager();
-    this.retriever = await storeManager.getRetriever(
-      {
-        projectId: this.projectId,
-        bm25Config: this.bm25Config,
-      },
-      onProgress
-    );
+    const retriever = await getBM25StoreManager().getRetriever({ projectId: this.projectId }, onProgress);
+    this.retriever = retriever;
 
     // Cache chunk count for later queries
-    this.chunkCount = this.retriever.documentCount;
+    this.chunkCount = retriever.documentCount;
   }
 
   /**
@@ -159,20 +150,8 @@ export class BM25SearchService {
  * // Basic usage
  * const search = createBM25SearchService(projectId, config);
  * const results = await search.search('authentication middleware');
- *
- * // With custom BM25 parameters
- * const search = createBM25SearchService(projectId, config, {
- *   bm25Config: { k1: 1.5, b: 0.5 },
- * });
  * ```
  */
-export function createBM25SearchService(
-  projectId: string,
-  config: SearchConfig,
-  options?: Partial<Omit<BM25ServiceOptions, 'projectId'>>
-): BM25SearchService {
-  return new BM25SearchService(config, {
-    projectId,
-    bm25Config: options?.bm25Config,
-  });
+export function createBM25SearchService(projectId: string, config: SearchConfig): BM25SearchService {
+  return new BM25SearchService(config, { projectId });
 }

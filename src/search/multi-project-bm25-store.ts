@@ -11,7 +11,7 @@
  * 3. Merge results using Reciprocal Rank Fusion (RRF)
  *
  * Architecture:
- * - Each project has its own BM25Retriever (per BM25StoreManager)
+ * - Each project has its own FtsRetriever (per BM25StoreManager)
  * - Search runs in parallel across all loaded retrievers
  * - Results are merged using RRF, same algorithm as FusionService
  * - projectId available from two sources: chunk metadata (for filtering) and
@@ -38,15 +38,13 @@
  * ```
  */
 
-import type { BM25Retriever } from '../sdk/rag/index.js';
 import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '../sdk/rag/index.js';
 
 import { getDatabase, type DatabaseOperations } from '../database/operations.js';
-import { getBM25StoreManager, type BM25StoreManager } from './bm25-store.js';
+import { getBM25StoreManager, type BM25StoreManager, type FtsRetriever } from './bm25-store.js';
 import { formatSearchResult } from './shared-formatting.js';
 import type {
   MultiProjectBM25LoadOptions,
-  MultiProjectLoadProgress,
   MultiProjectSearchResult,
   MultiProjectSearchOptions,
 } from './types.js';
@@ -86,15 +84,11 @@ export class MultiProjectBM25StoreManager {
    * it will be reused without rebuilding from the database.
    *
    * @param options - Load options including projectIds
-   * @param onProgress - Optional callback for progress updates
-   * @returns Map of projectId to BM25Retriever
+   * @returns Map of projectId to retriever
    */
-  async loadRetrievers(
-    options: MultiProjectBM25LoadOptions,
-    onProgress?: (progress: MultiProjectLoadProgress) => void
-  ): Promise<Map<string, BM25Retriever>> {
-    const { projectIds, bm25Config } = options;
-    const retrievers = new Map<string, BM25Retriever>();
+  async loadRetrievers(options: MultiProjectBM25LoadOptions): Promise<Map<string, FtsRetriever>> {
+    const { projectIds } = options;
+    const retrievers = new Map<string, FtsRetriever>();
 
     for (let i = 0; i < projectIds.length; i++) {
       const projectId = projectIds[i]!;
@@ -103,19 +97,8 @@ export class MultiProjectBM25StoreManager {
       const project = this.dbOps.getProjectById(projectId);
       const projectName = project?.name ?? `Project ${projectId}`;
 
-      // Load retriever with progress callback that includes project context
-      const retriever = await this.storeManager.getRetriever(
-        { projectId, bm25Config },
-        (progress) => {
-          onProgress?.({
-            ...progress,
-            projectId,
-            projectName,
-            projectIndex: i + 1,
-            totalProjects: projectIds.length,
-          });
-        }
-      );
+      // Nothing to load: keyword search is answered by SQLite FTS5
+      const retriever = await this.storeManager.getRetriever({ projectId });
 
       retrievers.set(projectId, retriever);
 

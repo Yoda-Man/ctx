@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Keyword search runs in SQLite FTS5.** Each process used to load every
+  chunk of a project and build a BM25 index in memory on its first search.
+  On synthetic projects that build took 1.2 s at 25,000 chunks and 12.4 s at
+  200,000, most of the 1.5 s and 15 s spent loading a project for search
+  (which then held 0.5 and 3.5 GB, vectors included). Each chunk's tokens now sit in an FTS5
+  index (`chunks_fts`, migration 008), kept current by triggers on every
+  insert, re-index swap, update and delete, so a search starts at once.
+  Upgrading needs no re-index: the migration fills the index from the chunks
+  already stored. Tokens come from ctx's own tokenizer on both sides
+  (`ctx_tokens()` SQL function), so camelCase splitting is unchanged.
+  Scoring is FTS5's `bm25()` with the same k1 = 1.2 and b = 0.75, with two
+  differences: term rarity (IDF) is counted over all indexed projects, not
+  one, and a term in half or more of all chunks adds almost nothing (FTS5
+  floors its IDF at 1e-6; ctx's formula kept a small positive weight).
+  A manual `VACUUM` can renumber the rowids the index is keyed on; ctx never
+  runs one.
+
 ### Added
 - **Stale index warnings.** Each project now records the index format it was
   built with (`index_version`, new migration 007). Searching, asking,
@@ -49,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chunk tied. It now falls back to each chunk's file path and start line.
 
 ### Removed
+- The in-memory `BM25Retriever` (about 290 lines) and the BM25 `k1`/`b`
+  options, which no command or config set. Only its tokenizer remains.
 - RRF weights (`fusionConfig.weights`): nothing set them, so both searches
   always counted equally. Fusion behaves exactly as before.
 - A QueryEnhancer step in the RAG engine's architecture diagram; the stage

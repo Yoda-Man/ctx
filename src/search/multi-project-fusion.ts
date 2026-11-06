@@ -147,7 +147,7 @@ export class MultiProjectFusionService {
     options: MultiProjectFusionLoadOptions,
     onProgress?: (progress: MultiProjectLoadProgress) => void
   ): Promise<void> {
-    const { projectIds, dimensions, bm25Config } = options;
+    const { projectIds, dimensions } = options;
 
     // Validate embedding compatibility for cross-project search (2+ projects)
     // This is a fail-fast check before we start loading any stores
@@ -165,7 +165,7 @@ export class MultiProjectFusionService {
         { projectIds, dimensions },
         onProgress
       ),
-      this.bm25Manager.loadRetrievers({ projectIds, bm25Config }, onProgress),
+      this.bm25Manager.loadRetrievers({ projectIds }),
     ];
 
     // Warmup reranker in parallel if enabled

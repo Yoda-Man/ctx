@@ -1,495 +1,141 @@
 /**
- * BM25StoreManager Tests
- *
- * Tests for lazy loading from SQLite and retriever caching.
- * Uses mocked database to avoid real I/O.
+ * Keyword search over SQLite FTS5 (chunks_fts, migration 008), against a
+ * real migrated database in the test home folder.
  */
+import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { runMigrations, getDb } from '../../database/index.js';
+import { BM25StoreManager, getBM25StoreManager, resetBM25StoreManager } from '../bm25-store.js';
 
-import {
-  BM25StoreManager,
-  getBM25StoreManager,
-  resetBM25StoreManager,
-} from '../bm25-store.js';
+let db: ReturnType<typeof getDb>;
 
-// Mock the database module
-vi.mock('../../database/connection.js', () => ({
-  getDb: vi.fn(),
-}));
-
-import { getDb } from '../../database/connection.js';
-
-/**
- * Row shape matching what we load from SQLite.
- */
-interface ChunkRow {
-  id: string;
-  content: string;
-  file_path: string;
-  file_type: string | null;
-  language: string | null;
-  start_line: number | null;
-  end_line: number | null;
-  metadata: string | null;
+/** A project with chunks; ids are unique so test files sharing the DB never clash. */
+function seed(chunks: Array<{ content: string; fileType?: string; language?: string; metadata?: string }>) {
+  const projectId = randomUUID();
+  db.prepare('INSERT INTO projects (id, name, path) VALUES (?, ?, ?)').run(projectId, `p-${projectId}`, `/p/${projectId}`);
+  const insert = db.prepare(
+    `INSERT INTO chunks (id, project_id, content, embedding, file_path, file_type, language, start_line, end_line, metadata)
+     VALUES (?, ?, ?, x'00', ?, ?, ?, 1, 2, ?)`
+  );
+  const ids = chunks.map((c, i) => {
+    const id = `${projectId}-${i}`;
+    insert.run(id, projectId, c.content, `src/f${i}.ts`, c.fileType ?? 'code', c.language ?? 'typescript', c.metadata ?? null);
+    return id;
+  });
+  return { projectId, ids };
 }
 
-/**
- * Create a mock database with test chunks.
- */
-function createMockDb(chunks: ChunkRow[]) {
-  const mockPrepare = vi.fn().mockImplementation((sql: string) => {
-    if (sql.includes('COUNT(*)')) {
-      return {
-        get: vi.fn().mockReturnValue({ count: chunks.length }),
-      };
-    }
-    if (sql.includes('SELECT rowid, id, content')) {
-      return {
-        all: vi.fn().mockImplementation(
-          (_projectId: string, afterRowid: number, limit: number) => {
-            // rowid paging: rows numbered from 1, those after the last one read
-            return chunks.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
-          }
-        ),
-      };
-    }
-    return { get: vi.fn(), all: vi.fn() };
+const search = async (projectId: string, query: string, options = {}) =>
+  new BM25StoreManager().getRetriever({ projectId }).then((r) => r.retrieve(query, options));
+
+beforeAll(() => {
+  runMigrations();
+  db = getDb();
+});
+
+describe('FTS5 keyword search', () => {
+  it('ranks chunks by BM25, best first, scaled so the best is 1', async () => {
+    const { projectId, ids } = seed([
+      { content: 'refresh the session token, then refresh again' },
+      { content: 'session handling in general' },
+      { content: 'unrelated text about colours' },
+    ]);
+
+    const results = await search(projectId, 'refresh session');
+
+    expect(results.map((r) => r.id)).toEqual([ids[0], ids[1]]);
+    expect(results[0]!.score).toBe(1);
+    expect(results[1]!.score).toBeGreaterThan(0);
+    expect(results[1]!.score).toBeLessThan(1);
+    expect(results[0]!.chunk.metadata).toMatchObject({ projectId, filePath: 'src/f0.ts', startLine: 1, endLine: 2 });
   });
 
-  return { prepare: mockPrepare };
-}
+  it('matches a camelCase identifier whole and by its words', async () => {
+    const { projectId, ids } = seed([{ content: 'export function getUserById(id) {}' }, { content: 'nothing here' }]);
+
+    expect((await search(projectId, 'getUserById')).map((r) => r.id)).toEqual([ids[0]]);
+    expect((await search(projectId, 'get user by id')).map((r) => r.id)).toEqual([ids[0]]);
+  });
+
+  it('searches only the given project', async () => {
+    const a = seed([{ content: 'shared keyword alpha' }]);
+    const b = seed([{ content: 'shared keyword beta' }]);
+
+    expect((await search(a.projectId, 'shared keyword')).map((r) => r.id)).toEqual(a.ids);
+    expect((await search(b.projectId, 'shared keyword')).map((r) => r.id)).toEqual(b.ids);
+  });
+
+  it('filters by file type and language before the topK cut', async () => {
+    const { projectId, ids } = seed([
+      { content: 'deploy deploy deploy pipeline', fileType: 'code' },
+      { content: 'deploy deploy pipeline', fileType: 'code' },
+      { content: 'deploy notes', fileType: 'docs', language: 'markdown' },
+    ]);
+
+    expect((await search(projectId, 'deploy', { topK: 1, filter: { fileType: 'docs' } })).map((r) => r.id)).toEqual([ids[2]]);
+    expect((await search(projectId, 'deploy', { topK: 5, filter: { language: 'markdown' } })).map((r) => r.id)).toEqual([ids[2]]);
+    await expect(search(projectId, 'deploy', { filter: { symbolName: 'x' } })).rejects.toThrow('cannot filter on "symbolName"');
+  });
+
+  it('stays in sync with chunks: deletes and the re-index swap', async () => {
+    const { projectId, ids } = seed([{ content: 'obsolete marker' }]);
+    expect(await search(projectId, 'obsolete')).toHaveLength(1);
+
+    db.prepare('DELETE FROM chunks WHERE id = ?').run(ids[0]);
+    expect(await search(projectId, 'obsolete')).toEqual([]);
+
+    // atomicSwapChunks: DELETE then INSERT ... SELECT
+    db.prepare(
+      `INSERT INTO chunks (id, project_id, content, embedding, file_path) VALUES (?, ?, 'renewed marker', x'00', 'src/n.ts')`
+    ).run(`${projectId}-new`, projectId);
+    expect((await search(projectId, 'renewed')).map((r) => r.id)).toEqual([`${projectId}-new`]);
+
+    db.prepare("UPDATE chunks SET content = 'edited marker' WHERE id = ?").run(`${projectId}-new`);
+    expect(await search(projectId, 'renewed')).toEqual([]);
+    expect(await search(projectId, 'edited')).toHaveLength(1);
+  });
+
+  it('returns nothing for a query with no searchable words', async () => {
+    const { projectId } = seed([{ content: 'a b c' }]);
+    expect(await search(projectId, '? ! a')).toEqual([]);
+  });
+
+  it('keeps a result with corrupted metadata, and warns', async () => {
+    const { projectId, ids } = seed([{ content: 'broken metadata chunk', metadata: '{not json' }]);
+    const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() };
+
+    const retriever = await new BM25StoreManager().getRetriever({ projectId }, undefined, logger);
+    expect((await retriever.retrieve('broken')).map((r) => r.id)).toEqual(ids);
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('corrupted metadata'));
+  });
+
+  it('counts the project\'s chunks', async () => {
+    const { projectId } = seed([{ content: 'one' }, { content: 'two' }]);
+    expect((await new BM25StoreManager().getRetriever({ projectId })).documentCount).toBe(2);
+  });
+});
 
 describe('BM25StoreManager', () => {
-  beforeEach(() => {
+  it('caches one retriever per project until invalidated', async () => {
+    const manager = new BM25StoreManager();
+    const first = await manager.getRetriever({ projectId: 'a' });
+
+    expect(await manager.getRetriever({ projectId: 'a' })).toBe(first);
+    expect(await manager.getRetriever({ projectId: 'b' })).not.toBe(first);
+    expect(manager.hasRetriever('a')).toBe(true);
+    expect(manager.cacheSize).toBe(2);
+
+    manager.invalidate('a');
+    expect(manager.hasRetriever('a')).toBe(false);
+    manager.clearAll();
+    expect(manager.cacheSize).toBe(0);
+  });
+
+  it('is a singleton until reset', () => {
+    const manager = getBM25StoreManager();
+    expect(getBM25StoreManager()).toBe(manager);
     resetBM25StoreManager();
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    resetBM25StoreManager();
-  });
-
-  describe('getRetriever', () => {
-    it('should load chunks from SQLite and build BM25 index', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'PostgreSQL database connection pool',
-          file_path: 'src/db/pool.ts',
-          file_type: 'code',
-          language: 'typescript',
-          start_line: 10,
-          end_line: 50,
-          metadata: JSON.stringify({ symbolName: 'createPool' }),
-        },
-        {
-          id: 'chunk-2',
-          content: 'MySQL database driver configuration',
-          file_path: 'src/db/mysql.ts',
-          file_type: 'code',
-          language: 'typescript',
-          start_line: 1,
-          end_line: 30,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-      const retriever = await manager.getRetriever({
-        projectId: 'test-project',
-      });
-
-      expect(retriever).toBeDefined();
-      expect(retriever.documentCount).toBe(2);
-    });
-
-    it('should return cached retriever on subsequent calls', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      // First call builds the retriever
-      const retriever1 = await manager.getRetriever({
-        projectId: 'test-project',
-      });
-
-      // Second call should return cached
-      const retriever2 = await manager.getRetriever({
-        projectId: 'test-project',
-      });
-
-      expect(retriever1).toBe(retriever2);
-      // Database should only be queried once
-      expect(mockDb.prepare).toHaveBeenCalledTimes(2); // COUNT + SELECT
-    });
-
-    it('should handle concurrent initialization requests', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      // Start two concurrent builds
-      const [retriever1, retriever2] = await Promise.all([
-        manager.getRetriever({ projectId: 'test-project' }),
-        manager.getRetriever({ projectId: 'test-project' }),
-      ]);
-
-      // Should return the same instance
-      expect(retriever1).toBe(retriever2);
-      // Should only build once
-      expect(mockDb.prepare).toHaveBeenCalledTimes(2); // COUNT + SELECT (once)
-    });
-
-    it('should report progress during loading', async () => {
-      // Create enough chunks to trigger multiple batches
-      const testChunks: ChunkRow[] = Array.from({ length: 5 }, (_, i) => ({
-        id: `chunk-${i}`,
-        content: `Content ${i}`,
-        file_path: `file-${i}.ts`,
-        file_type: 'code',
-        language: null,
-        start_line: 1,
-        end_line: 10,
-        metadata: null,
-      }));
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-      const progressUpdates: Array<{ phase: string; loaded: number; total: number }> = [];
-
-      await manager.getRetriever(
-        { projectId: 'test-project' },
-        (progress) => progressUpdates.push(progress)
-      );
-
-      // Should have at least loading and building phases
-      expect(progressUpdates.length).toBeGreaterThan(0);
-      expect(progressUpdates[0]!.phase).toBe('loading');
-      expect(progressUpdates[progressUpdates.length - 1]!.phase).toBe('building');
-      expect(progressUpdates[progressUpdates.length - 1]!.loaded).toBe(5);
-    });
-
-    it('should handle empty project gracefully', async () => {
-      const mockDb = createMockDb([]);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-      const retriever = await manager.getRetriever({
-        projectId: 'empty-project',
-      });
-
-      expect(retriever).toBeDefined();
-      expect(retriever.documentCount).toBe(0);
-    });
-
-    it('should use custom BM25 config when provided', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content with keywords',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-      const retriever = await manager.getRetriever({
-        projectId: 'test-project',
-        bm25Config: {
-          k1: 2.0,
-          b: 0.5,
-        },
-      });
-
-      expect(retriever).toBeDefined();
-      // Retriever should be built (we can't easily verify config was used,
-      // but the fact it doesn't throw is good)
-    });
-
-    it('should create separate retrievers for different projects', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      const retriever1 = await manager.getRetriever({ projectId: 'project-1' });
-      const retriever2 = await manager.getRetriever({ projectId: 'project-2' });
-
-      expect(retriever1).not.toBe(retriever2);
-      expect(manager.cacheSize).toBe(2);
-    });
-  });
-
-  describe('invalidate', () => {
-    it('should clear cached retriever for project', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      // Build retriever
-      const retriever1 = await manager.getRetriever({ projectId: 'test-project' });
-      expect(manager.hasRetriever('test-project')).toBe(true);
-
-      // Invalidate
-      manager.invalidate('test-project');
-      expect(manager.hasRetriever('test-project')).toBe(false);
-
-      // Next call should rebuild
-      const retriever2 = await manager.getRetriever({ projectId: 'test-project' });
-      expect(retriever1).not.toBe(retriever2);
-    });
-  });
-
-  describe('hasRetriever', () => {
-    it('should return true for cached retrievers', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      expect(manager.hasRetriever('test-project')).toBe(false);
-
-      await manager.getRetriever({ projectId: 'test-project' });
-
-      expect(manager.hasRetriever('test-project')).toBe(true);
-    });
-  });
-
-  describe('clearAll', () => {
-    it('should clear all cached retrievers', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'Test content',
-          file_path: 'test.ts',
-          file_type: 'code',
-          language: null,
-          start_line: 1,
-          end_line: 10,
-          metadata: null,
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      await manager.getRetriever({ projectId: 'project-1' });
-      await manager.getRetriever({ projectId: 'project-2' });
-      expect(manager.cacheSize).toBe(2);
-
-      manager.clearAll();
-      expect(manager.cacheSize).toBe(0);
-    });
-  });
-});
-
-describe('singleton functions', () => {
-  beforeEach(() => {
-    resetBM25StoreManager();
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    resetBM25StoreManager();
-  });
-
-  it('getBM25StoreManager should return singleton', () => {
-    const manager1 = getBM25StoreManager();
-    const manager2 = getBM25StoreManager();
-
-    expect(manager1).toBe(manager2);
-  });
-
-  it('resetBM25StoreManager should clear singleton', async () => {
-    const testChunks: ChunkRow[] = [
-      {
-        id: 'chunk-1',
-        content: 'Test content',
-        file_path: 'test.ts',
-        file_type: 'code',
-        language: null,
-        start_line: 1,
-        end_line: 10,
-        metadata: null,
-      },
-    ];
-
-    const mockDb = createMockDb(testChunks);
-    vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-    const manager1 = getBM25StoreManager();
-    await manager1.getRetriever({ projectId: 'test' });
-
-    resetBM25StoreManager();
-
-    const manager2 = getBM25StoreManager();
-    expect(manager1).not.toBe(manager2);
-    expect(manager2.cacheSize).toBe(0);
-  });
-});
-
-describe('BM25StoreManager edge cases', () => {
-  beforeEach(() => {
-    resetBM25StoreManager();
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    resetBM25StoreManager();
-  });
-
-  describe('metadata handling', () => {
-    it('should handle corrupted JSON in metadata', async () => {
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'valid content for BM25 indexing',
-          file_path: 'src/file.ts',
-          file_type: 'code',
-          language: 'typescript',
-          start_line: 1,
-          end_line: 10,
-          metadata: '{not valid json at all', // Corrupted JSON
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-
-      // Should not throw - corrupted metadata handled gracefully
-      const retriever = await manager.getRetriever({ projectId: 'test-project' });
-
-      expect(retriever).toBeDefined();
-    });
-
-    it('should continue loading after corrupted metadata', async () => {
-      // Mix of valid and invalid metadata
-      const testChunks: ChunkRow[] = [
-        {
-          id: 'chunk-1',
-          content: 'first chunk content',
-          file_path: 'src/file1.ts',
-          file_type: 'code',
-          language: 'typescript',
-          start_line: 1,
-          end_line: 10,
-          metadata: '{broken', // Corrupted
-        },
-        {
-          id: 'chunk-2',
-          content: 'second chunk content',
-          file_path: 'src/file2.ts',
-          file_type: 'code',
-          language: 'typescript',
-          start_line: 1,
-          end_line: 10,
-          metadata: JSON.stringify({ valid: true }), // Valid
-        },
-        {
-          id: 'chunk-3',
-          content: 'third chunk content',
-          file_path: 'src/file3.ts',
-          file_type: 'code',
-          language: 'typescript',
-          start_line: 1,
-          end_line: 10,
-          metadata: null, // Null (valid)
-        },
-      ];
-
-      const mockDb = createMockDb(testChunks);
-      vi.mocked(getDb).mockReturnValue(mockDb as any);
-
-      const manager = new BM25StoreManager();
-      const retriever = await manager.getRetriever({ projectId: 'test-project' });
-
-      // All chunks should be loaded despite corrupted metadata in one
-      expect(retriever).toBeDefined();
-    });
+    expect(getBM25StoreManager()).not.toBe(manager);
   });
 });

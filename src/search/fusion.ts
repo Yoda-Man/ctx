@@ -169,9 +169,7 @@ export class FusionService {
       dimensions,
     });
 
-    this.bm25Service = createBM25SearchService(projectId, searchConfig, {
-      bm25Config: options.bm25Options?.bm25Config,
-    });
+    this.bm25Service = createBM25SearchService(projectId, searchConfig);
   }
 
   /**
@@ -313,7 +311,6 @@ export function createFusionService(
       projectId,
       denseOptions: options.denseOptions,
       fusionConfig: options.fusionConfig,
-      bm25Options: options.bm25Options,
     },
     rerankConfig
   );

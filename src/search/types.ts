@@ -83,38 +83,11 @@ export interface IndexBuildProgress {
 }
 
 /**
- * BM25 algorithm configuration.
- *
- * BM25 (Best Match 25) is a ranking function used for keyword-based retrieval.
- * It extends TF-IDF with document length normalization.
- */
-export interface BM25Config {
-  /**
-   * Term frequency saturation parameter (default: 1.2).
-   *
-   * Controls how quickly term frequency effects saturate:
-   * - Lower k1 (e.g., 0.5): Diminishing returns kick in earlier
-   * - Higher k1 (e.g., 2.0): More weight to repeated terms
-   */
-  k1?: number;
-  /**
-   * Document length normalization parameter (default: 0.75).
-   *
-   * Controls how much document length affects scoring:
-   * - b=0: No length normalization (longer docs not penalized)
-   * - b=1: Full length normalization (longer docs penalized more)
-   */
-  b?: number;
-}
-
-/**
  * Options for initializing the BM25SearchService.
  */
 export interface BM25ServiceOptions {
   /** Project ID to scope searches */
   projectId: string;
-  /** BM25 tuning parameters */
-  bm25Config?: BM25Config;
 }
 
 /**
@@ -162,8 +135,6 @@ export interface FusionServiceOptions {
   fusionConfig?: Partial<FusionConfig>;
   /** Dense search options - dimensions is REQUIRED */
   denseOptions: DenseSearchOptions;
-  /** Override default BM25ServiceOptions */
-  bm25Options?: Partial<Omit<BM25ServiceOptions, 'projectId'>>;
 }
 
 /**
@@ -358,8 +329,6 @@ export interface EmbeddingValidation {
 export interface MultiProjectBM25LoadOptions {
   /** Project IDs to load */
   projectIds: string[];
-  /** BM25 configuration (optional, uses defaults if not provided) */
-  bm25Config?: BM25Config;
 }
 
 // ============================================================================
@@ -369,16 +338,14 @@ export interface MultiProjectBM25LoadOptions {
 /**
  * Options for loading multiple project stores for fusion search.
  *
- * Combines requirements from both vector (dimensions) and BM25 (config) loading.
- * Essentially a union of MultiProjectLoadOptions and MultiProjectBM25LoadOptions.
+ * Vector stores need the embedding dimensions; keyword search needs nothing
+ * loaded (it is answered by SQLite FTS5).
  */
 export interface MultiProjectFusionLoadOptions {
   /** Project IDs to load */
   projectIds: string[];
   /** Embedding dimensions (must be consistent across all projects) */
   dimensions: number;
-  /** BM25 configuration (optional, uses defaults if not provided) */
-  bm25Config?: BM25Config;
 }
 
 /**

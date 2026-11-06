@@ -54,7 +54,7 @@ export interface MigrationResult {
 
 // Embedded migrations (bundler-friendly approach)
 // SQL files are embedded as strings to avoid file system dependencies in bundled output
-const MIGRATIONS: Array<{ name: string; sql: string }> = [
+export const MIGRATIONS: Array<{ name: string; sql: string }> = [
   {
     name: '001-initial.sql',
     sql: `
@@ -230,6 +230,38 @@ CREATE INDEX IF NOT EXISTS idx_eval_traces_type ON eval_traces(trace_type);
 -- Migration 007: Record the index format a project was built with
 -- (see src/database/index-version.ts). NULL: indexed before this existed.
 ALTER TABLE projects ADD COLUMN index_version INTEGER;
+    `.trim(),
+  },
+  {
+    name: '008-add-chunks-fts.sql',
+    sql: `
+-- Migration 008: Keyword (BM25) search in SQLite instead of in memory.
+-- Each chunk's tokens (ctx_tokens(), registered in connection.ts) are kept in
+-- an FTS5 index keyed by the chunk's rowid, so a search no longer rebuilds a
+-- BM25 index from every chunk. Contentless: the text stays in chunks only.
+-- The triggers cover every write: inserts, the re-index swap, deletes.
+-- (A manual VACUUM can renumber chunks' rowids; ctx never runs one.)
+CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+  tokens,
+  content = '',
+  contentless_delete = 1,
+  tokenize = 'unicode61 remove_diacritics 0'
+);
+
+INSERT INTO chunks_fts (rowid, tokens) SELECT rowid, ctx_tokens(content) FROM chunks;
+
+CREATE TRIGGER IF NOT EXISTS chunks_fts_insert AFTER INSERT ON chunks BEGIN
+  INSERT INTO chunks_fts (rowid, tokens) VALUES (new.rowid, ctx_tokens(new.content));
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_fts_delete AFTER DELETE ON chunks BEGIN
+  DELETE FROM chunks_fts WHERE rowid = old.rowid;
+END;
+
+CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks BEGIN
+  DELETE FROM chunks_fts WHERE rowid = old.rowid;
+  INSERT INTO chunks_fts (rowid, tokens) VALUES (new.rowid, ctx_tokens(new.content));
+END;
     `.trim(),
   },
 ];
