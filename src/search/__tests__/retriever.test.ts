@@ -82,6 +82,8 @@ function createMockDb(chunks: Array<{
   metadata: string | null;
 }>) {
   const mockPrepare = vi.fn().mockImplementation((sql: string) => {
+    // No sqlite-vec here: these tests cover the in-memory fallback
+    if (sql.includes('vec_version')) throw new Error('no such function: vec_version');
     if (sql.includes('COUNT(*)')) {
       return {
         get: vi.fn().mockReturnValue({ count: chunks.length }),

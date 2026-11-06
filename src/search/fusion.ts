@@ -39,6 +39,18 @@ import type {
 export { DEFAULT_RRF_K };
 
 /**
+ * Fused-score multiplier for documentation chunks (Markdown, text, Word, PDF).
+ * Docs describe features in plain words, so they match questions about
+ * code about as well as the code does, and pushed it out of the top results.
+ * Fused scores lie close together (rank 1 in one list: 0.5, rank 5: 0.47),
+ * so this mostly decides near-ties in favour of code: on the 56-question
+ * eval (fixtures/eval/ctx-source-golden.json) every weight from 0.6 to 0.95
+ * gave the same ranking, improving 12 questions and worsening none,
+ * documentation questions included. A project of docs only is unaffected.
+ */
+export const DOCS_WEIGHT = 0.9;
+
+/**
  * Compute Reciprocal Rank Fusion scores for two ranked result lists.
  *
  * Uses the ContextAI SDK's reciprocalRankFusion() internally, with a wrapper
@@ -47,8 +59,9 @@ export { DEFAULT_RRF_K };
  * @param denseResults - Results from dense/vector search (already sorted by score desc)
  * @param bm25Results - Results from BM25/keyword search (already sorted by score desc)
  * @param config - RRF configuration (k constant)
- * @returns Fused results sorted by RRF score descending, scaled to 0-1: 1 means
- *   ranked first by both searches, about 0.5 first by one of them
+ * @returns Fused results sorted by score descending, scaled to 0-1: 1 means
+ *   ranked first by both searches, about 0.5 first by one of them; docs
+ *   chunks are multiplied by DOCS_WEIGHT
  *
  * @example
  * ```typescript
@@ -105,11 +118,14 @@ export function computeRRF(
   // any 0-1 minScore drop every result; divide by the best possible score.
   const bestPossible = 2 / (k + 1);
 
-  // Convert back to SearchResultWithContext
-  return rrfResults.map((rrf) => ({
-    ...resultLookup.get(rrf.id)!,
-    score: rrf.score / bestPossible,
-  }));
+  // Convert back to SearchResultWithContext, preferring code over docs on near-ties
+  return rrfResults
+    .map((rrf) => {
+      const result = resultLookup.get(rrf.id)!;
+      const weight = result.fileType === 'docs' ? DOCS_WEIGHT : 1;
+      return { ...result, score: (rrf.score / bestPossible) * weight };
+    })
+    .sort((a, b) => b.score - a.score);
 }
 
 /**

@@ -214,3 +214,32 @@ describe('CachedEmbeddingProvider.embedBatch', () => {
     expect(inner.embedBatch).not.toHaveBeenCalled();
   });
 });
+
+describe('CachedEmbeddingProvider.embedQuery', () => {
+  const result = (embedding: number[]): EmbeddingResult => ({ embedding, tokenCount: 1, model: 'm' });
+  const base = (extra: Partial<EmbeddingProvider> = {}): EmbeddingProvider => ({
+    name: 'base',
+    dimensions: 2,
+    maxBatchSize: 8,
+    embed: vi.fn(async () => result([1, 0])),
+    embedBatch: vi.fn(async () => []),
+    isAvailable: vi.fn(async () => true),
+    ...extra,
+  });
+
+  it("uses the wrapped provider's embedQuery when it has one", async () => {
+    const inner = base({ embedQuery: vi.fn(async () => result([0, 1])) });
+    const cached = new CachedEmbeddingProvider({ provider: inner });
+
+    expect((await cached.embedQuery('q')).embedding).toEqual([0, 1]);
+    expect(inner.embedQuery).toHaveBeenCalledWith('q');
+  });
+
+  it('falls back to embed for providers without embedQuery', async () => {
+    const inner = base();
+    const cached = new CachedEmbeddingProvider({ provider: inner });
+
+    expect((await cached.embedQuery('q')).embedding).toEqual([1, 0]);
+    expect(inner.embed).toHaveBeenCalledWith('q');
+  });
+});

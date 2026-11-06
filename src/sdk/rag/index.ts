@@ -10,6 +10,7 @@ export { SemanticChunker } from './chunking/semantic-chunker.js';
 export { CachedEmbeddingProvider } from './embeddings/cache.js';
 export { HuggingFaceEmbeddingProvider } from './embeddings/huggingface-provider.js';
 export { OllamaEmbeddingProvider } from './embeddings/ollama-provider.js';
+export { embedQuery } from './embeddings/utils.js';
 export type { EmbeddingProvider, EmbeddingResult } from './embeddings/types.js';
 export { RAGEngineImpl } from './engine/rag-engine.js';
 export type { RAGResult, RAGSearchMetadata, RAGTimings } from './engine/types.js';
@@ -20,4 +21,11 @@ export { DEFAULT_RRF_K, reciprocalRankFusion } from './retrieval/rrf.js';
 export type { RankingList } from './retrieval/rrf.js';
 export type { RetrievalOptions, RetrievalResult, Retriever } from './retrieval/types.js';
 export { InMemoryVectorStore } from './vector-store/memory-store.js';
-export type { Chunk, MetadataFilter, SearchOptions } from './vector-store/types.js';
+export type {
+  Chunk,
+  ChunkWithEmbedding,
+  MetadataFilter,
+  SearchOptions,
+  SearchResult,
+  VectorStore,
+} from './vector-store/types.js';

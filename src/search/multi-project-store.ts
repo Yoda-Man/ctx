@@ -12,7 +12,7 @@
  * 4. Merge results using Reciprocal Rank Fusion (RRF)
  *
  * Architecture:
- * - Each project has its own InMemoryVectorStore (per VectorStoreManager)
+ * - Each project has its own vector store (per VectorStoreManager)
  * - Search runs in parallel across all loaded stores
  * - Results are merged using RRF, same algorithm as FusionService
  * - projectId available from two sources: chunk metadata (for filtering) and
@@ -42,7 +42,7 @@
  * ```
  */
 
-import type { InMemoryVectorStore, SearchOptions, MetadataFilter } from '../sdk/rag/index.js';
+import type { VectorStore, SearchOptions, MetadataFilter } from '../sdk/rag/index.js';
 import { reciprocalRankFusion, DEFAULT_RRF_K, type RankingList } from '../sdk/rag/index.js';
 
 import { getDatabase, type DatabaseOperations } from '../database/operations.js';
@@ -173,12 +173,12 @@ export class MultiProjectVectorStoreManager {
    *
    * @param options - Load options including projectIds and dimensions
    * @param onProgress - Optional callback for progress updates
-   * @returns Map of projectId to InMemoryVectorStore
+   * @returns Map of projectId to vector store
    */
   async loadStores(
     options: MultiProjectLoadOptions,
     onProgress?: (progress: MultiProjectLoadProgress) => void
-  ): Promise<Map<string, InMemoryVectorStore>> {
+  ): Promise<Map<string, VectorStore>> {
     const { projectIds, dimensions } = options;
 
     // Validate embedding compatibility for cross-project search (2+ projects)
@@ -190,7 +190,7 @@ export class MultiProjectVectorStoreManager {
       }
     }
 
-    const stores = new Map<string, InMemoryVectorStore>();
+    const stores = new Map<string, VectorStore>();
 
     for (let i = 0; i < projectIds.length; i++) {
       const projectId = projectIds[i]!;

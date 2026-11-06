@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Vector search runs in SQLite.** The sqlite-vec extension (new dependency,
+  prebuilt for Linux and macOS on x64 and arm64 and Windows on x64; no
+  install script) scores the embeddings already stored in the chunks table,
+  in C, with `vec_distance_cosine()`. Each process used to load all of a
+  project's vectors into memory before its first search. Measured on
+  synthetic projects: ready to search in about 5 ms (was 0.33 s at 25,000
+  chunks and 2.6 to 7.8 s at 200,000), holding almost no memory (was 0.2 and
+  1.1 GB). A query takes 0.13 s at 25,000 chunks and 0.97 s at 200,000 (was
+  32 ms and 0.3 to 0.7 s once loaded), so a single search is much faster and
+  a long chat is slightly slower per question. Results are the same: equal
+  top 10 on random vectors, and the 56-question eval scores identically.
+  Where sqlite-vec cannot load, ctx keeps loading vectors into memory. No
+  re-index or migration is needed.
+- **Better answers to plain-language questions.** Two changes, each scored
+  on the 56-question eval against the same index; MRR 0.51 to 0.59, top-5
+  hit rate 0.73 to 0.86, recall 0.68 to 0.79:
+  - Search queries to English BGE models start with the instruction BAAI's
+    model card gives for retrieval ("Represent this sentence for searching
+    relevant passages: "); stored chunks do not, so no re-index is needed.
+    Alone: MRR 0.51 to 0.55, hit rate 0.73 to 0.80 (8 questions better,
+    4 worse).
+  - Documentation chunks' fused scores are multiplied by 0.9, so code wins
+    near-ties with docs that describe it. Fused scores lie close together,
+    so any weight from 0.6 to 0.95 gave the same ranking; on top of the
+    instruction it improved 12 questions and worsened none, documentation
+    questions included.
+
 ## [1.3.2] - 2026-11-06
 
 ### Changed

@@ -56,7 +56,7 @@
  * ```
  */
 
-import type { EmbeddingProvider } from '../sdk/rag/index.js';
+import { embedQuery, type EmbeddingProvider } from '../sdk/rag/index.js';
 
 import {
   createProjectRouter,
@@ -412,7 +412,7 @@ export class RoutingRAGEngine {
     });
 
     // Generate query embedding
-    const embeddingResult = await this.embeddingProvider.embed(query);
+    const embeddingResult = await embedQuery(this.embeddingProvider, query);
 
     // Execute multi-project search
     const topK = options?.finalK ?? 10;

@@ -1,13 +1,14 @@
 /**
  * Vector Store Manager
  *
- * Manages the lifecycle of InMemoryVectorStore instances:
- * - Lazy loading from SQLite on first search
- * - Project-scoped stores (one per project)
- * - Memory-efficient batch loading
+ * Hands out one vector store per project:
+ * - SqliteVectorStore, scoring the stored embeddings in SQL with sqlite-vec,
+ *   when the extension is loaded (most platforms): nothing to load
+ * - otherwise an InMemoryVectorStore, loaded from SQLite in batches on first
+ *   search
  */
 
-import { InMemoryVectorStore } from '../sdk/rag/index.js';
+import { InMemoryVectorStore, type VectorStore } from '../sdk/rag/index.js';
 import type Database from 'better-sqlite3';
 
 import { getDb } from '../database/connection.js';
@@ -20,6 +21,7 @@ import {
 } from '../database/validation.js';
 import { safeJsonParse, type Logger, consoleLogger } from '../utils/index.js';
 import type { SearchServiceOptions, IndexBuildProgress } from './types.js';
+import { SqliteVectorStore, hasSqlVectorSearch } from './sqlite-vector-store.js';
 
 /** Batch size for loading chunks from SQLite (memory efficiency) */
 const LOAD_BATCH_SIZE = 1000;
@@ -42,10 +44,10 @@ const LOAD_BATCH_SIZE = 1000;
  */
 export class VectorStoreManager {
   /** Cache of initialized stores by project ID */
-  private stores = new Map<string, InMemoryVectorStore>();
+  private stores = new Map<string, VectorStore>();
 
   /** Tracks in-progress builds to prevent concurrent builds for same project */
-  private buildingStores = new Map<string, Promise<InMemoryVectorStore>>();
+  private buildingStores = new Map<string, Promise<VectorStore>>();
 
   /** Database connection (lazy) */
   private db: Database.Database | null = null;
@@ -74,7 +76,7 @@ export class VectorStoreManager {
     options: SearchServiceOptions,
     onProgress?: (progress: IndexBuildProgress) => void,
     logger: Logger = consoleLogger
-  ): Promise<InMemoryVectorStore> {
+  ): Promise<VectorStore> {
     const { projectId } = options;
 
     // Return cached store if available
@@ -101,26 +103,43 @@ export class VectorStoreManager {
   }
 
   /**
-   * Build a vector store by loading chunks from SQLite.
-   *
-   * Loads in batches for memory efficiency.
+   * Create a project's vector store: in SQL if sqlite-vec is loaded, else by
+   * loading its chunks from SQLite in batches.
    */
   private async buildStore(
     options: SearchServiceOptions,
     onProgress?: (progress: IndexBuildProgress) => void,
     logger: Logger = consoleLogger
-  ): Promise<InMemoryVectorStore> {
+  ): Promise<VectorStore> {
     const { projectId, dimensions } = options;
 
     const db = this.getDatabase();
 
-    // Every search, ask, chat and eval loads chunks here: warn once per
-    // process if they were built by an older index format.
+    // Every search, ask, chat and eval gets its store here: warn once per
+    // process if the project was built by an older index format.
     const project = db
       .prepare('SELECT name, path, index_version FROM projects WHERE id = ?')
       .get(projectId) as { name: string; path: string; index_version: number | null } | undefined;
     const stale = project ? staleIndexReason(project) : null;
     if (stale) logger.warn(stale);
+
+    if (hasSqlVectorSearch(db)) {
+      return new SqliteVectorStore(db, projectId, dimensions, logger);
+    }
+    return this.loadIntoMemory(db, options, onProgress, logger);
+  }
+
+  /**
+   * Load a project's chunks into an in-memory store, in batches: the
+   * fallback where sqlite-vec has no binary.
+   */
+  private async loadIntoMemory(
+    db: Database.Database,
+    options: SearchServiceOptions,
+    onProgress?: (progress: IndexBuildProgress) => void,
+    logger: Logger = consoleLogger
+  ): Promise<InMemoryVectorStore> {
+    const { projectId, dimensions } = options;
 
     // Get total chunk count for progress reporting
     const countResult = db

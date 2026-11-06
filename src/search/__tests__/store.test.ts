@@ -36,6 +36,8 @@ function createMockDb(chunks: Array<{
   metadata: string | null;
 }>) {
   const mockPrepare = vi.fn().mockImplementation((sql: string) => {
+    // No sqlite-vec here: these tests cover the in-memory fallback
+    if (sql.includes('vec_version')) throw new Error('no such function: vec_version');
     if (sql.includes('COUNT(*)')) {
       return {
         get: vi.fn().mockReturnValue({ count: chunks.length }),
@@ -153,7 +155,7 @@ describe('VectorStoreManager', () => {
       expect(store1).toBe(store2);
 
       // Database should only be queried once
-      expect(mockDb.prepare).toHaveBeenCalledTimes(3); // index version + COUNT + SELECT
+      expect(mockDb.prepare).toHaveBeenCalledTimes(4); // index version + sqlite-vec check + COUNT + SELECT
     });
 
     it('should handle concurrent initialization requests', async () => {
