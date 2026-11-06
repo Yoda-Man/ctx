@@ -7,6 +7,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Vector search runs in SQLite.** The sqlite-vec extension (new dependency,
+  prebuilt for Linux and macOS on x64 and arm64 and Windows on x64; no
+  install script) scores the embeddings already stored in the chunks table,
+  in C, with `vec_distance_cosine()`. Each process used to load all of a
+  project's vectors into memory before its first search. Measured on
+  synthetic projects: ready to search in about 5 ms (was 0.33 s at 25,000
+  chunks and 2.6 to 7.8 s at 200,000), holding almost no memory (was 0.2 and
+  1.1 GB). A query takes 0.13 s at 25,000 chunks and 0.97 s at 200,000 (was
+  32 ms and 0.3 to 0.7 s once loaded), so a single search is much faster and
+  a long chat is slightly slower per question. Results are the same: equal
+  top 10 on random vectors, and the 56-question eval scores identically.
+  Where sqlite-vec cannot load, ctx keeps loading vectors into memory. No
+  re-index or migration is needed.
+- **Better answers to plain-language questions.** Two changes, each scored
+  on the 56-question eval against the same index; MRR 0.51 to 0.59, top-5
+  hit rate 0.73 to 0.86, recall 0.68 to 0.79:
+  - Search queries to English BGE models start with the instruction BAAI's
+    model card gives for retrieval ("Represent this sentence for searching
+    relevant passages: "); stored chunks do not, so no re-index is needed.
+    Alone: MRR 0.51 to 0.55, hit rate 0.73 to 0.80 (8 questions better,
+    4 worse).
+  - Documentation chunks' fused scores are multiplied by 0.9, so code wins
+    near-ties with docs that describe it. Fused scores lie close together,
+    so any weight from 0.6 to 0.95 gave the same ranking; on top of the
+    instruction it improved 12 questions and worsened none, documentation
+    questions included.
+
+## [1.3.2] - 2026-11-06
+
+### Changed
+- **Keyword search runs in SQLite FTS5.** Each process used to load every
+  chunk of a project and build a BM25 index in memory on its first search.
+  On synthetic projects that build took 1.2 s at 25,000 chunks and 12.4 s at
+  200,000, most of the 1.5 s and 15 s spent loading a project for search
+  (which then held 0.5 and 3.5 GB, vectors included). Each chunk's tokens now sit in an FTS5
+  index (`chunks_fts`, migration 008), kept current by triggers on every
+  insert, re-index swap, update and delete, so a search starts at once.
+  Upgrading needs no re-index: the migration fills the index from the chunks
+  already stored. Tokens come from ctx's own tokenizer on both sides
+  (`ctx_tokens()` SQL function), so camelCase splitting is unchanged.
+  Scoring is FTS5's `bm25()` with the same k1 = 1.2 and b = 0.75, with two
+  differences: term rarity (IDF) is counted over all indexed projects, not
+  one, and a term in half or more of all chunks adds almost nothing (FTS5
+  floors its IDF at 1e-6; ctx's formula kept a small positive weight).
+  A manual `VACUUM` can renumber the rowids the index is keyed on; ctx never
+  runs one.
+  Measured on the same synthetic projects: nothing is built at search time,
+  and a project loaded for search holds 0.2 GB at 25,000 chunks (was 0.5)
+  and 1.1 GB at 200,000 (was 3.5); the rest is vectors. A keyword query now
+  runs in SQLite each time: 9 ms at 25,000 chunks (was 3), 198 ms at 200,000
+  (was 23). Indexing pays about 0.3 ms a chunk for the FTS5 trigger, small
+  next to embedding the chunk. On the 56-question eval it made no
+  measurable difference: MRR 0.53 before, 0.55 and 0.53 in two runs after,
+  hit rate 0.75 throughout.
+
+### Added
+- **Stale index warnings.** Each project now records the index format it was
+  built with (`index_version`, new migration 007). Searching, asking,
+  chatting or evaluating a project built by an older format prints a warning
+  with the exact re-index command, and `ctx check` lists it as a warning.
+  Projects indexed before this release have no recorded version, so they get
+  the warning until re-indexed, including ones already re-indexed for 1.3.0.
+  Only a finished index records the version: editing a project's description
+  or tags does not.
+- **A real-model eval over ctx's own source.** `fixtures/eval/ctx-source-golden.json`
+  has 56 questions (exact names, paraphrases, docs), each checked against the
+  files that answer it; `npx tsx scripts/eval-source.ts` indexes this
+  repository (180 files, 1,529 chunks) in a temporary home and scores it.
+  The 8-question fixture scores 0.94 MRR, close to its ceiling; on 1.3.2
+  this set scores MRR 0.53, hit rate 0.75, recall 0.69, NDCG 0.55, so it has
+  room to show both gains and losses. Questions about the database and
+  embeddings score MRR 0.83 to 0.88; about the agent 0.15, and indexing and
+  the CLI about 0.44 (3 to 11 questions each, so indications only).
+  CHANGELOG.md, which describes most features in plain words, often takes a
+  top-5 place. Each expected file comes with a pattern it must contain, and
+  a test fails if a file is renamed, removed or no longer contains the
+  answer. Relevance is still judged by file, not by chunk.
+- **Go and Rust are split by tree-sitter**, like TypeScript, JavaScript and
+  Python: each func, method, type, struct, enum, trait or impl is a chunk
+  with its doc comments and `#[...]` attributes, and the code between them
+  (imports, consts) is indexed too. They were split by size. Re-index Go and
+  Rust projects (index version 3). Install now needs `tree-sitter-go` and
+  `tree-sitter-rust` in the `--allow-scripts` list (see the README).
+
+### Fixed
+- **Windows:**
+  - Tab completion of folders in `ctx chat` (`/index`) recognised only `/`
+    after a folder name and `~/` for the home folder: `C:\code\` and `~\code`
+    now complete too, and completions end with the platform's separator.
+  - Scanned file paths kept fast-glob's forward slashes (`C:/code/x.ts`);
+    they now use the platform's separators.
+  - All 1,852 tests pass on Windows; 14 used to fail because tests assumed `/`-rooted
+    paths, a POSIX shell, and that a folder can be deleted while a database
+    in it is open. CI now runs the suite on Windows as well as Linux.
+- **`ordering = "chronological"` gave relevance order.** It sorted by
+  `documentId` and `startIndex`, which ctx's chunks never have, so every
+  chunk tied. It now falls back to each chunk's file path and start line.
+
+### Removed
+- The in-memory `BM25Retriever` (about 290 lines) and the BM25 `k1`/`b`
+  options, which no command or config set. Only its tokenizer remains.
+- RRF weights (`fusionConfig.weights`): nothing set them, so both searches
+  always counted equally. Fusion behaves exactly as before.
+- A QueryEnhancer step in the RAG engine's architecture diagram; the stage
+  was removed in 1.0.0.
+
+## [1.3.1] - 2026-11-06
+
+The first npm release of the 1.3.0 changes below: the 1.3.0 tag and GitHub
+release exist, but its npm publish failed, so 1.3.0 is not on npm.
+
+### Changed
+- Dependencies: ora 10.0.0, marked 18.1.3, turndown 7.2.5; dev: vitest and
+  @vitest/coverage-v8 5.1.0, oxlint 1.91.0, oxlint-tsgolint 7.0.2006. The
+  1.3.0 npm publish stopped on `npm outdated` (run before every publish)
+  because these had new releases.
+
 ## [1.3.0] - 2026-11-06
 
 ### Changed

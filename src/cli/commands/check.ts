@@ -19,6 +19,7 @@ import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CommandContext } from '../types.js';
 import { getDb, runMigrations, type Project } from '../../database/index.js';
+import { INDEX_VERSION, staleIndexReason } from '../../database/index-version.js';
 import { loadConfig } from '../../config/loader.js';
 import { CLIError } from '../../errors/index.js';
 
@@ -168,7 +169,17 @@ export function createCheckCommand(
         });
       }
 
-      // 5. Staleness check
+      // 5. Index format: built by an older ctx whose chunks or vectors differ
+      const staleIndex = staleIndexReason(project);
+      if (staleIndex) {
+        issues.push({
+          severity: 'warning',
+          message: `Index built by an older ctx (index version ${project.index_version ?? 'unrecorded'}, current ${INDEX_VERSION})`,
+          hint: `Run: ctx index "${project.path}" --name "${project.name}" --force`,
+        });
+      }
+
+      // 6. Staleness check
       const staleness = pathExists
         ? checkStaleness(String(project.id), project.path)
         : { filesChanged: 0, needsReindex: false, pathExists: false };
@@ -240,7 +251,7 @@ export function createCheckCommand(
 
       if (staleness.pathExists && staleness.filesChanged === 0 && project.chunk_count > 0) {
         lines.push('');
-        lines.push(chalk.dim('Index is up to date.'));
+        lines.push(chalk.dim('No files changed since the last index.'));
       }
 
       ctx.log(lines.join('\n'));

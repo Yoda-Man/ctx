@@ -41,6 +41,8 @@ export interface Project {
   embedding_dimensions: number;
   /** Optional description for smart query routing (e.g., "Main API server with auth and payments") */
   description: string | null;
+  /** Index format the chunks were built with (INDEX_VERSION); null if never recorded */
+  index_version: number | null;
 }
 
 /**

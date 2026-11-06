@@ -8,7 +8,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { BM25Retriever, RetrievalResult } from '../../sdk/rag/index.js';
+import type { RetrievalResult } from '../../sdk/rag/index.js';
+import type { FtsRetriever } from '../bm25-store.js';
 
 import {
   MultiProjectBM25StoreManager,
@@ -60,15 +61,16 @@ function createMockProject(id: string, name: string): Project {
     embedding_model: 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: 1024,
     description: null,
+    index_version: 3,
   };
 }
 
 /**
- * Create a mock BM25Retriever with search results.
+ * Create a mock FtsRetriever with search results.
  */
 function createMockRetriever(
   chunks: Array<{ id: string; content: string; score: number; metadata?: Record<string, unknown> }>
-): BM25Retriever {
+): FtsRetriever {
   const mockRetriever = {
     retrieve: vi.fn().mockResolvedValue(
       chunks.map((c): RetrievalResult => ({
@@ -85,7 +87,7 @@ function createMockRetriever(
     documentCount: chunks.length,
     vocabularySize: 100,
     averageDocumentLength: 50,
-  } as unknown as BM25Retriever;
+  } as unknown as FtsRetriever;
 
   return mockRetriever;
 }
@@ -143,51 +145,6 @@ describe('MultiProjectBM25StoreManager', () => {
       expect(retrievers.get('proj-2')).toBe(retriever2);
     });
 
-    it('should report progress per project', async () => {
-      const project1 = createMockProject('proj-1', 'project-one');
-      const project2 = createMockProject('proj-2', 'project-two');
-
-      mockDbOps.getProjectById
-        .mockReturnValueOnce(project1)
-        .mockReturnValueOnce(project2);
-
-      // Mock getRetriever to call the progress callback
-      mockStoreManager.getRetriever.mockImplementation(
-        async (_options: unknown, onProgress?: (p: unknown) => void) => {
-          onProgress?.({ phase: 'loading', loaded: 10, total: 20 });
-          return createMockRetriever([]);
-        }
-      );
-
-      const progressCalls: unknown[] = [];
-      const manager = new MultiProjectBM25StoreManager();
-
-      await manager.loadRetrievers(
-        {
-          projectIds: ['proj-1', 'proj-2'],
-        },
-        (progress) => progressCalls.push(progress)
-      );
-
-      expect(progressCalls.length).toBe(2);
-
-      // First project progress
-      expect(progressCalls[0]).toMatchObject({
-        projectId: 'proj-1',
-        projectName: 'project-one',
-        projectIndex: 1,
-        totalProjects: 2,
-      });
-
-      // Second project progress
-      expect(progressCalls[1]).toMatchObject({
-        projectId: 'proj-2',
-        projectName: 'project-two',
-        projectIndex: 2,
-        totalProjects: 2,
-      });
-    });
-
     it('should track loaded projects', async () => {
       const project = createMockProject('proj-1', 'project-one');
       mockDbOps.getProjectById.mockReturnValue(project);
@@ -205,26 +162,6 @@ describe('MultiProjectBM25StoreManager', () => {
       expect(manager.getLoadedProjects()).toEqual(['proj-1']);
     });
 
-    it('should pass BM25 config to store manager', async () => {
-      const project = createMockProject('proj-1', 'project-one');
-      mockDbOps.getProjectById.mockReturnValue(project);
-      mockStoreManager.getRetriever.mockResolvedValue(createMockRetriever([]));
-
-      const manager = new MultiProjectBM25StoreManager();
-
-      await manager.loadRetrievers({
-        projectIds: ['proj-1'],
-        bm25Config: { k1: 1.5, b: 0.8 },
-      });
-
-      expect(mockStoreManager.getRetriever).toHaveBeenCalledWith(
-        expect.objectContaining({
-          projectId: 'proj-1',
-          bm25Config: { k1: 1.5, b: 0.8 },
-        }),
-        expect.any(Function)
-      );
-    });
   });
 
   // ==========================================================================

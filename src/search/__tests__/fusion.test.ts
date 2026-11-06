@@ -14,11 +14,13 @@ import {
   FusionService,
   createFusionService,
   DEFAULT_RRF_K,
+  DOCS_WEIGHT,
 } from '../fusion.js';
 import { resetVectorStoreManager } from '../store.js';
 import { resetBM25StoreManager } from '../bm25-store.js';
 import { embeddingToBlob } from '../../database/schema.js';
 import type { SearchResultWithContext } from '../types.js';
+import { createSearchTestDb } from '../../test-utils/search-db.js';
 
 /**
  * Helper to create mock search results for testing.
@@ -43,6 +45,21 @@ function createMockResults(
 }
 
 describe('computeRRF', () => {
+  describe('documentation weight', () => {
+    it('prefers code over docs on a near-tie, but not over docs both searches rank', () => {
+      const docs = (ids: string[]) => createMockResults(ids).map((r) => ({ ...r, fileType: 'docs' as const }));
+
+      // Docs D1 first in dense only, code C1 first in BM25 only: a tie broken for code
+      const tie = computeRRF(docs(['D1']), createMockResults(['C1']), { k: 60 });
+      expect(tie.map((r) => r.id)).toEqual(['C1', 'D1']);
+      expect(tie[1]!.score).toBeCloseTo(0.5 * DOCS_WEIGHT, 5);
+
+      // Docs D2 ranked by both searches still beats code found by one
+      const both = computeRRF(docs(['D2', 'X']), [...docs(['D2']), ...createMockResults(['C2'])], { k: 60 });
+      expect(both[0]!.id).toBe('D2');
+    });
+  });
+
   describe('basic fusion', () => {
     it('should combine results from both sources', () => {
       // Dense: A, B, C (in rank order)
@@ -199,46 +216,6 @@ describe('computeRRF', () => {
     });
   });
 
-  describe('weighted fusion', () => {
-    it('should apply weights to RRF scores', () => {
-      const denseResults = createMockResults(['A']);
-      const bm25Results = createMockResults(['B']);
-
-      // Give dense 2x weight
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: 2.0, bm25: 1.0 },
-      });
-
-      const scoreA = fused.find((r) => r.id === 'A')!.score;
-      const scoreB = fused.find((r) => r.id === 'B')!.score;
-
-      // A (dense) should have 2x the score of B (bm25)
-      expect(scoreA).toBeCloseTo(scoreB * 2, 5);
-    });
-
-    it('should handle zero weight for one source', () => {
-      const denseResults = createMockResults(['A', 'B']);
-      const bm25Results = createMockResults(['C', 'D']);
-
-      // Zero weight for BM25 - effectively dense-only
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: 1.0, bm25: 0 },
-      });
-
-      // BM25 results should have 0 score
-      const scoreC = fused.find((r) => r.id === 'C')!.score;
-      const scoreD = fused.find((r) => r.id === 'D')!.score;
-      expect(scoreC).toBe(0);
-      expect(scoreD).toBe(0);
-
-      // Dense results should still have scores
-      const scoreA = fused.find((r) => r.id === 'A')!.score;
-      expect(scoreA).toBeGreaterThan(0);
-    });
-  });
-
   describe('edge cases', () => {
     it('should handle empty dense results', () => {
       const denseResults: SearchResultWithContext[] = [];
@@ -349,38 +326,6 @@ describe('computeRRF', () => {
       expect(elapsed).toBeLessThan(500);
     });
 
-    it('should handle negative weights correctly', () => {
-      const denseResults = createMockResults(['A']);
-      const bm25Results = createMockResults(['B']);
-
-      // Negative weight - unusual but should not crash
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: -1, bm25: 1 },
-      });
-
-      expect(fused.length).toBe(2);
-      // Dense result should have negative score
-      const scoreA = fused.find(r => r.id === 'A')!.score;
-      expect(scoreA).toBeLessThan(0);
-    });
-
-    it('should handle zero weights for both sources', () => {
-      const denseResults = createMockResults(['A', 'B']);
-      const bm25Results = createMockResults(['C', 'D']);
-
-      const fused = computeRRF(denseResults, bm25Results, {
-        k: 60,
-        weights: { dense: 0, bm25: 0 },
-      });
-
-      expect(fused.length).toBe(4);
-      // All scores should be 0
-      fused.forEach(result => {
-        expect(result.score).toBe(0);
-      });
-    });
-
     it('should handle single result in dense only', () => {
       const denseResults = createMockResults(['A']);
       const bm25Results: SearchResultWithContext[] = [];
@@ -403,7 +348,8 @@ describe('DEFAULT_RRF_K', () => {
 
 // Service tests require database mocking, similar to other search services
 // Mock the database module (top level: vitest hoists it there regardless)
-vi.mock('../../database/connection.js', () => ({
+vi.mock('../../database/connection.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../database/connection.js')>()),
   getDb: vi.fn(),
 }));
 
@@ -492,38 +438,8 @@ describe('FusionService', () => {
       embedding: createTestEmbedding(1024, idx),
     }));
 
-    const mockPrepare = vi.fn().mockImplementation((sql: string) => {
-      if (sql.includes('COUNT(*)')) {
-        return {
-          get: vi.fn().mockReturnValue({ count: chunks.length }),
-        };
-      }
-      // BM25 query (no embedding column)
-      if (sql.includes('SELECT rowid, id, content') && !sql.includes('embedding')) {
-        return {
-          all: vi.fn().mockImplementation(
-            (_projectId: string, afterRowid: number, limit: number) => {
-              // rowid paging: rows numbered from 1, those after the last one read
-              return chunks.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
-            }
-          ),
-        };
-      }
-      // Dense query (includes embedding column)
-      if (sql.includes('embedding')) {
-        return {
-          all: vi.fn().mockImplementation(
-            (_projectId: string, afterRowid: number, limit: number) => {
-              // rowid paging: rows numbered from 1, those after the last one read
-              return chunksWithEmbeddings.map((row, i) => ({ rowid: i + 1, ...row })).filter((row) => row.rowid > afterRowid).slice(0, limit);
-            }
-          ),
-        };
-      }
-      return { get: vi.fn(), all: vi.fn() };
-    });
-
-    return { prepare: mockPrepare };
+    // A real in-memory database: keyword search runs in SQLite FTS5
+    return createSearchTestDb(chunksWithEmbeddings);
   }
 
   describe('search', () => {
@@ -839,7 +755,7 @@ describe('createFusionService', () => {
       rerank: false,
     }, {
       denseOptions: { dimensions: 1024 },
-      fusionConfig: { k: 30, weights: { dense: 1.5, bm25: 0.8 } },
+      fusionConfig: { k: 30 },
     });
 
     expect(service).toBeInstanceOf(FusionService);

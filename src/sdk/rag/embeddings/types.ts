@@ -94,6 +94,14 @@ export interface EmbeddingProvider {
   embedBatch(texts: string[]): Promise<EmbeddingResult[]>;
 
   /**
+   * Embed a search query. Some retrieval models are trained to see an
+   * instruction before queries (never before the passages they search), so a
+   * provider for such a model adds it here. Use embedQuery() from utils.ts,
+   * which falls back to embed() for providers without this method.
+   */
+  embedQuery?(query: string): Promise<EmbeddingResult>;
+
+  /**
    * Check if the provider is available and ready.
    *
    * May check API keys, model availability, network connectivity, etc.

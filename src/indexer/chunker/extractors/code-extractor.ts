@@ -8,13 +8,16 @@
  *   are grouped into 'module' segments.
  * Every line of the file lands in exactly one segment.
  *
- * Supports: TypeScript, JavaScript, Python (extensible to more languages)
+ * Supports: TypeScript, JavaScript, Python, Go, Rust. Other languages are
+ * split by size.
  */
 
 import Parser from 'tree-sitter';
 import TypeScriptLang from 'tree-sitter-typescript';
 import JavaScriptLang from 'tree-sitter-javascript';
 import PythonLang from 'tree-sitter-python';
+import GoLang from 'tree-sitter-go';
+import RustLang from 'tree-sitter-rust';
 
 import type { Language } from '../../types.js';
 import type { ExtractedSegment, ExtractionResult } from '../types.js';
@@ -29,6 +32,8 @@ const SUPPORTED_LANGUAGES = new Set<Language>([
   'typescript',
   'javascript',
   'python',
+  'go',
+  'rust',
 ]);
 
 /**
@@ -42,6 +47,10 @@ function getParserLanguage(language: Language): TreeSitterLanguage | null {
       return JavaScriptLang as TreeSitterLanguage;
     case 'python':
       return PythonLang as TreeSitterLanguage;
+    case 'go':
+      return GoLang as TreeSitterLanguage;
+    case 'rust':
+      return RustLang as TreeSitterLanguage;
     default:
       return null;
   }
@@ -78,7 +87,7 @@ export function extractCodeSegments(
   const parser = new Parser();
   parser.setLanguage(parserLang);
   const tree = parser.parse(content);
-  const definitionOf = language === 'python' ? pythonDefinition : jsDefinition;
+  const definitionOf = DEFINITIONS[language as keyof typeof DEFINITIONS] ?? jsDefinition;
 
   return { segments: splitTopLevel(tree.rootNode, content.split('\n'), definitionOf), originalContent: content };
 }
@@ -126,6 +135,56 @@ function pythonDefinition(node: Parser.SyntaxNode): Definition | null {
   return null;
 }
 
+/** A top-level Go declaration: func, method or type. Consts and vars are module code. */
+function goDefinition(node: Parser.SyntaxNode): Definition | null {
+  if (node.type === 'function_declaration' || node.type === 'method_declaration') {
+    return { symbolName: node.childForFieldName('name')?.text, symbolType: 'function' };
+  }
+  if (node.type === 'type_declaration') {
+    const spec = node.namedChildren.find((child) => child.type === 'type_spec' || child.type === 'type_alias');
+    return { symbolName: spec?.childForFieldName('name')?.text, symbolType: 'type' };
+  }
+  return null;
+}
+
+const RUST_DEFINITION_TYPES: Record<string, SymbolType> = {
+  function_item: 'function',
+  struct_item: 'type',
+  enum_item: 'type',
+  union_item: 'type',
+  type_item: 'type',
+  trait_item: 'interface',
+  impl_item: 'class',
+  mod_item: 'module',
+  macro_definition: 'function',
+};
+
+/** A top-level Rust item. An impl is named by its type (impl Display for S: S). */
+function rustDefinition(node: Parser.SyntaxNode): Definition | null {
+  const symbolType = RUST_DEFINITION_TYPES[node.type];
+  if (!symbolType) return null;
+  const name = node.type === 'impl_item' ? node.childForFieldName('type') : node.childForFieldName('name');
+  return { symbolName: name?.text, symbolType };
+}
+
+const DEFINITIONS = { python: pythonDefinition, go: goDefinition, rust: rustDefinition };
+
+/**
+ * Nodes that belong to the definition below them when they touch it:
+ * comments (Rust: line_comment, block_comment) and Rust attributes (#[derive]).
+ */
+const LEADING_TYPES = new Set(['comment', 'line_comment', 'block_comment', 'attribute_item']);
+
+/**
+ * The last row a node's text is on. A node that ends at column 0 ends with
+ * its newline (tree-sitter-rust's /// doc comments do): its text is on the
+ * row before.
+ */
+function lastRow(node: Parser.SyntaxNode): number {
+  const { row, column } = node.endPosition;
+  return column === 0 && row > node.startPosition.row ? row - 1 : row;
+}
+
 /**
  * Walk the top-level statements in order: a definition becomes its own
  * segment, taking the comments directly above it (no blank line between);
@@ -159,35 +218,35 @@ function splitTopLevel(
   };
 
   for (const node of root.namedChildren) {
-    if (node.type === 'comment') {
+    if (LEADING_TYPES.has(node.type)) {
       comments.push(node);
       continue;
     }
     const definition = definitionOf(node);
     if (!definition) {
-      for (const comment of comments) addToRun(comment.startPosition.row, comment.endPosition.row);
+      for (const comment of comments) addToRun(comment.startPosition.row, lastRow(comment));
       comments = [];
-      addToRun(node.startPosition.row, node.endPosition.row);
+      addToRun(node.startPosition.row, lastRow(node));
       continue;
     }
 
     // The comments touching the definition belong to it; earlier ones to the run
     let start = node.startPosition.row;
     let attached = comments.length;
-    while (attached > 0 && comments[attached - 1]!.endPosition.row === start - 1) {
+    while (attached > 0 && lastRow(comments[attached - 1]!) === start - 1) {
       attached--;
       start = comments[attached]!.startPosition.row;
     }
-    for (const comment of comments.slice(0, attached)) addToRun(comment.startPosition.row, comment.endPosition.row);
+    for (const comment of comments.slice(0, attached)) addToRun(comment.startPosition.row, lastRow(comment));
     comments = [];
     flushRun();
     start = Math.max(start, placed + 1);
-    if (node.endPosition.row >= start) {
-      segments.push(segment(start, node.endPosition.row, definition));
-      placed = node.endPosition.row;
+    if (lastRow(node) >= start) {
+      segments.push(segment(start, lastRow(node), definition));
+      placed = lastRow(node);
     }
   }
-  for (const comment of comments) addToRun(comment.startPosition.row, comment.endPosition.row);
+  for (const comment of comments) addToRun(comment.startPosition.row, lastRow(comment));
   flushRun();
   return segments;
 }

@@ -58,6 +58,16 @@ const DEFAULT_MODEL = 'Xenova/bge-large-en-v1.5';
 export const poolingFor = (model: string): 'cls' | 'mean' =>
   /(^|\/)bge-/i.test(model) ? 'cls' : 'mean';
 
+/**
+ * The instruction BAAI's model card gives for English BGE models when the
+ * input is a search query; passages are embedded without it.
+ */
+export const BGE_QUERY_INSTRUCTION = 'Represent this sentence for searching relevant passages: ';
+
+/** Text to put before a search query for this model, or '' if none. */
+export const queryInstructionFor = (model: string): string =>
+  /(^|\/)bge-\w+-en\b/i.test(model) ? BGE_QUERY_INSTRUCTION : '';
+
 /** Default dimensions for BGE-large model */
 const DEFAULT_DIMENSIONS = 1024;
 
@@ -114,6 +124,9 @@ export class HuggingFaceEmbeddingProvider extends BaseEmbeddingProvider {
     this.device = config.device ?? 'auto';
     this.onProgress = config.onProgress;
   }
+
+  /** Embed a search query, with the instruction the model expects (if any). */
+  embedQuery = (query: string): Promise<EmbeddingResult> => this.embed(queryInstructionFor(this.model) + query);
 
   /**
    * Check if the provider is available.

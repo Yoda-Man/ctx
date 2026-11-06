@@ -352,4 +352,26 @@ describe('createAssembler', () => {
       expect(assembled.droppedCount).toBe(1);
     });
   });
+  describe('chronological ordering', () => {
+    it('orders chunks by file path, then start line', async () => {
+      const result = (id: string, filePath: string, startLine: number, score: number) => ({
+        id,
+        chunk: { id, content: `content of ${id} unique${id}`, metadata: { filePath, startLine, endLine: startLine + 5 } },
+        score,
+        originalRank: 1,
+        newRank: 1,
+        scores: { originalScore: score, rerankerScore: score },
+      });
+      const assembler = createAssembler({ ordering: 'chronological' });
+
+      const assembled = await assembler.assemble([
+        result('b-40', 'src/b.ts', 40, 0.9),
+        result('a-10', 'src/a.ts', 10, 0.8),
+        result('b-5', 'src/b.ts', 5, 0.7),
+      ]);
+
+      // Before: no documentId or startIndex, so the order stayed by relevance
+      expect(assembled.chunks.map((c) => c.id)).toEqual(['a-10', 'b-5', 'b-40']);
+    });
+  });
 });

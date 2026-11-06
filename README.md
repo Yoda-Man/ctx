@@ -33,7 +33,7 @@ and works just as well on its own.
 | **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion. `ctx search --rerank` adds a BGE cross-encoder. |
 | **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
 | **Across projects** | Index any number of codebases and search one of them or all at once; `ctx chat` routes each question to the projects it is about. |
-| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript and Python by function and class, each with its comments, and indexes the code between them too. Markdown splits by section, heading included. |
+| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript, Python, Go and Rust by function, class or type, each with its comments, and indexes the code between them too. Markdown splits by section, heading included. |
 | **Specs and docs too** | Markdown, text, Word (`.docx`) and PDF are indexed alongside code, so answers can come from requirements as well as source. |
 | **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
 | **Private** | Answers come from a local Ollama model; ctx has no cloud provider and needs no API key. |
@@ -44,7 +44,7 @@ and works just as well on its own.
 ## Install
 
 ```bash
-npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,onnxruntime-node
+npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,tree-sitter-go,tree-sitter-rust,onnxruntime-node
 ```
 
 Requires **Node.js 24** or later. The `--allow-scripts` list lets npm 11.20
@@ -54,6 +54,11 @@ runtime); earlier npm builds them anyway and ignores the flag.
 The first index or search downloads the embedding model (about 340 MB)
 into `~/.ctx/models`, and the first `--rerank` its reranker (about 280 MB);
 after that, everything runs offline.
+
+Search runs inside SQLite: keyword search through its FTS5 index, and vector
+search through the [sqlite-vec](https://github.com/asg017/sqlite-vec)
+extension, which ships for Linux and macOS (x64 and arm64) and Windows (x64).
+On other platforms ctx loads a project's vectors into memory to search them.
 
 ## Quick start
 
@@ -408,7 +413,7 @@ Measure retrieval quality with golden datasets and track every interaction with 
 
 Issues and pull requests are welcome at
 [github.com/Yoda-Man/ctx](https://github.com/Yoda-Man/ctx). Open pull requests
-against `dev`; CI runs the type check, tests and build on Node 24 and 26,
+against `dev`; CI runs the type check, tests and build on Node 24 and 26 (Linux) and Node 24 (Windows),
 and fails if any dependency is behind its latest release.
 
 ## License

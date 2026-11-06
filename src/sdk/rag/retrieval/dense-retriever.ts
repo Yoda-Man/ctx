@@ -7,6 +7,7 @@
 
 import type { VectorStore, SearchResult } from '../vector-store/types.js';
 import type { EmbeddingProvider } from '../embeddings/types.js';
+import { embedQuery } from '../embeddings/utils.js';
 import type {
   Retriever,
   RetrievalResult,
@@ -84,7 +85,7 @@ export class DenseRetriever implements Retriever {
     // Embed the query
     let queryEmbedding: number[];
     try {
-      const result = await this.embeddingProvider.embed(query);
+      const result = await embedQuery(this.embeddingProvider, query);
       queryEmbedding = result.embedding;
     } catch (error) {
       throw RetrieverError.embeddingFailed(
