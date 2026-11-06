@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-06
+
 ### Changed
 - **Keyword search runs in SQLite FTS5.** Each process used to load every
   chunk of a project and build a BM25 index in memory on its first search.
@@ -24,6 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   floors its IDF at 1e-6; ctx's formula kept a small positive weight).
   A manual `VACUUM` can renumber the rowids the index is keyed on; ctx never
   runs one.
+  Measured on the same synthetic projects: nothing is built at search time,
+  and a project loaded for search holds 0.2 GB at 25,000 chunks (was 0.5)
+  and 1.1 GB at 200,000 (was 3.5); the rest is vectors. A keyword query now
+  runs in SQLite each time: 9 ms at 25,000 chunks (was 3), 198 ms at 200,000
+  (was 23). Indexing pays about 0.3 ms a chunk for the FTS5 trigger, small
+  next to embedding the chunk. On the 56-question eval the scores did not
+  move beyond a question or two (MRR 0.53 before, 0.55 after; hit rate 0.75
+  both; recall 0.72, 0.69).
 
 ### Added
 - **Stale index warnings.** Each project now records the index format it was
