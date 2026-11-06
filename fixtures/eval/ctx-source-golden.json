@@ -9,6 +9,10 @@
         "src/sdk/rag/retrieval/rrf.ts",
         "src/search/fusion.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/retrieval/rrf.ts": "reciprocalRankFusion",
+        "src/search/fusion.ts": "computeRRF"
+      },
       "tags": [
         "identifier",
         "search"
@@ -19,8 +23,11 @@
       "id": "ctx-002",
       "query": "What are the default BM25 k1 and b parameters?",
       "expectedFilePaths": [
-        "src/sdk/rag/retrieval/bm25.ts"
+        "src/search/bm25-store.ts"
       ],
+      "evidence": {
+        "src/search/bm25-store.ts": "k1 = 1\\.2 and b = 0\\.75"
+      },
       "tags": [
         "search"
       ],
@@ -32,6 +39,9 @@
       "expectedFilePaths": [
         "src/sdk/rag/retrieval/bm25.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/retrieval/bm25.ts": "CAMEL_BOUNDARY"
+      },
       "tags": [
         "paraphrase",
         "search"
@@ -44,6 +54,9 @@
       "expectedFilePaths": [
         "src/search/fusion.ts"
       ],
+      "evidence": {
+        "src/search/fusion.ts": "bestPossible"
+      },
       "tags": [
         "search"
       ],
@@ -55,6 +68,9 @@
       "expectedFilePaths": [
         "src/search/fusion.ts"
       ],
+      "evidence": {
+        "src/search/fusion.ts": "export function computeRRF"
+      },
       "tags": [
         "identifier",
         "search"
@@ -67,6 +83,9 @@
       "expectedFilePaths": [
         "src/sdk/rag/assembly/ordering.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/assembly/ordering.ts": "function orderBySandwich"
+      },
       "tags": [
         "assembly"
       ],
@@ -79,6 +98,10 @@
         "src/sdk/rag/assembly/token-budget.ts",
         "src/sdk/rag/assembly/base-assembler.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/assembly/token-budget.ts": "export function applyTokenBudget",
+        "src/sdk/rag/assembly/base-assembler.ts": "applyTokenBudget\\("
+      },
       "tags": [
         "assembly"
       ],
@@ -90,6 +113,9 @@
       "expectedFilePaths": [
         "src/sdk/rag/assembly/deduplication.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/assembly/deduplication.ts": "jaccardSimilarity"
+      },
       "tags": [
         "paraphrase",
         "assembly"
@@ -102,6 +128,9 @@
       "expectedFilePaths": [
         "src/sdk/rag/embeddings/huggingface-provider.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/embeddings/huggingface-provider.ts": "poolingFor"
+      },
       "tags": [
         "embedding"
       ],
@@ -114,6 +143,10 @@
         "src/search/store.ts",
         "CHANGELOG.md"
       ],
+      "evidence": {
+        "src/search/store.ts": "HNSW",
+        "CHANGELOG.md": "The HNSW index"
+      },
       "tags": [
         "docs",
         "search"
@@ -126,6 +159,9 @@
       "expectedFilePaths": [
         "src/search/store.ts"
       ],
+      "evidence": {
+        "src/search/store.ts": "rowid > \\?"
+      },
       "tags": [
         "search",
         "database"
@@ -138,6 +174,9 @@
       "expectedFilePaths": [
         "src/indexer/chunker/extractors/code-extractor.ts"
       ],
+      "evidence": {
+        "src/indexer/chunker/extractors/code-extractor.ts": "function splitTopLevel"
+      },
       "tags": [
         "indexing"
       ],
@@ -149,6 +188,9 @@
       "expectedFilePaths": [
         "src/indexer/chunker/extractors/markdown-extractor.ts"
       ],
+      "evidence": {
+        "src/indexer/chunker/extractors/markdown-extractor.ts": "export function extractMarkdownSegments"
+      },
       "tags": [
         "indexing"
       ],
@@ -160,6 +202,9 @@
       "expectedFilePaths": [
         "src/indexer/chunker/config.ts"
       ],
+      "evidence": {
+        "src/indexer/chunker/config.ts": "CHUNK_CONFIG"
+      },
       "tags": [
         "indexing"
       ],
@@ -171,6 +216,9 @@
       "expectedFilePaths": [
         "src/indexer/chunker/config.ts"
       ],
+      "evidence": {
+        "src/indexer/chunker/config.ts": "MAX_FILE_SIZE = 750"
+      },
       "tags": [
         "indexing"
       ],
@@ -182,6 +230,9 @@
       "expectedFilePaths": [
         "src/indexer/documents.ts"
       ],
+      "evidence": {
+        "src/indexer/documents.ts": "mammoth"
+      },
       "tags": [
         "indexing",
         "paraphrase"
@@ -194,6 +245,9 @@
       "expectedFilePaths": [
         "src/indexer/ignore.ts"
       ],
+      "evidence": {
+        "src/indexer/ignore.ts": "node_modules"
+      },
       "tags": [
         "indexing"
       ],
@@ -206,6 +260,10 @@
         "src/indexer/scanner.ts",
         "src/indexer/ignore.ts"
       ],
+      "evidence": {
+        "src/indexer/scanner.ts": "fast-glob",
+        "src/indexer/ignore.ts": "gitignore"
+      },
       "tags": [
         "indexing"
       ],
@@ -218,6 +276,10 @@
         "src/database/index-version.ts",
         "src/search/store.ts"
       ],
+      "evidence": {
+        "src/database/index-version.ts": "staleIndexReason",
+        "src/search/store.ts": "staleIndexReason"
+      },
       "tags": [
         "database"
       ],
@@ -229,6 +291,9 @@
       "expectedFilePaths": [
         "src/database/migrate.ts"
       ],
+      "evidence": {
+        "src/database/migrate.ts": "const MIGRATIONS"
+      },
       "tags": [
         "database"
       ],
@@ -241,6 +306,10 @@
         "src/indexer/pipeline.ts",
         "src/database/operations.ts"
       ],
+      "evidence": {
+        "src/indexer/pipeline.ts": "atomicSwapChunks",
+        "src/database/operations.ts": "atomicSwapChunks"
+      },
       "tags": [
         "indexing",
         "paraphrase"
@@ -253,6 +322,9 @@
       "expectedFilePaths": [
         "src/agent/query-router.ts"
       ],
+      "evidence": {
+        "src/agent/query-router.ts": "DEFAULT_MULTI_PROJECT_KEYWORDS"
+      },
       "tags": [
         "routing"
       ],
@@ -264,6 +336,9 @@
       "expectedFilePaths": [
         "src/agent/query-router.ts"
       ],
+      "evidence": {
+        "src/agent/query-router.ts": "Using current project"
+      },
       "tags": [
         "routing",
         "paraphrase"
@@ -276,6 +351,9 @@
       "expectedFilePaths": [
         "src/agent/citations.ts"
       ],
+      "evidence": {
+        "src/agent/citations.ts": "export function"
+      },
       "tags": [
         "agent"
       ],
@@ -287,6 +365,9 @@
       "expectedFilePaths": [
         "src/agent/tools/retrieve-knowledge-tool.ts"
       ],
+      "evidence": {
+        "src/agent/tools/retrieve-knowledge-tool.ts": "retrieve_knowledge"
+      },
       "tags": [
         "agent"
       ],
@@ -298,6 +379,9 @@
       "expectedFilePaths": [
         "src/sdk/core/agent/react-loop.ts"
       ],
+      "evidence": {
+        "src/sdk/core/agent/react-loop.ts": "tool"
+      },
       "tags": [
         "agent"
       ],
@@ -309,6 +393,9 @@
       "expectedFilePaths": [
         "src/sdk/provider-ollama/response-mapper.ts"
       ],
+      "evidence": {
+        "src/sdk/provider-ollama/response-mapper.ts": "stopped generating"
+      },
       "tags": [
         "agent",
         "paraphrase"
@@ -322,6 +409,10 @@
         "src/search/reranker.ts",
         "src/sdk/rag/reranker/bge-reranker.ts"
       ],
+      "evidence": {
+        "src/search/reranker.ts": "class RerankerService",
+        "src/sdk/rag/reranker/bge-reranker.ts": "class BGEReranker"
+      },
       "tags": [
         "search"
       ],
@@ -333,6 +424,9 @@
       "expectedFilePaths": [
         "src/search/reranker.ts"
       ],
+      "evidence": {
+        "src/search/reranker.ts": "Reranking skipped"
+      },
       "tags": [
         "search",
         "paraphrase"
@@ -345,6 +439,9 @@
       "expectedFilePaths": [
         "src/sdk/rag/transformers.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/transformers.ts": "[Ll]ock"
+      },
       "tags": [
         "embedding",
         "paraphrase"
@@ -357,6 +454,9 @@
       "expectedFilePaths": [
         "src/sdk/rag/embeddings/cache.ts"
       ],
+      "evidence": {
+        "src/sdk/rag/embeddings/cache.ts": "class CachedEmbeddingProvider"
+      },
       "tags": [
         "embedding"
       ],
@@ -368,6 +468,9 @@
       "expectedFilePaths": [
         "src/config/defaults.ts"
       ],
+      "evidence": {
+        "src/config/defaults.ts": "DEFAULT_CONFIG"
+      },
       "tags": [
         "config"
       ],
@@ -380,6 +483,10 @@
         "src/config/loader.ts",
         "src/config/schema.ts"
       ],
+      "evidence": {
+        "src/config/loader.ts": "export function loadConfig",
+        "src/config/schema.ts": "z\\.object"
+      },
       "tags": [
         "config"
       ],
@@ -391,6 +498,9 @@
       "expectedFilePaths": [
         "src/config/paths.ts"
       ],
+      "evidence": {
+        "src/config/paths.ts": "export const CTX_DIR"
+      },
       "tags": [
         "config",
         "identifier"
@@ -403,6 +513,9 @@
       "expectedFilePaths": [
         "src/cli/commands/check.ts"
       ],
+      "evidence": {
+        "src/cli/commands/check.ts": "ready"
+      },
       "tags": [
         "cli"
       ],
@@ -414,6 +527,9 @@
       "expectedFilePaths": [
         "src/cli/commands/chat-commands.ts"
       ],
+      "evidence": {
+        "src/cli/commands/chat-commands.ts": "/focus"
+      },
       "tags": [
         "cli"
       ],
@@ -425,6 +541,9 @@
       "expectedFilePaths": [
         "src/cli/commands/share-handler.ts"
       ],
+      "evidence": {
+        "src/cli/commands/share-handler.ts": "export"
+      },
       "tags": [
         "cli",
         "paraphrase"
@@ -438,6 +557,10 @@
         "src/database/connection.ts",
         "src/cli/commands/status.ts"
       ],
+      "evidence": {
+        "src/database/connection.ts": "getDbFileSize",
+        "src/cli/commands/status.ts": "getDatabaseSize|getDbFileSize"
+      },
       "tags": [
         "cli",
         "database"
@@ -451,6 +574,10 @@
         "src/cli/tui/terminal-regions.ts",
         "docs/adr/001-tui-architecture.md"
       ],
+      "evidence": {
+        "src/cli/tui/terminal-regions.ts": "[Rr]egion",
+        "docs/adr/001-tui-architecture.md": "[Ss]tatus"
+      },
       "tags": [
         "cli",
         "docs"
@@ -463,6 +590,9 @@
       "expectedFilePaths": [
         "src/cli/utils/git-status.ts"
       ],
+      "evidence": {
+        "src/cli/utils/git-status.ts": "branch"
+      },
       "tags": [
         "cli"
       ],
@@ -474,6 +604,9 @@
       "expectedFilePaths": [
         "src/cli/utils/path-completer.ts"
       ],
+      "evidence": {
+        "src/cli/utils/path-completer.ts": "export function completeDirectoryPath"
+      },
       "tags": [
         "cli"
       ],
@@ -485,6 +618,9 @@
       "expectedFilePaths": [
         "src/eval/metrics.ts"
       ],
+      "evidence": {
+        "src/eval/metrics.ts": "export function ndcgAtK"
+      },
       "tags": [
         "eval"
       ],
@@ -496,6 +632,9 @@
       "expectedFilePaths": [
         "src/eval/golden.ts"
       ],
+      "evidence": {
+        "src/eval/golden.ts": "getGoldenDatasetPath"
+      },
       "tags": [
         "eval"
       ],
@@ -507,6 +646,9 @@
       "expectedFilePaths": [
         "scripts/check-eval-thresholds.js"
       ],
+      "evidence": {
+        "scripts/check-eval-thresholds.js": "DEFAULT_THRESHOLDS"
+      },
       "tags": [
         "eval",
         "paraphrase"
@@ -519,6 +661,9 @@
       "expectedFilePaths": [
         "src/observability/sampling.ts"
       ],
+      "evidence": {
+        "src/observability/sampling.ts": "sample"
+      },
       "tags": [
         "eval"
       ],
@@ -530,6 +675,9 @@
       "expectedFilePaths": [
         "docs/agent-integration.md"
       ],
+      "evidence": {
+        "docs/agent-integration.md": "ctx search"
+      },
       "tags": [
         "docs"
       ],
@@ -541,6 +689,9 @@
       "expectedFilePaths": [
         "docs/agent-integration.md"
       ],
+      "evidence": {
+        "docs/agent-integration.md": "[Ee]xit [Cc]ode"
+      },
       "tags": [
         "docs"
       ],
@@ -552,6 +703,9 @@
       "expectedFilePaths": [
         "README.md"
       ],
+      "evidence": {
+        "README.md": "npm install -g yodaman-ctx"
+      },
       "tags": [
         "docs"
       ],
@@ -563,6 +717,9 @@
       "expectedFilePaths": [
         "README.md"
       ],
+      "evidence": {
+        "README.md": "ollama pull"
+      },
       "tags": [
         "docs",
         "config"
@@ -576,6 +733,10 @@
         "CHANGELOG.md",
         "README.md"
       ],
+      "evidence": {
+        "CHANGELOG.md": "Reranking is opt-in",
+        "README.md": "off by default"
+      },
       "tags": [
         "docs"
       ],
@@ -587,6 +748,9 @@
       "expectedFilePaths": [
         "src/errors/handler.ts"
       ],
+      "evidence": {
+        "src/errors/handler.ts": "export function handleError"
+      },
       "tags": [
         "cli"
       ],
@@ -598,6 +762,9 @@
       "expectedFilePaths": [
         "src/utils/path-validation.ts"
       ],
+      "evidence": {
+        "src/utils/path-validation.ts": "export function"
+      },
       "tags": [
         "cli"
       ],
@@ -610,6 +777,10 @@
         "docs/eval-observability.md",
         "src/cli/commands/eval.ts"
       ],
+      "evidence": {
+        "docs/eval-observability.md": "golden generate",
+        "src/cli/commands/eval.ts": "generate"
+      },
       "tags": [
         "docs",
         "eval"
@@ -622,6 +793,9 @@
       "expectedFilePaths": [
         "src/search/shared-formatting.ts"
       ],
+      "evidence": {
+        "src/search/shared-formatting.ts": "export function formatSearchResult"
+      },
       "tags": [
         "identifier",
         "search"
@@ -636,6 +810,11 @@
         "src/search/multi-project-store.ts",
         "src/search/multi-project-bm25-store.ts"
       ],
+      "evidence": {
+        "src/search/multi-project-fusion.ts": "class MultiProjectFusionService",
+        "src/search/multi-project-store.ts": "mergeWithRRF",
+        "src/search/multi-project-bm25-store.ts": "mergeWithRRF"
+      },
       "tags": [
         "search",
         "paraphrase"
@@ -648,6 +827,9 @@
       "expectedFilePaths": [
         "src/indexer/pipeline.ts"
       ],
+      "evidence": {
+        "src/indexer/pipeline.ts": "export async function runIndexPipeline"
+      },
       "tags": [
         "indexing"
       ],
