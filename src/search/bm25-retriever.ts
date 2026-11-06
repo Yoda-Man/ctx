@@ -102,8 +102,11 @@ export class BM25SearchService {
 
     const topK = options.topK ?? this.config.top_k;
 
-    // Perform BM25 retrieval
-    const results = await this.retriever!.retrieve(query, { topK });
+    // Perform BM25 retrieval; file type and language filter before the topK cut
+    const filter: Record<string, string> = {};
+    if (options.fileType) filter.fileType = options.fileType;
+    if (options.language) filter.language = options.language;
+    const results = await this.retriever!.retrieve(query, { topK, filter });
 
     // Convert to our result format and apply filters using shared utilities
     return results

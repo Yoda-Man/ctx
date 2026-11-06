@@ -172,9 +172,14 @@ export class MultiProjectBM25StoreManager {
         const retriever = await this.storeManager.getRetriever({ projectId });
 
         // Perform BM25 search
+        // File type and language filter before the topK cut
+        const filter: Record<string, string> = {};
+        if (fileType) filter.fileType = fileType;
+        if (language) filter.language = language;
         const results = await retriever.retrieve(query, {
           topK: topKPerProject,
           minScore,
+          filter,
         });
 
         // Convert to MultiProjectSearchResult with project attribution
