@@ -170,6 +170,30 @@ hit_rate = 0.85     # Minimum hit rate to pass
 precision_at_k = 0.6  # Minimum precision to pass
 ```
 
+### Measuring a Change to ctx Itself
+
+Working on ctx's search or indexing? Score it with the real model before and
+after the change:
+
+```bash
+npm run build
+npx tsx scripts/eval-source.ts
+```
+
+This indexes the ctx repository (without tests and fixtures) into a temporary
+home folder, so `~/.ctx` is untouched, and runs the 56 questions in
+`fixtures/eval/ctx-source-golden.json`: exact names, paraphrases and
+documentation questions, each with the files that answer it. Models already
+in `~/.ctx/models` are reused. The first run downloads the embedding model;
+indexing takes several minutes on a CPU.
+
+A difference of one or two questions (about 0.02 MRR) is within what a single
+reordering can cause; look at which questions changed, not only the totals
+(`--keep` leaves the temporary home in place to inspect).
+
+`scripts/run-ci-eval.ts`, used in CI, is different: it scores a mock search
+over an 8-file fixture, to check the eval machinery, not search quality.
+
 ---
 
 ## Observability System

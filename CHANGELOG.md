@@ -16,6 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the warning until re-indexed, including ones already re-indexed for 1.3.0.
   Only a finished index records the version: editing a project's description
   or tags does not.
+- **A real-model eval over ctx's own source.** `fixtures/eval/ctx-source-golden.json`
+  has 56 questions (exact names, paraphrases, docs), each checked against the
+  files that answer it; `npx tsx scripts/eval-source.ts` indexes this
+  repository (180 files, 1,529 chunks) in a temporary home and scores it.
+  The 8-question fixture scores 0.94 MRR and could not show a change either
+  way; this set scores MRR 0.53, hit rate 0.75, recall 0.72, NDCG 0.56 at
+  the time of writing, so it has room to show both gains and losses.
+  Questions named by an exact identifier score MRR 0.81; paraphrased ones
+  0.43. CHANGELOG.md, which describes most features in plain words, often
+  takes a top-5 place. A test fails if a file the set names is renamed or
+  removed. Relevance is still judged by file, not by chunk.
 - **Go and Rust are split by tree-sitter**, like TypeScript, JavaScript and
   Python: each func, method, type, struct, enum, trait or impl is a chunk
   with its doc comments and `#[...]` attributes, and the code between them
