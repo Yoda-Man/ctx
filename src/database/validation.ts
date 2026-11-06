@@ -48,6 +48,8 @@ export const ProjectRowSchema = z.object({
   // Default matches the migration's DEFAULT 1024
   embedding_dimensions: z.number().int().positive().default(1024),
   description: z.string().nullable(),
+  // Absent from queries that select named columns; null means unknown
+  index_version: z.number().int().nullable().default(null),
 });
 
 /**

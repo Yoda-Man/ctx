@@ -224,6 +224,14 @@ ALTER TABLE eval_traces ADD COLUMN trace_type TEXT;
 CREATE INDEX IF NOT EXISTS idx_eval_traces_type ON eval_traces(trace_type);
     `.trim(),
   },
+  {
+    name: '007-add-index-version.sql',
+    sql: `
+-- Migration 007: Record the index format a project was built with
+-- (see src/database/index-version.ts). NULL: indexed before this existed.
+ALTER TABLE projects ADD COLUMN index_version INTEGER;
+    `.trim(),
+  },
 ];
 
 /**

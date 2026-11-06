@@ -12,6 +12,7 @@ import type Database from 'better-sqlite3';
 
 import { getDb } from '../database/connection.js';
 import { blobToEmbedding } from '../database/schema.js';
+import { staleIndexReason } from '../database/index-version.js';
 import {
   ChunkLoadRowSchema,
   validateRows,
@@ -112,6 +113,14 @@ export class VectorStoreManager {
     const { projectId, dimensions } = options;
 
     const db = this.getDatabase();
+
+    // Every search, ask, chat and eval loads chunks here: warn once per
+    // process if they were built by an older index format.
+    const project = db
+      .prepare('SELECT name, path, index_version FROM projects WHERE id = ?')
+      .get(projectId) as { name: string; path: string; index_version: number | null } | undefined;
+    const stale = project ? staleIndexReason(project) : null;
+    if (stale) logger.warn(stale);
 
     // Get total chunk count for progress reporting
     const countResult = db

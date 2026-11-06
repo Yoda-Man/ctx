@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Stale index warnings.** Each project now records the index format it was
+  built with (`index_version`, new migration 007). Searching, asking,
+  chatting or evaluating a project built by an older format prints a warning
+  with the exact re-index command, and `ctx check` lists it as a warning.
+  Projects indexed before this release have no recorded version, so they get
+  the warning once until re-indexed, including ones already re-indexed for
+  1.3.0. Only a finished index records the version: editing a project's
+  description or tags does not.
+
 ### Fixed
 - **`ordering = "chronological"` gave relevance order.** It sorted by
   `documentId` and `startIndex`, which ctx's chunks never have, so every
