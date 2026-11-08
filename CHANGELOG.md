@@ -7,7 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-11-08
+
+### Fixed
+- **`ctx --version` reports the installed version.** The published 1.3.3 was
+  built from a `dist/` left over from 1.3.2, so it reported itself as 1.3.2.
+  Tools that check the version, such as YodaMan's minimum-version gate, saw
+  the wrong release. No code change: this release is built fresh.
+
 ### Changed
+- Dependency: commander 15.1.0.
 - Dev dependency: oxlint 1.92.0.
 
 ## [1.3.3] - 2026-11-06
