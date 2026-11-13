@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dependencies: better-sqlite3 13.1.1, marked 18.2.0; dev: oxlint 1.93.0,
+  oxlint-tsgolint 7.0.2007.
+
 ## [1.3.4] - 2026-11-08
 
 ### Fixed
