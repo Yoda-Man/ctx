@@ -7,11 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-11-13
+
+**Re-index your projects after upgrading** (`ctx index <path> --force`):
+Java and C# are split differently and every chunk's vector now includes its
+file path (index version 4). ctx warns about each project that needs it.
+
 ### Added
+- **Java and C# are split by method.** The extractor steps inside classes,
+  interfaces, enums, records and namespaces (block and file-scoped): each
+  method, constructor, property or the like is a chunk, labelled with its
+  class (`parentSymbol`), with its Javadoc or `///` comment and annotations
+  or attributes. Headers and fields are grouped; closing braces join the
+  last member, so every non-blank line lands in one chunk. They were split
+  by size. New dependencies: tree-sitter-java (overridden to the shared
+  tree-sitter, as tree-sitter-rust is) and tree-sitter-c-sharp, loaded by
+  file because its `main` makes Node warn on every import. Install now needs
+  both in the `--allow-scripts` list (see the README).
 - **Chunk-level eval metrics.** Golden entries can carry `evidence`: per
   expected file, a pattern the chunk that answers must match. Runs then
   report Chunk MRR and Chunk Hit Rate beside the file-level metrics, which
   count any chunk of the right file. The 56-question set carries evidence.
+  On it, before the changes below, the right file was in the top 5 for 86%
+  of questions but the chunk holding the answer for only 59%.
+
+### Changed
+- **Search uses each chunk's file path.** Measured on the 56-question eval,
+  each step against the one before:
+  - Keyword search tokenizes the path with the text (migration 009, which
+    rebuilds the keyword index; no re-index needed for this part). Same
+    index: MRR 0.589 to 0.625, hit rate 0.857 to 0.875, chunk MRR 0.366 to
+    0.393, chunk hit rate 0.589 to 0.607; 6 questions better, 1 worse.
+  - Vectors embed "path, newline, text"; stored text is unchanged. After a
+    re-index: MRR 0.625 to 0.677, hit rate 0.875 to 0.893, chunk MRR 0.393
+    to 0.428, chunk hit rate 0.607 to 0.661. Per question this is mixed
+    (file level 10 better, 5 worse; chunk level 8 better, 7 worse), and the
+    re-index read the repository with these code changes in it.
+- **Keyword search matches word stems.** Each word also gives its Porter stem
+  (authentication and authenticate both give authent; new dependency
+  stemmer). Same index: MRR 0.677 to 0.697, hit rate 0.893 to 0.911, chunk
+  MRR 0.428 to 0.443, chunk hit rate 0.661 to 0.696. Per question it is an
+  even split (7 better, 7 worse): a small gain, kept because every metric
+  rose and it costs no re-embedding.
+- Dependencies: better-sqlite3 13.1.1, marked 18.2.0; dev: oxlint 1.93.0,
+  oxlint-tsgolint 7.0.2007.
 
 ### Fixed
 - **Indexing reported success when no chunk could be embedded.** If the
@@ -22,9 +61,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing index for the project as it was. A chunk that fails on its own is
   still skipped with a warning, as before.
 
-### Changed
-- Dependencies: better-sqlite3 13.1.1, marked 18.2.0; dev: oxlint 1.93.0,
-  oxlint-tsgolint 7.0.2007.
+### Measured, not changed
+- **Vector query speed on large projects.** With realistic chunk text
+  (about 1,800 characters), a query over 200,000 chunks takes 2 to 4 s, not
+  the 0.97 s measured with short synthetic chunks. Reading only the top-k
+  rows' details made no difference; a narrow vectors table and 8-bit
+  shortlisting were within run-to-run noise. A sqlite-vec `vec0` table was
+  faster (median 1.28 s against 2.06 s) but returned a different top 10 from
+  the exact scan for reasons not yet understood, doubles the stored vectors,
+  and needs sqlite-vec at migration time. Left for later.
+- **Platforms.** sqlite-vec's newest release and test release ship for the
+  same five platforms; elsewhere ctx still loads vectors into memory.
 
 ## [1.3.4] - 2026-11-08
 
