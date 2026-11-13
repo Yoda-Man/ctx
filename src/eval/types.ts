@@ -288,6 +288,10 @@ export interface EvalResultInput {
     recall_at_k: number;
     /** 1 if any relevant result in top-k, else 0 */
     hit_rate: number;
+    /** Chunk-level reciprocal rank (only for entries with evidence) */
+    chunk_reciprocal_rank?: number;
+    /** 1 if a chunk containing the answer is in top-k (only with evidence) */
+    chunk_hit_rate?: number;
   };
   passed: boolean;
 }
@@ -356,6 +360,16 @@ export interface RetrievalMetrics {
    * Target: > 0.7
    */
   map: number;
+
+  /**
+   * Chunk-level MRR: 1/rank of the first retrieved chunk that comes from an
+   * expected file and contains the entry's evidence. Averaged over entries
+   * with evidence; absent when none have it.
+   */
+  chunk_mrr?: number;
+
+  /** Chunk-level hit rate: a chunk containing the answer is in the top k. */
+  chunk_hit_rate?: number;
 }
 
 /**
@@ -433,6 +447,11 @@ export interface GoldenEntry {
   tags?: string[];
   /** How this entry was created */
   source: GoldenEntrySource;
+  /**
+   * For chunk-level scoring: expected file path -> a regular expression the
+   * chunk that answers the question must match (the answering code or text).
+   */
+  evidence?: Record<string, string>;
 }
 
 // ============================================================================

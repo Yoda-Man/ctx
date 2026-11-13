@@ -398,3 +398,36 @@ export function computeAggregateMetrics(
     map: totalMap / n,
   };
 }
+
+// ============================================================================
+// CHUNK-LEVEL METRICS
+// ============================================================================
+
+/** A retrieved chunk: its file and text. */
+export interface RetrievedChunk {
+  filePath: string;
+  content: string;
+}
+
+/**
+ * Whether a chunk answers the question: it comes from an expected file and
+ * matches that file's evidence pattern. File-level metrics count any chunk
+ * of the right file; this tells whether the chunk shown holds the answer.
+ */
+function answers(chunk: RetrievedChunk, evidence: Record<string, string>): boolean {
+  const file = normalizePath(chunk.filePath);
+  return Object.entries(evidence).some(
+    ([path, pattern]) => normalizePath(path) === file && new RegExp(pattern).test(chunk.content)
+  );
+}
+
+/** 1/rank of the first chunk that answers the question, 0 if none does. */
+export function chunkReciprocalRank(chunks: RetrievedChunk[], evidence: Record<string, string>): number {
+  const index = chunks.findIndex((chunk) => answers(chunk, evidence));
+  return index === -1 ? 0 : 1 / (index + 1);
+}
+
+/** 1 if a chunk in the top k answers the question, else 0. */
+export function chunkHitRate(chunks: RetrievedChunk[], evidence: Record<string, string>, k?: number): number {
+  return chunks.slice(0, k ?? chunks.length).some((chunk) => answers(chunk, evidence)) ? 1 : 0;
+}

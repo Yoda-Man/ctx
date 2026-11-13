@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Chunk-level eval metrics.** Golden entries can carry `evidence`: per
+  expected file, a pattern the chunk that answers must match. Runs then
+  report Chunk MRR and Chunk Hit Rate beside the file-level metrics, which
+  count any chunk of the right file. The 56-question set carries evidence.
+
 ### Changed
 - Dependencies: better-sqlite3 13.1.1, marked 18.2.0; dev: oxlint 1.93.0,
   oxlint-tsgolint 7.0.2007.

@@ -30,7 +30,10 @@ export const REGRESSION_THRESHOLD = 0.05;
  *
  * Used for iteration — avoids `Object.keys()` which loses type information.
  */
-const METRIC_NAMES: readonly (keyof RetrievalMetrics)[] = [
+/** The six metrics every run has; chunk-level ones are optional. */
+type CoreMetric = Exclude<keyof RetrievalMetrics, 'chunk_mrr' | 'chunk_hit_rate'>;
+
+const METRIC_NAMES: readonly CoreMetric[] = [
   'mrr',
   'precision_at_k',
   'recall_at_k',
@@ -134,6 +137,8 @@ function formatMetricName(metric: keyof RetrievalMetrics): string {
     hit_rate: 'Hit Rate',
     ndcg: 'NDCG',
     map: 'MAP',
+    chunk_mrr: 'Chunk MRR',
+    chunk_hit_rate: 'Chunk Hit Rate',
   };
   return labels[metric];
 }
