@@ -8,8 +8,10 @@
  *   are grouped into 'module' segments.
  * Every line of the file lands in exactly one segment.
  *
- * Supports: TypeScript, JavaScript, Python, Go, Rust. Other languages are
- * split by size.
+ * Supports: TypeScript, JavaScript, Python, Go, Rust, Java, C#. In Java and
+ * C#, where almost all code sits inside a class or namespace, the extractor
+ * steps inside: each method is a segment, labelled with its class.
+ * Other languages are split by size.
  */
 
 import Parser from 'tree-sitter';
@@ -18,6 +20,10 @@ import JavaScriptLang from 'tree-sitter-javascript';
 import PythonLang from 'tree-sitter-python';
 import GoLang from 'tree-sitter-go';
 import RustLang from 'tree-sitter-rust';
+import JavaLang from 'tree-sitter-java';
+// The package's "main" lacks a file extension, which Node warns about on every
+// import as an ES module; the file itself loads without the warning
+import CSharpLang from 'tree-sitter-c-sharp/bindings/node/index.js';
 
 import type { Language } from '../../types.js';
 import type { ExtractedSegment, ExtractionResult } from '../types.js';
@@ -34,6 +40,8 @@ const SUPPORTED_LANGUAGES = new Set<Language>([
   'python',
   'go',
   'rust',
+  'java',
+  'csharp',
 ]);
 
 /**
@@ -51,6 +59,10 @@ function getParserLanguage(language: Language): TreeSitterLanguage | null {
       return GoLang as TreeSitterLanguage;
     case 'rust':
       return RustLang as TreeSitterLanguage;
+    case 'java':
+      return JavaLang as TreeSitterLanguage;
+    case 'csharp':
+      return CSharpLang as TreeSitterLanguage;
     default:
       return null;
   }
@@ -88,8 +100,10 @@ export function extractCodeSegments(
   parser.setLanguage(parserLang);
   const tree = parser.parse(content);
   const definitionOf = DEFINITIONS[language as keyof typeof DEFINITIONS] ?? jsDefinition;
+  const containerOf = CONTAINERS[language as keyof typeof CONTAINERS];
+  const items = [...walk(tree.rootNode.namedChildren, definitionOf, containerOf)];
 
-  return { segments: splitTopLevel(tree.rootNode, content.split('\n'), definitionOf), originalContent: content };
+  return { segments: splitItems(items, content.split('\n')), originalContent: content };
 }
 
 type Definition = { symbolName?: string; symbolType: SymbolType };
@@ -167,7 +181,54 @@ function rustDefinition(node: Parser.SyntaxNode): Definition | null {
   return { symbolName: name?.text, symbolType };
 }
 
-const DEFINITIONS = { python: pythonDefinition, go: goDefinition, rust: rustDefinition };
+/** Java and C# members that become their own segment; fields stay grouped. */
+const MEMBER_TYPES = new Set([
+  'method_declaration',
+  'constructor_declaration',
+  'compact_constructor_declaration', // Java records
+  'destructor_declaration',
+  'operator_declaration',
+  'conversion_operator_declaration',
+  'property_declaration',
+  'indexer_declaration',
+  'event_declaration',
+]);
+
+/** A Java or C# member: a method, constructor, property or the like. */
+function memberDefinition(node: Parser.SyntaxNode): Definition | null {
+  if (!MEMBER_TYPES.has(node.type)) return null;
+  return { symbolName: node.childForFieldName('name')?.text, symbolType: 'method' };
+}
+
+/** Bodies of Java types, whose members are split one by one. */
+const JAVA_BODIES = new Set(['class_body', 'interface_body', 'enum_body', 'annotation_type_body']);
+/** Bodies of C# types and namespaces. */
+const CSHARP_BODIES = new Set(['declaration_list', 'enum_member_declaration_list']);
+
+/**
+ * A class, interface, enum, record or namespace whose members are split one
+ * by one: its body node and name, or null for anything else.
+ */
+type ContainerOf = (node: Parser.SyntaxNode) => { body: Parser.SyntaxNode; name?: string } | null;
+
+const containerWith = (bodies: Set<string>): ContainerOf => (node) => {
+  const body = node.childForFieldName('body') ?? node.namedChildren.find((child) => bodies.has(child.type));
+  if (!body || !bodies.has(body.type)) return null;
+  return { body, name: node.childForFieldName('name')?.text };
+};
+
+const DEFINITIONS = {
+  python: pythonDefinition,
+  go: goDefinition,
+  rust: rustDefinition,
+  java: memberDefinition,
+  csharp: memberDefinition,
+};
+
+const CONTAINERS: Partial<Record<Language, ContainerOf>> = {
+  java: containerWith(JAVA_BODIES),
+  csharp: containerWith(CSHARP_BODIES),
+};
 
 /**
  * Nodes that belong to the definition below them when they touch it:
@@ -186,15 +247,60 @@ function lastRow(node: Parser.SyntaxNode): number {
 }
 
 /**
- * Walk the top-level statements in order: a definition becomes its own
- * segment, taking the comments directly above it (no blank line between);
- * everything else is grouped with its neighbours. Segments are whole lines.
+ * A run of rows to place: a comment (it joins the definition right below
+ * it), plain code (grouped with its neighbours), a definition (a segment of
+ * its own), or the closing rows of a class or namespace (they join the
+ * segment before them, so a lone `}` is never a segment).
  */
-function splitTopLevel(
-  root: Parser.SyntaxNode,
-  lines: string[],
-  definitionOf: (node: Parser.SyntaxNode) => Definition | null
-): ExtractedSegment[] {
+interface Item {
+  start: number;
+  end: number;
+  kind: 'comment' | 'code' | 'definition' | 'closing';
+  definition?: Definition;
+  /** The class or namespace the item is inside, if any */
+  parent?: string;
+}
+
+/**
+ * Turn nodes into items in file order. A container (Java/C# class or
+ * namespace) becomes its header rows, then its members, then its closing
+ * rows; everything else is one item.
+ */
+function* walk(
+  nodes: Parser.SyntaxNode[],
+  definitionOf: (node: Parser.SyntaxNode) => Definition | null,
+  containerOf: ContainerOf | undefined,
+  parent?: string
+): Generator<Item> {
+  for (const node of nodes) {
+    const start = node.startPosition.row;
+    const end = lastRow(node);
+    if (LEADING_TYPES.has(node.type)) {
+      yield { start, end, kind: 'comment', parent };
+      continue;
+    }
+    const container = containerOf?.(node);
+    const members = container?.body.namedChildren ?? [];
+    if (container && members.length > 0) {
+      const first = members[0]!;
+      const last = members[members.length - 1]!;
+      yield { start, end: first.startPosition.row - 1, kind: 'code', parent: container.name ?? parent };
+      yield* walk(members, definitionOf, containerOf, container.name ?? parent);
+      yield { start: lastRow(last) + 1, end, kind: 'closing', parent: container.name ?? parent };
+      continue;
+    }
+    const definition = definitionOf(node) ?? (container ? { symbolName: container.name, symbolType: 'class' as const } : null);
+    yield definition ? { start, end, kind: 'definition', definition, parent } : { start, end, kind: 'code', parent };
+  }
+}
+
+/**
+ * Place items in order: a definition becomes its own segment, taking the
+ * comments directly above it (no blank line between); everything else is
+ * grouped with its neighbours. Segments are whole lines, and every line of
+ * the file lands in exactly one.
+ */
+function splitItems(items: Item[], lines: string[]): ExtractedSegment[] {
   const segments: ExtractedSegment[] = [];
   const segment = (start: number, end: number, metadata: ExtractedSegment['metadata']): ExtractedSegment => ({
     content: lines.slice(start, end + 1).join('\n'),
@@ -204,49 +310,61 @@ function splitTopLevel(
     metadata,
   });
 
-  let run: { start: number; end: number } | null = null; // rows of grouped module statements
-  let comments: Parser.SyntaxNode[] = []; // comments not yet placed
+  let run: { start: number; end: number; parent?: string } | null = null; // rows of grouped code
+  let comments: Item[] = []; // comments not yet placed
   let placed = -1; // last row in a segment or the run: a trailing comment shares its row
-  const addToRun = (start: number, end: number) => {
-    if (end <= placed) return;
-    run = run ? { start: run.start, end } : { start: Math.max(start, placed + 1), end };
-    placed = end;
+  const addToRun = (item: Item) => {
+    if (item.end <= placed || item.end < item.start) return;
+    run = run ? { ...run, end: item.end } : { start: Math.max(item.start, placed + 1), end: item.end, parent: item.parent };
+    placed = item.end;
   };
   const flushRun = () => {
-    if (run) segments.push(segment(run.start, run.end, { symbolType: 'module' }));
+    if (run) segments.push(segment(run.start, run.end, { symbolType: 'module', parentSymbol: run.parent }));
     run = null;
   };
 
-  for (const node of root.namedChildren) {
-    if (LEADING_TYPES.has(node.type)) {
-      comments.push(node);
+  for (const item of items) {
+    if (item.kind === 'comment') {
+      comments.push(item);
       continue;
     }
-    const definition = definitionOf(node);
-    if (!definition) {
-      for (const comment of comments) addToRun(comment.startPosition.row, lastRow(comment));
+    if (item.kind === 'closing') {
+      for (const comment of comments) addToRun(comment);
       comments = [];
-      addToRun(node.startPosition.row, lastRow(node));
+      const last = segments[segments.length - 1];
+      if (!run && last && item.end > placed && last.endLine === placed + 1) {
+        // Extend the segment just placed (a method) over the closing rows
+        segments[segments.length - 1] = segment(last.startLine - 1, item.end, last.metadata);
+        placed = item.end;
+      } else {
+        addToRun(item);
+      }
+      continue;
+    }
+    if (item.kind === 'code') {
+      for (const comment of comments) addToRun(comment);
+      comments = [];
+      addToRun(item);
       continue;
     }
 
     // The comments touching the definition belong to it; earlier ones to the run
-    let start = node.startPosition.row;
+    let start = item.start;
     let attached = comments.length;
-    while (attached > 0 && lastRow(comments[attached - 1]!) === start - 1) {
+    while (attached > 0 && comments[attached - 1]!.end === start - 1) {
       attached--;
-      start = comments[attached]!.startPosition.row;
+      start = comments[attached]!.start;
     }
-    for (const comment of comments.slice(0, attached)) addToRun(comment.startPosition.row, lastRow(comment));
+    for (const comment of comments.slice(0, attached)) addToRun(comment);
     comments = [];
     flushRun();
     start = Math.max(start, placed + 1);
-    if (lastRow(node) >= start) {
-      segments.push(segment(start, lastRow(node), definition));
-      placed = lastRow(node);
+    if (item.end >= start) {
+      segments.push(segment(start, item.end, { ...item.definition!, parentSymbol: item.parent }));
+      placed = item.end;
     }
   }
-  for (const comment of comments) addToRun(comment.startPosition.row, lastRow(comment));
+  for (const comment of comments) addToRun(comment);
   flushRun();
   return segments;
 }

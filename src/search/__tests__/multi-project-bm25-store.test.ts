@@ -61,7 +61,7 @@ function createMockProject(id: string, name: string): Project {
     embedding_model: 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: 1024,
     description: null,
-    index_version: 3,
+    index_version: 4,
   };
 }
 

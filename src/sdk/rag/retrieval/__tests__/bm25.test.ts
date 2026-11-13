@@ -13,3 +13,15 @@ describe('defaultTokenizer', () => {
     expect(defaultTokenizer('Is x a v2 API?')).toEqual(['is', 'v2', 'api']);
   });
 });
+
+describe('defaultTokenizer stems', () => {
+  it('adds the stem after a word, so related forms share a token', () => {
+    expect(defaultTokenizer('authentication')).toEqual(['authentication', 'authent']);
+    expect(defaultTokenizer('authenticate')).toEqual(['authenticate', 'authent']);
+    expect(defaultTokenizer('refreshing sessions')).toEqual(['refreshing', 'refresh', 'sessions', 'session']);
+  });
+
+  it('leaves words without a shorter stem, and numbers, alone', () => {
+    expect(defaultTokenizer('user v2 4821')).toEqual(['user', 'v2', '4821']);
+  });
+});

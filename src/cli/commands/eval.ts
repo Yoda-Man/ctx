@@ -158,6 +158,13 @@ export function buildMetricRows(
     { name: 'NDCG', value: metrics.ndcg, target: null, passed: null },
     { name: 'MAP', value: metrics.map, target: null, passed: null },
   ];
+  // Chunk level: present when the golden entries carry evidence
+  if (metrics.chunk_mrr !== undefined) {
+    rows.push({ name: 'Chunk MRR', value: metrics.chunk_mrr, target: null, passed: null });
+  }
+  if (metrics.chunk_hit_rate !== undefined) {
+    rows.push({ name: 'Chunk Hit Rate', value: metrics.chunk_hit_rate, target: null, passed: null });
+  }
 
   // Add trend data from comparison
   if (comparison?.metric_changes) {

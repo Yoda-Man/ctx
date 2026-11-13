@@ -35,6 +35,7 @@ const GoldenEntrySchema = z.object({
   expectedAnswer: z.string().optional(),
   tags: z.array(z.string()).optional(),
   source: z.enum(['manual', 'generated', 'captured']),
+  evidence: z.record(z.string(), z.string()).optional(),
 });
 
 export const GoldenDatasetSchema = z.object({

@@ -187,6 +187,19 @@ documentation questions, each with the files that answer it. Models already
 in `~/.ctx/models` are reused. The first run downloads the embedding model;
 indexing takes several minutes on a CPU.
 
+Each of those questions also stores, per expected file, a pattern the
+answering code or text matches (`evidence`). Runs then report **Chunk MRR**
+and **Chunk Hit Rate** next to the file-level metrics: a result counts only
+if it is a chunk from an expected file that contains the answer, which is
+what a user actually reads. Add `evidence` to your own golden entries to get
+the same:
+
+```json
+{ "query": "What is the largest file that gets indexed?",
+  "expectedFilePaths": ["src/indexer/chunker/config.ts"],
+  "evidence": { "src/indexer/chunker/config.ts": "MAX_FILE_SIZE = 750" } }
+```
+
 A difference of one or two questions (about 0.02 MRR) is within what a single
 reordering can cause; look at which questions changed, not only the totals
 (`--keep` leaves the temporary home in place to inspect).

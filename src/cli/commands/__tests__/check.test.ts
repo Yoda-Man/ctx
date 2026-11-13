@@ -58,7 +58,7 @@ describe('createCheckCommand', () => {
     embedding_model: 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: 1024,
     description: 'Test project for unit tests',
-    index_version: 3,
+    index_version: 4,
   };
 
   beforeEach(() => {

@@ -264,6 +264,31 @@ CREATE TRIGGER IF NOT EXISTS chunks_fts_update AFTER UPDATE OF content ON chunks
 END;
     `.trim(),
   },
+  {
+    name: '009-fts-file-path.sql',
+    sql: `
+-- Migration 009: keyword search also matches a chunk's file path, so a
+-- question about the agent's tool finds agent/tools/retrieve-knowledge-tool.ts.
+-- Path tokens come from the same tokenizer (src/indexer/scanner.ts gives
+-- src, indexer, scanner, ts); ones in most chunks, such as src and ts, add
+-- almost nothing to BM25. The index is rebuilt from the stored chunks, which
+-- also applies the tokenizer's word stems (authentication -> authent).
+DROP TRIGGER IF EXISTS chunks_fts_insert;
+DROP TRIGGER IF EXISTS chunks_fts_update;
+
+CREATE TRIGGER chunks_fts_insert AFTER INSERT ON chunks BEGIN
+  INSERT INTO chunks_fts (rowid, tokens) VALUES (new.rowid, ctx_tokens(new.file_path || ' ' || new.content));
+END;
+
+CREATE TRIGGER chunks_fts_update AFTER UPDATE OF content, file_path ON chunks BEGIN
+  DELETE FROM chunks_fts WHERE rowid = old.rowid;
+  INSERT INTO chunks_fts (rowid, tokens) VALUES (new.rowid, ctx_tokens(new.file_path || ' ' || new.content));
+END;
+
+INSERT INTO chunks_fts (chunks_fts) VALUES ('delete-all');
+INSERT INTO chunks_fts (rowid, tokens) SELECT rowid, ctx_tokens(file_path || ' ' || content) FROM chunks;
+    `.trim(),
+  },
 ];
 
 /**

@@ -17,7 +17,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,7 +47,11 @@ try {
 
   mkdirSync(join(home, '.ctx', 'eval', project), { recursive: true });
   const models = join(homedir(), '.ctx', 'models');
-  if (existsSync(models)) symlinkSync(models, join(home, '.ctx', 'models'), 'junction');
+  // Reuse downloaded models; an empty folder is not linked (downloading
+  // through the link failed, and every chunk then failed to embed)
+  if (existsSync(models) && readdirSync(models).length > 0) {
+    symlinkSync(models, join(home, '.ctx', 'models'), 'junction');
+  }
   cpSync(join(root, 'fixtures', 'eval', 'ctx-source-golden.json'), join(home, '.ctx', 'eval', project, 'golden.json'));
 
   ctx('index', root, '--name', project, '--ignore', ignore, '--force');

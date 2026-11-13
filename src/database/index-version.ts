@@ -10,8 +10,9 @@
  * - none: indexed before ctx recorded a version
  * - 2: 1.3.0, BGE vectors use CLS pooling (were mean-pooled)
  * - 3: Go and Rust files are split by top-level item (were split by size)
+ * - 4: Java and C# are split by method; vectors embed each chunk's file path
  */
-export const INDEX_VERSION = 3;
+export const INDEX_VERSION = 4;
 
 /**
  * Why a project's index is stale, or null if it is current.

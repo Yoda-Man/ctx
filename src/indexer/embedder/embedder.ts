@@ -17,6 +17,15 @@ import type { ChunkResult } from '../chunker/types.js';
 import type { EmbeddedChunk, EmbedderOptions } from './types.js';
 import { toError } from '../../utils/error.js';
 
+/**
+ * The text embedded for a chunk: its file path, then its content. The path
+ * names the module a chunk belongs to (src/indexer/chunker/config.ts), which
+ * a question often names too. The stored chunk keeps its content as is.
+ */
+export function embeddingText(chunk: ChunkResult): string {
+  return chunk.file_path + '\n' + chunk.content;
+}
+
 /** Default batch size - 32 is a good balance of speed vs memory */
 const DEFAULT_BATCH_SIZE = 32;
 
@@ -138,7 +147,7 @@ export async function embedChunks(
     }
 
     const batch = chunks.slice(i, i + batchSize);
-    const texts = batch.map((chunk) => chunk.content);
+    const texts = batch.map(embeddingText);
 
     try {
       // Get embeddings for this batch (with timeout if configured)
@@ -179,7 +188,7 @@ export async function embedChunks(
         }
 
         try {
-          const [embedding] = await embedBatch(provider, [chunk.content], timeout);
+          const [embedding] = await embedBatch(provider, [embeddingText(chunk)], timeout);
 
           if (embedding && embedding.length > 0) {
             embeddedChunks.push({
@@ -224,7 +233,7 @@ export async function embedChunk(
   provider: EmbeddingProvider
 ): Promise<EmbeddedChunk | null> {
   try {
-    const result = await provider.embed(chunk.content);
+    const result = await provider.embed(embeddingText(chunk));
     const embedding = new Float32Array(result.embedding);
 
     return {

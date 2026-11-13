@@ -733,4 +733,40 @@ describe('Eval Runner', () => {
     });
   });
 
+
+  describe('chunk-level metrics', () => {
+    it('scores the chunk that holds the answer, for entries with evidence only', async () => {
+      const entries = [
+        // The right file twice, but only the second chunk has the answer
+        makeEntry({ query: 'q1', expectedFilePaths: ['src/a.ts'], evidence: { 'src/a.ts': 'MAX = 750' } }),
+        // No evidence: file-level only
+        makeEntry({ query: 'q2', expectedFilePaths: ['src/b.ts'] }),
+      ];
+      const winPath = String.raw`src\a.ts`; // results carry Windows separators on Windows
+      const search = async (query: string): Promise<EvalSearchResult> =>
+        query === 'q1'
+          ? {
+              filePaths: [winPath, winPath],
+              chunks: [
+                { filePath: winPath, content: 'type Size = number;' },
+                { filePath: winPath, content: 'export const MAX = 750 * 1024;' },
+              ],
+              latencyMs: 1,
+            }
+          : { filePaths: ['src/b.ts'], chunks: [{ filePath: 'src/b.ts', content: 'x' }], latencyMs: 1 };
+
+      const summary = await runEval({ projectName: 'test-project' }, makeDeps({ search, loadGoldenDataset: () => makeDataset(entries) }));
+
+      expect(summary.metrics.mrr).toBe(1); // file level: right file first, both queries
+      expect(summary.metrics.chunk_mrr).toBe(0.5); // q1 only: answer in the 2nd chunk
+      expect(summary.metrics.chunk_hit_rate).toBe(1);
+    });
+
+    it('leaves chunk metrics out when no entry has evidence', async () => {
+      const entries = [makeEntry({ query: 'q', expectedFilePaths: ['a.ts'] })];
+      const summary = await runEval({ projectName: 'test-project' }, makeDeps({ search: makeSearch({ q: ['a.ts'] }), loadGoldenDataset: () => makeDataset(entries) }));
+
+      expect(summary.metrics.chunk_mrr).toBeUndefined();
+    });
+  });
 });

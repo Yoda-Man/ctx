@@ -25,7 +25,14 @@ import {
   type GoldenDataset,
   type RetrievalMetrics,
 } from './types.js';
-import { computePerQueryMetrics, computeAggregateMetrics, type QueryResult } from './metrics.js';
+import {
+  computePerQueryMetrics,
+  computeAggregateMetrics,
+  chunkReciprocalRank,
+  chunkHitRate,
+  type QueryResult,
+  type RetrievedChunk,
+} from './metrics.js';
 import { loadGoldenDataset as defaultLoadGoldenDataset } from './golden.js';
 import type { DatabaseOperations } from '../database/operations.js';
 import type { ContextExpertRAGEngine } from '../agent/rag-engine.js';
@@ -45,6 +52,8 @@ import { errorMessage } from '../utils/error.js';
 export interface EvalSearchResult {
   /** File paths from retrieved results, in rank order */
   filePaths: string[];
+  /** Retrieved chunks in rank order, for chunk-level metrics (optional) */
+  chunks?: RetrievedChunk[];
   /** End-to-end search latency in milliseconds */
   latencyMs: number;
 }
@@ -224,16 +233,22 @@ export async function runEval(
   try {
     const queryResults: QueryResult[] = [];
     const evalResults: EvalResultInput[] = [];
+    const chunkScores: EvalResultInput['metrics'][] = [];
 
     // Step 3: Run search and compute per-query metrics
     for (const entry of evaluableEntries) {
-      const { filePaths, latencyMs } = await search(entry.query, k);
+      const { filePaths, chunks, latencyMs } = await search(entry.query, k);
 
-      const metrics = computePerQueryMetrics(
+      const metrics: EvalResultInput['metrics'] = computePerQueryMetrics(
         filePaths,
         entry.expectedFilePaths!,
         k,
       );
+      if (entry.evidence && chunks) {
+        metrics.chunk_reciprocal_rank = chunkReciprocalRank(chunks, entry.evidence);
+        metrics.chunk_hit_rate = chunkHitRate(chunks, entry.evidence, k);
+        chunkScores.push(metrics);
+      }
 
       // Per-query pass: at least one relevant result in top-K
       const passed = metrics.hit_rate === 1;
@@ -256,6 +271,12 @@ export async function runEval(
 
     // Step 4: Aggregate metrics across all queries
     const aggregateMetrics = computeAggregateMetrics(queryResults, k);
+    if (chunkScores.length > 0) {
+      const mean = (key: 'chunk_reciprocal_rank' | 'chunk_hit_rate') =>
+        chunkScores.reduce((sum, m) => sum + (m[key] ?? 0), 0) / chunkScores.length;
+      aggregateMetrics.chunk_mrr = mean('chunk_reciprocal_rank');
+      aggregateMetrics.chunk_hit_rate = mean('chunk_hit_rate');
+    }
 
     // Step 5: Batch insert per-query results and update run
     db.insertEvalResults(evalResults);
@@ -341,6 +362,7 @@ export function createEvalRunnerDeps(
 
       return {
         filePaths: result.rawResults.map((r) => r.filePath),
+        chunks: result.rawResults.map((r) => ({ filePath: r.filePath, content: r.content })),
         latencyMs,
       };
     },
