@@ -309,6 +309,7 @@ export async function runIndexPipeline(
   const embedStartTime = performance.now();
   onStageStart?.('embedding', chunksCreated.length);
 
+  let firstEmbedError: string | undefined;
   const embeddedChunks: EmbeddedChunk[] = await embedChunks(chunksCreated, embeddingProvider, {
     batchSize: options.embeddingBatchSize ?? 32,
     timeout: embeddingTimeout,
@@ -317,10 +318,21 @@ export async function runIndexPipeline(
       onProgress?.('embedding', processed, total);
     },
     onError: (error: Error, chunkId: string) => {
+      firstEmbedError ??= error.message;
       errors.push(`Chunk ${chunkId}: ${error.message}`);
       onError?.(error, chunkId);
     },
   });
+
+  // Every chunk failed (the model would not load, for one): store nothing.
+  // Storing went on to record the project with no chunks as a current index,
+  // and searching it failed later with a less helpful error.
+  if (chunksCreated.length > 0 && embeddedChunks.length === 0) {
+    throw new Error(
+      `Could not embed any of the ${chunksCreated.length} chunks: ${firstEmbedError ?? 'no embeddings returned'}. ` +
+        `Nothing was stored; any existing index for this project is unchanged.`
+    );
+  }
 
   const embedDuration = performance.now() - embedStartTime;
   stageDurations.embedding = Math.round(embedDuration);

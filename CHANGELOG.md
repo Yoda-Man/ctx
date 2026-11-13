@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report Chunk MRR and Chunk Hit Rate beside the file-level metrics, which
   count any chunk of the right file. The 56-question set carries evidence.
 
+### Fixed
+- **Indexing reported success when no chunk could be embedded.** If the
+  embedding model failed to load, `ctx index` stored the project with no
+  chunks, marked it as a current index (so no stale-index warning), and
+  exited 0; searching it then failed with "Failed to embed query". It now
+  stops with an error naming the cause, stores nothing, and leaves any
+  existing index for the project as it was. A chunk that fails on its own is
+  still skipped with a warning, as before.
+
 ### Changed
 - Dependencies: better-sqlite3 13.1.1, marked 18.2.0; dev: oxlint 1.93.0,
   oxlint-tsgolint 7.0.2007.
