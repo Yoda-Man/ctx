@@ -52,9 +52,14 @@ describe('Code Extractor', () => {
       expect(isLanguageSupported('rust')).toBe(true);
     });
 
+    it('should support Java and C#', () => {
+      expect(isLanguageSupported('java')).toBe(true);
+      expect(isLanguageSupported('csharp')).toBe(true);
+    });
+
     it('should not support unsupported languages', () => {
-      expect(isLanguageSupported('java')).toBe(false);
       expect(isLanguageSupported('ruby')).toBe(false);
+      expect(isLanguageSupported('php')).toBe(false);
     });
   });
 
@@ -317,9 +322,9 @@ def calculate(x, y):
     });
 
     it('other languages: keeps the code, not only the comments', () => {
-      const code = '/* Entry point */\nclass Main {\n    void run() {}\n}';
+      const code = '# Entry point\nclass Main\n  def run; end\nend';
 
-      const { segments } = extractCodeSegments(code, 'java');
+      const { segments } = extractCodeSegments(code, 'ruby');
 
       expectFullCoverage(code, segments);
     });
@@ -401,16 +406,109 @@ def calculate(x, y):
     });
   });
 
+  /** Every non-blank line in exactly one segment, and each segment's text matches its lines. */
+  function expectEveryLineOnce(code: string, segments: ReturnType<typeof extractCodeSegments>['segments']) {
+    const lines = code.split('\n');
+    const owners = lines.map(() => 0);
+    for (const s of segments) {
+      expect(s.content).toBe(lines.slice(s.startLine - 1, s.endLine).join('\n'));
+      for (let i = s.startLine - 1; i < s.endLine; i++) owners[i]!++;
+    }
+    lines.forEach((line, i) => {
+      if (line.trim()) expect({ line: i + 1, owners: owners[i] }).toEqual({ line: i + 1, owners: 1 });
+    });
+  }
+
+  describe('extractCodeSegments - Java', () => {
+    const code = [
+      'package shop;',
+      '',
+      'import java.util.List;',
+      '',
+      '/** An order. */',
+      'public class Order {',
+      '    private final List<String> items;',
+      '',
+      '    /** Creates an empty order. */',
+      '    public Order() { this.items = List.of(); }',
+      '',
+      '    @Override',
+      '    public String toString() {',
+      '        return items.toString();',
+      '    }',
+      '}',
+    ].join('\n');
+
+    it('splits a class into its methods, each labelled with the class', () => {
+      const { segments } = extractCodeSegments(code, 'java');
+
+      expect(segments.map((s) => [s.metadata.symbolType, s.metadata.symbolName, s.metadata.parentSymbol])).toEqual([
+        ['module', undefined, undefined],
+        ['method', 'Order', 'Order'],
+        ['method', 'toString', 'Order'],
+      ]);
+      // Javadoc and annotations stay with their method
+      expect(segments[1]!.content.startsWith('    /** Creates an empty order. */')).toBe(true);
+      expect(segments[2]!.content.startsWith('    @Override')).toBe(true);
+    });
+
+    it('keeps every non-blank line once, with the closing brace on the last method', () => {
+      const { segments } = extractCodeSegments(code, 'java');
+
+      expectEveryLineOnce(code, segments);
+      expect(segments[2]!.content.endsWith('    }\n}')).toBe(true);
+      // The class header and its field are one segment with the package and imports
+      expect(segments[0]!.content).toContain('private final List<String> items;');
+    });
+  });
+
+  describe('extractCodeSegments - C#', () => {
+    it('steps into namespaces and classes, keeping attributes with their members', () => {
+      const code = [
+        'using System;',
+        '',
+        'namespace Shop',
+        '{',
+        '    /// <summary>An order.</summary>',
+        '    public class Order',
+        '    {',
+        '        public int Count { get; set; }',
+        '',
+        '        [Obsolete]',
+        '        public void Clear() { Count = 0; }',
+        '    }',
+        '}',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'csharp');
+
+      expect(segments.map((s) => [s.metadata.symbolType, s.metadata.symbolName, s.metadata.parentSymbol])).toEqual([
+        ['module', undefined, undefined],
+        ['method', 'Count', 'Order'],
+        ['method', 'Clear', 'Order'],
+      ]);
+      expect(segments[2]!.content).toContain('[Obsolete]');
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('handles file-scoped namespaces', () => {
+      const code = 'namespace Shop;\n\npublic class Cart\n{\n    public void Add() { }\n}\n';
+      const { segments } = extractCodeSegments(code, 'csharp');
+
+      expect(segments.map((s) => s.metadata.symbolName)).toEqual([undefined, 'Add']);
+    });
+  });
+
   describe('extractCodeSegments - Fallback', () => {
     it('keeps the whole file for unsupported languages', () => {
       const code = `
-/* This is a block comment */
-class Main {
-    void run() {}
-}
+# This is a comment
+class Main
+  def run; end
+end
 `;
 
-      const result = extractCodeSegments(code, 'java');
+      const result = extractCodeSegments(code, 'ruby');
 
       // It used to keep only the comment and drop the code
       expect(result.segments).toHaveLength(1);

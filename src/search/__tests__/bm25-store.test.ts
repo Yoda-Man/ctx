@@ -96,6 +96,16 @@ describe('FTS5 keyword search', () => {
     expect(await search(projectId, 'edited')).toHaveLength(1);
   });
 
+  it('matches a chunk by its file path, and related word forms by their stem', async () => {
+    const { projectId, ids } = seed([{ content: 'export function retrieve() {}' }, { content: 'validates the user login' }]);
+    db.prepare('UPDATE chunks SET file_path = ? WHERE id = ?').run('src/agent/tools/retrieve-knowledge-tool.ts', ids[0]);
+
+    // "knowledge" is only in the path; the update trigger re-indexed the chunk
+    expect((await search(projectId, 'knowledge')).map((r) => r.id)).toEqual([ids[0]]);
+    // "validation" shares the stem of "validates"
+    expect((await search(projectId, 'validation')).map((r) => r.id)).toEqual([ids[1]]);
+  });
+
   it('returns nothing for a query with no searchable words', async () => {
     const { projectId } = seed([{ content: 'a b c' }]);
     expect(await search(projectId, '? ! a')).toEqual([]);

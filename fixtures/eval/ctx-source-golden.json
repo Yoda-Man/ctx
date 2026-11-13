@@ -175,7 +175,7 @@
         "src/indexer/chunker/extractors/code-extractor.ts"
       ],
       "evidence": {
-        "src/indexer/chunker/extractors/code-extractor.ts": "function splitTopLevel"
+        "src/indexer/chunker/extractors/code-extractor.ts": "function splitItems"
       },
       "tags": [
         "indexing"

@@ -7,6 +7,8 @@
  * (search/bm25-store.ts), so the two always split text the same way.
  */
 
+import { stemmer } from 'stemmer';
+
 /** Boundaries inside a camelCase or PascalCase word: getUser|By|Id, HTTP|Server. */
 const CAMEL_BOUNDARY = /(?<=\p{Ll})(?=\p{Lu})|(?<=\p{Lu})(?=\p{Lu}\p{Ll})/u;
 
@@ -27,6 +29,16 @@ export const defaultTokenizer = (text: string): string[] => {
     if (parts.length > 1) tokens.push(word.toLowerCase());
     for (const part of parts) tokens.push(part.toLowerCase());
   }
-  // Filter empty strings and very short tokens
-  return tokens.filter((token) => token.length >= 2);
+  // Each word also gives its stem (authentication -> authent), so related
+  // forms match while the exact word still does; numbers are left alone
+  const withStems: string[] = [];
+  for (const token of tokens) {
+    if (token.length < 2) continue;
+    withStems.push(token);
+    if (!/\d/.test(token)) {
+      const stem = stemmer(token);
+      if (stem !== token && stem.length >= 2) withStems.push(stem);
+    }
+  }
+  return withStems;
 };

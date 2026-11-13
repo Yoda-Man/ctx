@@ -8,7 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EmbeddingProvider, EmbeddingResult } from '../../../sdk/rag/index.js';
 
-import { embedChunks, embedChunk, estimateEmbeddingMemory } from '../embedder.js';
+import { embedChunks, embedChunk, embeddingText, estimateEmbeddingMemory } from '../embedder.js';
 import { getModelDimensions } from '../provider.js';
 import type { ChunkResult } from '../../chunker/types.js';
 import type { FileType, Language } from '../../types.js';
@@ -324,5 +324,24 @@ describe('getModelDimensions', () => {
 
   it('should return default 1024 for unknown models', () => {
     expect(getModelDimensions('unknown-model')).toBe(1024);
+  });
+});
+
+describe('embeddingText', () => {
+  it('embeds the file path before the content, and stores the content unchanged', async () => {
+    const chunk = createMockChunk('c1', 'export const MAX = 750;', { file_path: 'src/indexer/chunker/config.ts' });
+    const provider = createMockProvider();
+    const seen: string[] = [];
+    const embedBatch = provider.embedBatch.bind(provider);
+    provider.embedBatch = async (texts) => {
+      seen.push(...texts);
+      return embedBatch(texts);
+    };
+
+    const [embedded] = await embedChunks([chunk], provider);
+
+    expect(embeddingText(chunk)).toBe('src/indexer/chunker/config.ts' + '\n' + 'export const MAX = 750;');
+    expect(seen).toEqual([embeddingText(chunk)]);
+    expect(embedded!.content).toBe('export const MAX = 750;');
   });
 });
