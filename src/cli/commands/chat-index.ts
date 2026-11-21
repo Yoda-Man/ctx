@@ -413,8 +413,8 @@ export async function handleIndexCommand(
     await new Promise<void>((resolve) => {
       coordinator.start({
         // Balanced batch size: good throughput + enough yield points
-        // for progress events and cancellation checks
-        pipelineOptions: { ...pipelineOptions, embeddingBatchSize: 16 },
+        // for progress events and cancellation checks (lower if configured)
+        pipelineOptions: { ...pipelineOptions, embeddingBatchSize: Math.min(16, state.config.embedding.batch_size) },
         // No StatusBarRenderer or readline in TUI mode
         statusBarOptions: undefined,
         readline: undefined,
@@ -502,8 +502,8 @@ export async function handleIndexCommand(
     // Fire-and-forget: indexing continues while user chats
     coordinator.start({
       // Small batch size for background: frequent event-loop yields
-      // keep readline responsive during embedding
-      pipelineOptions: { ...pipelineOptions, embeddingBatchSize: 8 },
+      // keep readline responsive during embedding (lower if configured)
+      pipelineOptions: { ...pipelineOptions, embeddingBatchSize: Math.min(8, state.config.embedding.batch_size) },
       statusBarOptions: {
         terminalWidth: process.stdout.columns,
         noColor: !!process.env.NO_COLOR,

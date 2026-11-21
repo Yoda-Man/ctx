@@ -15,7 +15,7 @@ import type { Project } from '../../database/schema.js';
 import { handleShareCommand } from './share-handler.js';
 import { errorMessage } from '../../utils/error.js';
 import { handleIndexCommand } from './chat-index.js';
-import { type ChatState, cleanupChatState, findProject, safeParseJsonArray, updatePrompt } from './chat-state.js';
+import { type ChatState, cleanupChatState, findProject, loadProjectMetadata, safeParseJsonArray, updatePrompt } from './chat-state.js';
 
 /**
  * REPL command definition.
@@ -142,7 +142,7 @@ const REPL_COMMANDS: REPLCommand[] = [
   {
     name: 'unfocus',
     aliases: ['u'],
-    description: 'Clear project focus (disable RAG search)',
+    description: 'Clear project focus (each question then searches the projects it is about)',
     handler: async (_args, state, ctx) => {
       if (state.currentProject) {
         ctx.log(chalk.blue(`Unfocused from: ${state.currentProject.name}`));
@@ -199,7 +199,7 @@ const REPL_COMMANDS: REPLCommand[] = [
     aliases: ['desc'],
     description: 'Add description and tags to a project for smart routing',
     usage: '<project-name> ["description"] [--tags tag1,tag2]',
-    handler: async (args, _state, ctx) => {
+    handler: async (args, state, ctx) => {
       // No arguments - show usage
       if (args.length === 0 || !args[0]) {
         ctx.log(chalk.yellow('Usage: /describe <project-name> ["description"] [--tags tag1,tag2]'));
@@ -257,6 +257,12 @@ const REPL_COMMANDS: REPLCommand[] = [
       // Update project metadata
       const db = getDatabase();
       db.updateProjectMetadata(project.id, { description, tags });
+      // Routing reads descriptions and tags from this list: use the new ones now
+      state.allProjects = loadProjectMetadata();
+      if (state.currentProject?.id === project.id) {
+        state.currentProject = db.getProjectById(project.id) ?? state.currentProject;
+      }
+      state.chatAgent.updateProject(state.currentProject, state.allProjects, state.routingEngine);
 
       ctx.log(chalk.green(`✓ Updated project: ${project.name}`));
       if (description) {

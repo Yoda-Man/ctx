@@ -17,6 +17,7 @@ import {
   resetMultiProjectBM25StoreManager,
 } from '../multi-project-bm25-store.js';
 import type { Project } from '../../database/schema.js';
+import { INDEX_VERSION } from '../../database/index-version.js';
 
 // Mock dependencies
 vi.mock('../../database/operations.js', () => ({
@@ -61,7 +62,7 @@ function createMockProject(id: string, name: string): Project {
     embedding_model: 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: 1024,
     description: null,
-    index_version: 4,
+    index_version: INDEX_VERSION,
   };
 }
 
@@ -160,6 +161,17 @@ describe('MultiProjectBM25StoreManager', () => {
 
       expect(manager.hasProjectRetriever('proj-1')).toBe(true);
       expect(manager.getLoadedProjects()).toEqual(['proj-1']);
+    });
+
+    it('replaces the projects of an earlier load', async () => {
+      mockDbOps.getProjectById.mockImplementation((id: string) => createMockProject(id, id));
+      mockStoreManager.getRetriever.mockResolvedValue(createMockRetriever([]));
+      const manager = new MultiProjectBM25StoreManager();
+
+      await manager.loadRetrievers({ projectIds: ['proj-1', 'proj-2'] });
+      await manager.loadRetrievers({ projectIds: ['proj-3'] });
+
+      expect(manager.getLoadedProjects()).toEqual(['proj-3']);
     });
 
   });

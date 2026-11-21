@@ -109,7 +109,8 @@ export const TraceInputSchema = z.object({
   project_id: z.string().min(1),
   query: z.string().min(1),
   retrieved_files: z.array(z.string()),
-  top_k: z.number().int().min(1),
+  // 0: no single value, as in a chat turn where the agent picks the count per search
+  top_k: z.number().int().min(0),
   latency_ms: z.number().int().min(0),
   answer: z.string().optional(),
   retrieval_method: z.enum(['dense', 'bm25', 'fusion']),

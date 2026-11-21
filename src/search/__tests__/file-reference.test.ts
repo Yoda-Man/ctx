@@ -35,8 +35,9 @@ vi.mock('../../database/index.js', () => ({
         if (sql.includes('GROUP BY')) {
           return mockChunks;
         }
-        // Handle content query (ORDER BY id)
-        if (sql.includes('ORDER BY id')) {
+        // Handle content query, which must order chunks by position in the file
+        // (ids are random UUIDs, so ORDER BY id scrambled a file's content)
+        if (sql.includes('ORDER BY start_line')) {
           const filePath = args[1] as string;
           const content = mockContent[filePath];
           if (content) {

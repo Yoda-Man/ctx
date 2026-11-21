@@ -56,12 +56,6 @@
   export const MAX_FILE_SIZE = 750 * 1024; // 750KB                                                                                                                     
                                                                                                                                                                         
   /**                                                                                                                                                                   
-   * Minimum content length to create a chunk.                                                                                                                          
-   * Segments shorter than this are skipped.                                                                                                                            
-   */                                                                                                                                                                   
-  export const MIN_CHUNK_SIZE = 10; // characters                                                                                                                       
-                                                                                                                                                                        
-  /**                                                                                                                                                                   
    * Get chunk configuration for a content type.                                                                                                                        
    *                                                                                                                                                                    
    * @param contentType - The type of content being chunked                                                                                                             

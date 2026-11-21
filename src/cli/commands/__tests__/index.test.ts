@@ -245,6 +245,20 @@ describe('createIndexCommand', () => {
     });
   });
 
+  describe('embedding settings', () => {
+    it('embeds in batches of the configured batch_size', async () => {
+      vi.mocked(config.loadConfig).mockReturnValue({
+        embedding: { provider: 'huggingface', model: 'BAAI/bge-large-en-v1.5', batch_size: 12, timeout_ms: 5000 },
+      } as any);
+
+      await runCommand(['/path/to/project']);
+
+      expect(indexer.runIndexPipeline).toHaveBeenCalledWith(
+        expect.objectContaining({ embeddingBatchSize: 12, embeddingTimeout: 5000 })
+      );
+    });
+  });
+
   describe('project name', () => {
     it('defaults to directory basename', async () => {
       await runCommand(['/path/to/my-awesome-project']);

@@ -170,7 +170,7 @@ export class XMLAssembler extends BaseAssembler {
  * @param text - Text to escape
  * @returns Escaped text safe for XML content
  */
-function escapeXml(text: string): string {
+export function escapeXml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -183,7 +183,7 @@ function escapeXml(text: string): string {
  * @param text - Text to escape
  * @returns Escaped text safe for XML attributes
  */
-function escapeXmlAttribute(text: string): string {
+export function escapeXmlAttribute(text: string): string {
   return escapeXml(text)
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');

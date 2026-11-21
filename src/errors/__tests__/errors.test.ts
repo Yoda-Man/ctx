@@ -248,9 +248,12 @@ describe('handleError', () => {
     expect(exit).toHaveBeenCalledWith(1);
   });
 
-  it('createGlobalErrorHandler keeps the options it was created with', () => {
+  it('createGlobalErrorHandler reads the options when the error happens', () => {
     const { stderr, exit } = capture();
-    createGlobalErrorHandler({ json: true })(new DatabaseError('locked'));
+    const options = { json: false };
+    const handler = createGlobalErrorHandler(() => options);
+    options.json = true; // --json parsed after the handler was attached
+    handler(new DatabaseError('locked'));
 
     expect(JSON.parse(stderr.mock.calls[0]![0] as string).error).toBe('locked');
     expect(exit).toHaveBeenCalledWith(5);

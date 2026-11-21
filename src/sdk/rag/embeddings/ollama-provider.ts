@@ -8,6 +8,7 @@
 import type { EmbeddingResult } from './types.js';
 import { BaseEmbeddingProvider } from './base-provider.js';
 import { EmbeddingError } from './errors.js';
+import { hasOllamaModel } from '../../provider-ollama/model-name.js';
 
 // ============================================================================
 // Types
@@ -122,10 +123,7 @@ export class OllamaEmbeddingProvider extends BaseEmbeddingProvider {
         models?: { name: string }[];
       };
 
-      const models = data.models ?? [];
-      return models.some(
-        (m) => m.name === this.model || m.name.startsWith(`${this.model}:`)
-      );
+      return hasOllamaModel((data.models ?? []).map((m) => m.name), this.model);
     } catch {
       return false;
     }

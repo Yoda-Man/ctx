@@ -43,6 +43,7 @@ import type {
 } from '../core/index.js';
 
 import type { OllamaProviderConfig, OllamaTagsResponse } from './types.js';
+import { hasOllamaModel } from './model-name.js';
 import { OllamaProviderError, mapOllamaError, createErrorFromResponse } from './errors.js';
 import { buildRequestBody } from './message-mapper.js';
 import {
@@ -296,8 +297,8 @@ export class OllamaProvider implements LLMProvider {
   /**
    * Checks if the Ollama server is running and the model is available.
    *
-   * Makes a request to the /api/tags endpoint to verify connectivity.
-   * Optionally checks if the configured model is in the list.
+   * Asks /api/tags for the installed models and checks the configured one is
+   * among them, with the exact tag (no tag means `:latest`).
    *
    * @returns true if available, false otherwise
    *
@@ -327,15 +328,8 @@ export class OllamaProvider implements LLMProvider {
           return false;
         }
 
-        // Optionally verify the model is available
         const data = (await response.json()) as OllamaTagsResponse;
-        const modelNames = data.models.map((m) => m.name);
-
-        // Check if our model is available (handle tag suffix like :latest)
-        const modelBase = this.model.split(':')[0];
-        return modelNames.some(
-          (name) => name === this.model || name.startsWith(`${modelBase}:`)
-        );
+        return hasOllamaModel(data.models.map((m) => m.name), this.model);
       } finally {
         clearTimeout(timeoutId);
       }

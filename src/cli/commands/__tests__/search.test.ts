@@ -256,7 +256,8 @@ describe('createSearchCommand', () => {
       const topOption = cmd.options.find((o) => o.long === '--top');
       expect(topOption).toBeDefined();
       expect(topOption?.short).toBe('-k');
-      expect(topOption?.defaultValue).toBe('10');
+      // No commander default: without --top, search.top_k from config applies
+      expect(topOption?.defaultValue).toBeUndefined();
     });
   });
 
@@ -371,6 +372,18 @@ describe('createSearchCommand', () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe('--top option', () => {
+    it('uses search.top_k from config when --top is not given', async () => {
+      const config = vi.mocked(configLoader.loadConfig)();
+      vi.mocked(configLoader.loadConfig).mockReturnValue({ ...config, search: { ...config.search, top_k: 25 } });
+      const cmd = createSearchCommand(() => mockContext);
+
+      const program = new Command();
+      program.addCommand(cmd);
+      await program.parseAsync(['node', 'test', 'search', 'query']);
+
+      expect(mockFusionService.search).toHaveBeenCalledWith('query', expect.objectContaining({ topK: 25 }));
+    });
+
     it('uses default top-k of 10', async () => {
       const cmd = createSearchCommand(() => mockContext);
 

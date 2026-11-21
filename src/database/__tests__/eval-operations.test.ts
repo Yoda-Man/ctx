@@ -212,6 +212,22 @@ describe('Eval Operations', () => {
       expect(JSON.parse(trace.metadata!)).toEqual({ model: 'qwen3.5:9b' });
     });
 
+    it('records a chat turn, whose top_k is 0 (the agent picks the count per search)', () => {
+      const projectId = createTestProject();
+
+      ops.insertTrace({
+        project_id: projectId,
+        query: 'chat question',
+        retrieved_files: ['src/a.ts'],
+        top_k: 0,
+        latency_ms: 900,
+        retrieval_method: 'fusion',
+        trace_type: 'chat',
+      });
+
+      expect(ops.getTraces({ project_id: projectId })[0]!.top_k).toBe(0);
+    });
+
     it('handles nullable fields (answer, metadata)', () => {
       const projectId = createTestProject();
 
@@ -357,6 +373,24 @@ describe('Eval Operations', () => {
 
       const runs = ops.getEvalRuns(projectId, 2);
       expect(runs).toHaveLength(2);
+    });
+
+    it('leaves out failed and unfinished runs', () => {
+      const projectId = createTestProject();
+      const run = (notes: string) =>
+        ops.insertEvalRun({
+          project_id: projectId,
+          dataset_version: '1.0',
+          query_count: 1,
+          metrics: { mrr: 0, precision_at_k: 0, recall_at_k: 0, hit_rate: 0, ndcg: 0, map: 0 },
+          config: {},
+          notes,
+        });
+      const completed = run('status:completed | 1/1 passed');
+      run('status:failed | Ollama is not running');
+      run('status:running');
+
+      expect(ops.getEvalRuns(projectId).map((r) => r.id)).toEqual([completed]);
     });
   });
 

@@ -28,6 +28,7 @@ import type {
 } from './types.js';
 import { type Logger, consoleLogger } from '../../utils/index.js';
 import { errorMessage } from '../../utils/error.js';
+import { getOllamaHost } from '../../config/env.js';
 
 /**
  * Model name mapping for different providers.
@@ -48,7 +49,7 @@ function normalizeHuggingFaceModel(model: string): string {
  * Create a HuggingFace embedding provider.
  *
  * Uses transformers.js (Xenova) for local inference - no API costs!
- * First run downloads the model (~1.3GB for BGE-large) to ~/.cache/huggingface.
+ * First run downloads the model (about 340 MB for BGE-large, q8) to ~/.ctx/models.
  */
 async function createHuggingFaceProvider(
   model: string,
@@ -75,21 +76,17 @@ async function createHuggingFaceProvider(
 }
 
 /**
- * Create an Ollama embedding provider.
- *
- * Requires Ollama server running at localhost:11434.
- * Default model is nomic-embed-text (768 dimensions).
+ * Create an Ollama embedding provider, on the server OLLAMA_HOST names
+ * (default http://localhost:11434), as the chat provider uses.
  */
 async function createOllamaProvider(
   model: string
 ): Promise<OllamaEmbeddingProvider> {
-  const provider = new OllamaEmbeddingProvider({
+  return new OllamaEmbeddingProvider({
     model,
-    // Default baseUrl is http://localhost:11434
+    baseUrl: getOllamaHost().replace(/\/$/, ''),
     normalize: true,
   });
-
-  return provider;
 }
 
 /**
@@ -155,7 +152,9 @@ export async function createEmbeddingProvider(
     const primaryDims = getModelDimensions(config.model);
     const fallbackDims = getModelDimensions(config.fallback_model);
 
-    if (primaryDims !== fallbackDims) {
+    // shortcut: models missing from the table are measured only once loaded, so
+    // a mismatch with one of them is caught at search time, not here
+    if (primaryDims && fallbackDims && primaryDims !== fallbackDims) {
       throw new Error(
         `Embedding dimension mismatch: primary model '${config.model}' has ${primaryDims} dimensions, ` +
         `but fallback model '${config.fallback_model}' has ${fallbackDims} dimensions. ` +
@@ -179,7 +178,7 @@ export async function createEmbeddingProvider(
       return {
         provider: new CachedEmbeddingProvider({ provider }),
         model: actualModel,
-        dimensions: getModelDimensions(actualModel),
+        dimensions: await dimensionsOf(provider, actualModel),
       };
     }
   } catch (error) {
@@ -209,7 +208,7 @@ export async function createEmbeddingProvider(
         return {
           provider: new CachedEmbeddingProvider({ provider }),
           model: actualModel,
-          dimensions: getModelDimensions(actualModel),
+          dimensions: await dimensionsOf(provider, actualModel),
         };
       }
     } catch (error) {
@@ -232,11 +231,9 @@ export async function createEmbeddingProvider(
 }
 
 /**
- * Get the expected embedding dimensions for a model.
- *
- * Useful for pre-allocating arrays or validating results.
+ * Embedding dimensions of the models ctx knows, or undefined for others.
  */
-export function getModelDimensions(model: string): number {
+export function getModelDimensions(model: string): number | undefined {
   const normalizedModel = model.toLowerCase();
 
   // BGE models (various sizes)
@@ -248,6 +245,13 @@ export function getModelDimensions(model: string): number {
   if (normalizedModel.includes('nomic-embed')) return 768;
   if (normalizedModel.includes('mxbai-embed')) return 1024;
 
-  // Default fallback
-  return 1024;
+  return undefined;
+}
+
+/**
+ * A model's dimensions: from the table, or measured with one embedding, so an
+ * unknown model is never recorded with the wrong size.
+ */
+async function dimensionsOf(provider: EmbeddingProvider, model: string): Promise<number> {
+  return getModelDimensions(model) ?? (await provider.embed('dimensions')).embedding.length;
 }

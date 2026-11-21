@@ -5,7 +5,7 @@
  * It sets up Commander.js with global options and registers all subcommands.
  */
 
-import { Command } from 'commander';
+import { Command, CommanderError } from 'commander';
 import chalk from 'chalk';
 import type { GlobalOptions, CommandContext } from './types.js';
 import { createAskCommand } from './commands/ask.js';
@@ -44,7 +44,7 @@ program
   .addHelpText('after', `
 ${chalk.dim('Examples:')}
   ${chalk.cyan('ctx index ./my-project')}        Index a project for searching
-  ${chalk.cyan('ctx ask "How does auth work?"')}   Ask a question across all indexed projects
+  ${chalk.cyan('ctx ask "How does auth work?"')}   Ask about the most recently indexed project (-p picks one)
   ${chalk.cyan('ctx search "login function"')}     Search for code patterns
   ${chalk.cyan('ctx list')}                      List all indexed projects
   ${chalk.cyan('ctx config list')}               Show all configuration
@@ -149,26 +149,47 @@ program.on('command:*', (operands: string[]) => {
   );
 });
 
+/**
+ * Options for formatting an error, read when it happens: --json may not be
+ * parsed yet when Commander rejects an option, so the raw arguments count too.
+ */
+const getErrorOptions = () => {
+  const opts = getGlobalOptions();
+  return { verbose: opts.verbose, json: opts.json || process.argv.includes('--json') };
+};
+
+// Commander's own errors (unknown option, missing argument) are thrown, not
+// printed and exited on, so --json can format them; without --json Commander
+// prints them as usual
+function throwParseErrors(command: Command): void {
+  command.exitOverride().configureOutput({
+    outputError: (text, write) => {
+      if (!getErrorOptions().json) write(text);
+    },
+  });
+  command.commands.forEach(throwParseErrors);
+}
+throwParseErrors(program);
+
 // Parse arguments and execute
 async function main() {
-  // Get options for error handler (need to parse first for --verbose/--json)
-  // We'll get them again after parsing, but this gives us defaults
-  const getErrorOptions = () => {
-    const opts = getGlobalOptions();
-    return { verbose: opts.verbose, json: opts.json };
-  };
-
-  // Set up global error handlers for uncaught exceptions
-  // These catch errors that escape all try/catch blocks
-  const globalHandler = createGlobalErrorHandler(getErrorOptions());
+  // Errors that escape every try/catch
+  const globalHandler = createGlobalErrorHandler(getErrorOptions);
   process.on('uncaughtException', globalHandler);
   process.on('unhandledRejection', globalHandler);
 
   try {
     await program.parseAsync(process.argv);
   } catch (error) {
-    // Use our new error handler with current options
-    handleError(error, getErrorOptions());
+    if (error instanceof CommanderError) {
+      // Help and --version end here; other parse errors were printed unless --json
+      if (error.exitCode === 0 || /^commander\.(help|version)/.test(error.code) || !getErrorOptions().json) {
+        process.exit(error.exitCode);
+      }
+      handleError(new CLIError(error.message.replace(/^error: /, '')), getErrorOptions());
+    } else {
+      handleError(error, getErrorOptions());
+    }
   }
 }
 

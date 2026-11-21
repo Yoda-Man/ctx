@@ -11,6 +11,7 @@ Measure and improve your RAG pipeline's retrieval quality with batch evaluations
   - [Viewing Reports](#viewing-reports)
   - [Metrics Reference](#metrics-reference)
   - [Regression Detection](#regression-detection)
+  - [Measuring a Change to ctx Itself](#measuring-a-change-to-ctx-itself)
 - [Observability System](#observability-system)
   - [Local Traces](#local-traces)
   - [Trace Sampling](#trace-sampling)
@@ -116,7 +117,7 @@ Evaluation Results: my-project
 Run ID: a1b2c3d4  |  Queries: 10
 
 Metric         Value    Target   Status
-------------------------------------------
+──────────────────────────────────────────
   MRR            0.850    0.700   PASS
   Hit Rate       0.900    0.850   PASS
   Precision@K    0.720    0.600   PASS
@@ -127,7 +128,7 @@ Metric         Value    Target   Status
   ✓ All 3 threshold metrics passing
 ```
 
-When there's a previous run to compare against, you'll also see **Change** and **Trend** columns with delta values and directional arrows.
+When there's a previous completed run to compare against, you'll also see **Change** and **Trend** columns with delta values and directional arrows. Runs that failed or never finished are left out of comparisons and reports.
 
 ### Viewing Reports
 
@@ -136,7 +137,7 @@ ctx eval report --project my-project
 ctx eval report --project my-project --last 20  # Analyze last 20 runs
 ```
 
-Shows eval run history with per-metric trends, letting you track quality over time and catch regressions early.
+Compares the latest run with the one before it, metric by metric, with trend arrows, so you catch regressions early. `--last` sets how many recent runs are fetched and counted ("Runs analyzed"); the trend itself always uses the two most recent runs.
 
 ### Metrics Reference
 
@@ -223,10 +224,10 @@ Each trace captures:
 |-------|-------------|
 | `query` | The user's original question |
 | `retrieved_files` | File paths returned by the RAG pipeline |
-| `top_k` | Number of results requested |
-| `latency_ms` | End-to-end retrieval latency |
+| `top_k` | Number of results requested (0 for chat turns) |
+| `latency_ms` | Total time of the command or chat turn, including answer generation for `ask` and `chat` |
 | `answer` | LLM-generated answer (null for search-only) |
-| `retrieval_method` | dense, bm25, or fusion |
+| `retrieval_method` | Always `fusion` today (the column also allows `dense` and `bm25`) |
 | `trace_type` | ask, search, or chat |
 | `metadata` | Token usage, model info, etc. |
 | `feedback` | Always null; kept so existing databases need no migration |
@@ -263,8 +264,8 @@ To turn it off entirely, set `enabled = false` under `[observability]`.
 
 ```toml
 [eval]
-# Directory for golden datasets (default: ~/.ctx/eval)
-# Structure: <golden_path>/<projectName>/golden.json
+# Accepted but not used yet: golden datasets are always read from
+# and written to ~/.ctx/eval/<projectName>/golden.json
 golden_path = "~/.ctx/eval"
 
 # Default k for Precision@K, Recall@K, NDCG@K (default: 5)
@@ -297,7 +298,7 @@ accepted are ignored (with a warning) since yodaman-ctx 1.0, which removed cloud
 
 ## CLI Command Reference
 
-Every eval command except the interactive `golden capture` supports `--json` for structured output.
+Every eval command supports `--json` for structured output, except the interactive ones: `golden capture`, `golden generate`, and `golden add` without `--query`.
 
 ### `ctx eval run`
 
@@ -402,8 +403,8 @@ ctx eval traces [--project <name>] [--limit <N>] [--since <duration>] [--type <t
 | Option | Description |
 |--------|-------------|
 | `--project, -p` | Filter by project name |
-| `--limit, -l` | Maximum traces to show (default: 20) |
-| `--since, -s` | Filter by recency: `7d`, `24h`, `2w` |
+| `--limit, -l` | Maximum traces to show, 1 to 1000 (default: 20) |
+| `--since, -s` | Filter by recency: `7d`, `24h`, `2w`, or an ISO date such as `2026-01-15` |
 | `--type, -t` | Filter by trace type: `ask`, `search`, `chat` |
 | `--json` | Output structured JSON |
 
@@ -420,7 +421,7 @@ ctx eval traces [--project <name>] [--limit <N>] [--since <duration>] [--type <t
       "timestamp": "2026-02-17T10:30:00.000Z",
       "retrieved_files": ["src/auth/middleware.ts"],
       "top_k": 5,
-      "latency_ms": 150,
+      "latency_ms": 2451,
       "answer": "Authentication uses JWT...",
       "retrieval_method": "fusion",
       "feedback": null,
@@ -505,7 +506,7 @@ ctx eval golden capture --project <name> [--limit <N>] [--since <duration>]
 |--------|-------------|
 | `--project, -p` | Project name (required) |
 | `--limit, -l` | Maximum traces to show (default: 20) |
-| `--since, -s` | Show traces since: `7d`, `24h`, `2w` |
+| `--since, -s` | Show traces since: `7d`, `24h`, `2w`, or an ISO date such as `2026-01-15` |
 
 Shows a numbered list of recent traces. Select which to promote by entering comma-separated numbers. Deduplicates against existing golden entries.
 
@@ -530,7 +531,7 @@ Samples random indexed chunks, asks the LLM to generate test questions, and pres
 
 ## Agent-to-Agent Communication
 
-Eval commands support `--json` (all but the interactive `golden capture`), making them consumable by other AI agents (Claude Code, Codex, OpenCode, etc.).
+Eval commands support `--json` (all but the interactive `golden capture`, `golden generate`, and `golden add` without `--query`), making them consumable by other AI agents (Claude Code, Codex, OpenCode, etc.).
 
 ### Quality Gate Workflow
 
@@ -579,7 +580,7 @@ Add eval commands to your project's `CLAUDE.md` to give agents access:
 
 The project includes `.github/workflows/eval.yml` which:
 
-- **Triggers on PRs** touching `src/search/`, `src/agent/`, `src/indexer/`, `src/eval/`
+- **Triggers on PRs** into `main` or `dev` touching `src/search/`, `src/agent/`, `src/indexer/`, `src/eval/`, `fixtures/eval/`, `scripts/run-ci-eval.ts` or `scripts/check-eval-thresholds.js`
 - **Runs weekly** (Monday 6 AM UTC) to catch regressions
 - **Manual dispatch** for on-demand evaluation
 - Runs retrieval eval against test fixtures (no external API keys needed)
@@ -626,10 +627,10 @@ One row per `ctx ask`/`ctx search`/`ctx chat` interaction.
 | `query` | TEXT | User's query |
 | `timestamp` | TEXT | ISO 8601 |
 | `retrieved_files` | TEXT | JSON array of file paths |
-| `top_k` | INTEGER | Results requested |
-| `latency_ms` | INTEGER | Retrieval latency |
+| `top_k` | INTEGER | Results requested (0 for chat turns) |
+| `latency_ms` | INTEGER | Total command or turn time |
 | `answer` | TEXT | LLM answer (nullable) |
-| `retrieval_method` | TEXT | dense, bm25, or fusion |
+| `retrieval_method` | TEXT | Always fusion today (dense and bm25 also allowed) |
 | `feedback` | TEXT | Always null (kept for existing databases) |
 | `metadata` | TEXT | JSON metadata (nullable) |
 | `langfuse_trace_id` | TEXT | Unused since yodaman-ctx 1.0 (nullable) |

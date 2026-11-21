@@ -158,7 +158,7 @@ export interface RAGSearchResult {
    * Structure:
    * ```xml
    * <sources>
-   *   <source id="1" file="src/auth.ts" lines="42-67" score="0.95">
+   *   <source id="1" file="src/auth.ts" location="lines 42-67">
    *     function authenticate(user: User) { ... }
    *   </source>
    *   ...

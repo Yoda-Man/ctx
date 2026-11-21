@@ -145,16 +145,15 @@ export function handleError(
  * Create a global error handler that can be attached to process events.
  *
  * Usage:
- *   const handler = createGlobalErrorHandler({ verbose: true });
+ *   const handler = createGlobalErrorHandler(() => ({ json: program.opts().json }));
  *   process.on('uncaughtException', handler);
  *   process.on('unhandledRejection', handler);
  *
- * Why wrap in a closure?
- * - Captures options at setup time
- * - Event handlers only receive the error argument
+ * The options are read when an error happens, not when the handler is made:
+ * it is attached before the command line is parsed, so --json is not known yet.
  */
 export function createGlobalErrorHandler(
-  options: ErrorHandlerOptions = {}
+  getOptions: () => ErrorHandlerOptions = () => ({})
 ): (error: unknown) => never {
-  return (error: unknown) => handleError(error, options);
+  return (error: unknown) => handleError(error, getOptions());
 }

@@ -219,6 +219,20 @@ describe('RoutingRAGEngine', () => {
       expect(result.content).toContain('project=');
     });
 
+    it('formats sources like single-project search, escaping attribute values', async () => {
+      mockRoute.mockResolvedValueOnce({ projectIds: ['project-1', 'project-2'], method: 'heuristic', confidence: 0.85, reason: 'multi' });
+      mockFusionSearch.mockResolvedValueOnce([
+        { id: 'c1', score: 0.85, content: 'if (a < b) {}', filePath: 'src/"odd".ts', fileType: 'code', language: 'typescript', lineRange: { start: 3, end: 9 }, projectId: 'project-a', projectName: 'A & B' },
+        { id: 'c2', score: 0.5, content: 'x', filePath: 'b.ts', fileType: 'code', language: 'typescript', lineRange: { start: 1, end: 2 }, projectId: 'project-b', projectName: 'B' },
+      ]);
+
+      const result = await createTestEngine().search('Compare auth across projects', mockProjects, undefined);
+
+      expect(result.content).toContain('<source id="1" project="A &amp; B" file="src/&quot;odd&quot;.ts" location="lines 3-9">');
+      expect(result.content).toContain('if (a &lt; b) {}');
+      expect(result.content).not.toContain('score=');
+    });
+
     it('should validate embedding compatibility for multi-project search', async () => {
       // Mock router to return multiple projects
       mockRoute.mockResolvedValueOnce({

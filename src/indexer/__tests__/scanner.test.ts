@@ -12,7 +12,7 @@ import {
   symlinkSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { scanDirectory, scanDirectories, countFiles } from '../scanner.js';
+import { scanDirectory, listFiles } from '../scanner.js';
 
 describe('scanDirectory', () => {
   let tempDir: string;
@@ -428,17 +428,33 @@ describe('scanDirectory', () => {
       expect(file?.language).toBe('typescript');
     });
 
-    it('handles special filenames without extensions', async () => {
+    it('scans files known by name with their language', async () => {
       createFile('Makefile', 'all: build');
       createFile('Dockerfile', 'FROM node:20');
+      createFile('Gemfile', "gem 'rails'");
+      createFile('lib/Rakefile', 'task :default');
+      createFile('Procfile', 'web: npm start');
 
-      // Only scan for dockerfile extension to test special filename mapping
-      const result = await scanDirectory(tempDir, {
-        extensions: ['dockerfile', 'text'],
+      const result = await scanDirectory(tempDir);
+
+      const byName = Object.fromEntries(result.files.map((f) => [f.relativePath, f.language]));
+      expect(byName).toMatchObject({
+        Makefile: 'text',
+        Dockerfile: 'dockerfile',
+        Gemfile: 'ruby',
+        [join('lib', 'Rakefile')]: 'ruby',
+        Procfile: 'yaml',
       });
+      expect((await listFiles(tempDir)).sort()).toEqual(result.files.map((f) => f.relativePath).sort());
+    });
 
-      const languages = result.files.map((f) => f.language);
-      expect(languages).toContain('dockerfile');
+    it('scans a named file only when its extension is scanned', async () => {
+      createFile('Gemfile', "gem 'rails'");
+      createFile('Makefile', 'all: build');
+
+      const result = await scanDirectory(tempDir, { extensions: ['rb'] });
+
+      expect(result.files.map((f) => f.relativePath)).toEqual(['Gemfile']);
     });
 
     it('excludes dotfiles from scanning by default', async () => {
@@ -479,90 +495,7 @@ describe('scanDirectory', () => {
   });
 });
 
-// ============================================================================
-// scanDirectories Tests
-// ============================================================================
-
-describe('scanDirectories', () => {
-  let tempDir1: string;
-  let tempDir2: string;
-
-  beforeEach(() => {
-    tempDir1 = mkdtempSync(join(tmpdir(), 'ctx-test-1-'));
-    tempDir2 = mkdtempSync(join(tmpdir(), 'ctx-test-2-'));
-  });
-
-  afterEach(() => {
-    rmSync(tempDir1, { recursive: true, force: true });
-    rmSync(tempDir2, { recursive: true, force: true });
-  });
-
-  function createFileIn(dir: string, relativePath: string, content = ''): void {
-    const fullPath = join(dir, relativePath);
-    const parentDir = resolve(fullPath, '..');
-    mkdirSync(parentDir, { recursive: true });
-    writeFileSync(fullPath, content);
-  }
-
-  it('scans multiple directories', async () => {
-    createFileIn(tempDir1, 'file1.ts', 'first');
-    createFileIn(tempDir2, 'file2.ts', 'second');
-
-    const results = await scanDirectories([tempDir1, tempDir2]);
-
-    expect(results).toHaveLength(2);
-    expect(results[0]!.files).toHaveLength(1);
-    expect(results[1]!.files).toHaveLength(1);
-  });
-
-  it('returns separate results for each directory', async () => {
-    createFileIn(tempDir1, 'a.ts', '');
-    createFileIn(tempDir1, 'b.ts', '');
-    createFileIn(tempDir2, 'c.ts', '');
-
-    const results = await scanDirectories([tempDir1, tempDir2]);
-
-    expect(results[0]!.rootPath).toBe(tempDir1);
-    expect(results[0]!.files).toHaveLength(2);
-    expect(results[1]!.rootPath).toBe(tempDir2);
-    expect(results[1]!.files).toHaveLength(1);
-  });
-
-  it('applies same options to all directories', async () => {
-    createFileIn(tempDir1, 'file.ts', '');
-    createFileIn(tempDir1, 'file.js', '');
-    createFileIn(tempDir2, 'file.ts', '');
-    createFileIn(tempDir2, 'file.js', '');
-
-    const results = await scanDirectories([tempDir1, tempDir2], {
-      extensions: ['ts'], // Only TypeScript files
-    });
-
-    // Both directories should only have .ts files
-    expect(results[0]!.files).toHaveLength(1);
-    expect(results[0]!.files[0]!.extension).toBe('ts');
-    expect(results[1]!.files).toHaveLength(1);
-    expect(results[1]!.files[0]!.extension).toBe('ts');
-  });
-
-  it('handles empty directory array', async () => {
-    const results = await scanDirectories([]);
-
-    expect(results).toHaveLength(0);
-  });
-
-  it('handles mix of empty and non-empty directories', async () => {
-    createFileIn(tempDir1, 'file.ts', 'content');
-    // tempDir2 is empty
-
-    const results = await scanDirectories([tempDir1, tempDir2]);
-
-    expect(results[0]!.files).toHaveLength(1);
-    expect(results[1]!.files).toHaveLength(0);
-  });
-});
-
-describe('countFiles', () => {
+describe('listFiles', () => {
   let tempDir: string;
 
   beforeEach(() => {
@@ -585,18 +518,21 @@ describe('countFiles', () => {
     createFile('b.ts', '');
     createFile('c.js', '');
 
-    const count = await countFiles(tempDir);
-
-    expect(count).toBe(3);
+    expect((await listFiles(tempDir)).sort()).toEqual(['a.ts', 'b.ts', 'c.js']);
   });
 
   it('respects ignore patterns', async () => {
     createFile('index.ts', '');
     createFile('node_modules/package.js', '');
 
-    const count = await countFiles(tempDir);
+    expect(await listFiles(tempDir)).toEqual(['index.ts']);
+  });
 
-    expect(count).toBe(1);
+  it('applies additional ignore patterns', async () => {
+    createFile('index.ts', '');
+    createFile('gen/out.ts', '');
+
+    expect(await listFiles(tempDir, { additionalIgnorePatterns: ['gen/'] })).toEqual(['index.ts']);
   });
 
   it('filters by extensions', async () => {
@@ -604,17 +540,13 @@ describe('countFiles', () => {
     createFile('app.js', '');
     createFile('readme.md', '');
 
-    const count = await countFiles(tempDir, { extensions: ['ts'] });
-
-    expect(count).toBe(1);
+    expect(await listFiles(tempDir, { extensions: ['ts'] })).toEqual(['app.ts']);
   });
 
   it('skips binary files', async () => {
     createFile('app.ts', '');
     createFile('image.png', '');
 
-    const count = await countFiles(tempDir);
-
-    expect(count).toBe(1);
+    expect(await listFiles(tempDir)).toEqual(['app.ts']);
   });
 });

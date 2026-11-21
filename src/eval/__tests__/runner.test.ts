@@ -523,9 +523,11 @@ describe('Eval Runner', () => {
         runEval({ projectName: 'test-project' }, deps),
       ).rejects.toThrow(EvalError);
 
-      // Verify the run was marked as failed in the database
-      const runs = ops.getEvalRuns(testProjectId);
+      // Verify the run was marked as failed in the database, and is left out
+      // of the run history that reports and comparisons read
+      const runs = db.prepare('SELECT notes FROM eval_runs WHERE project_id = ?').all(testProjectId) as Array<{ notes: string }>;
       expect(runs).toHaveLength(1);
+      expect(ops.getEvalRuns(testProjectId)).toEqual([]);
       expect(runs[0]!.notes).toContain('status:failed');
       expect(runs[0]!.notes).toContain('network timeout');
     });

@@ -113,6 +113,11 @@ describe('QueryIntentClassifier', () => {
       expect(result.features.hasSingleProjectIndicators).toBe(true);
     });
 
+    it('matches indicators as whole words only', () => {
+      const result = classifier.classify('where is the error handled, and there the retry?');
+      expect(result.features.hasSingleProjectIndicators).toBe(false);
+    });
+
     it('should detect "in here" indicator', () => {
       const result = classifier.classify('Show me the error handling in here');
       expect(result.intent).toBe('SINGLE_PROJECT');

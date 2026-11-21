@@ -19,17 +19,25 @@ import type { CommandContext } from '../../types.js';
 import * as database from '../../../database/index.js';
 import * as configLoader from '../../../config/loader.js';
 import * as fs from 'node:fs';
+import { INDEX_VERSION } from '../../../database/index-version.js';
+import { fileFingerprint } from '../../../indexer/scanner.js';
 
 // Mock the database module
 vi.mock('../../../database/index.js', () => ({
   runMigrations: vi.fn(),
   getDb: vi.fn(),
+  getDatabase: vi.fn(),
 }));
 
 // Mock the config loader
 vi.mock('../../../config/loader.js', () => ({
   loadConfig: vi.fn(),
 }));
+
+const setFileHashes = (rows: Array<{ file_path: string; hash: string }>) =>
+  vi.mocked(database.getDatabase).mockReturnValue({
+    getFileHashes: () => rows,
+  } as unknown as ReturnType<typeof database.getDatabase>);
 
 // Mock node:fs
 vi.mock('node:fs', () => ({
@@ -58,7 +66,7 @@ describe('createCheckCommand', () => {
     embedding_model: 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: 1024,
     description: 'Test project for unit tests',
-    index_version: 4,
+    index_version: INDEX_VERSION,
   };
 
   beforeEach(() => {
@@ -72,18 +80,13 @@ describe('createCheckCommand', () => {
     };
 
     // Set up mock database
-    const fileHashesResult: Array<{ file_path: string; indexed_at: string }> = [];
     mockDb = {
-      prepare: vi.fn((sql: string) => {
-        if (sql.includes('file_hashes')) {
-          return { all: vi.fn().mockReturnValue(fileHashesResult) };
-        }
-        return { get: vi.fn().mockReturnValue(mockProject) };
-      }),
+      prepare: vi.fn(() => ({ get: vi.fn().mockReturnValue(mockProject) })),
     };
     vi.mocked(database.getDb).mockReturnValue(
       mockDb as unknown as ReturnType<typeof database.getDb>
     );
+    setFileHashes([]);
 
     // Set up mock config
     vi.mocked(configLoader.loadConfig).mockReturnValue({
@@ -192,12 +195,7 @@ describe('createCheckCommand', () => {
   describe('no chunks (error)', () => {
     beforeEach(() => {
       const noChunksProject = { ...mockProject, chunk_count: 0 };
-      mockDb.prepare = vi.fn((sql: string) => {
-        if (sql.includes('file_hashes')) {
-          return { all: vi.fn().mockReturnValue([]) };
-        }
-        return { get: vi.fn().mockReturnValue(noChunksProject) };
-      });
+      mockDb.prepare = vi.fn(() => ({ get: vi.fn().mockReturnValue(noChunksProject) }));
     });
 
     it('reports not ready when no chunks', async () => {
@@ -280,10 +278,7 @@ describe('createCheckCommand', () => {
 
   describe('index version (warning)', () => {
     it('warns when the index was built by an older ctx', async () => {
-      mockDb.prepare = vi.fn((sql: string) => {
-        if (sql.includes('file_hashes')) return { all: vi.fn().mockReturnValue([]) };
-        return { get: vi.fn().mockReturnValue({ ...mockProject, index_version: null }) };
-      });
+      mockDb.prepare = vi.fn(() => ({ get: vi.fn().mockReturnValue({ ...mockProject, index_version: null }) }));
       mockContext.options.json = true;
       await runCheck('test-project');
 
@@ -297,22 +292,24 @@ describe('createCheckCommand', () => {
 
   describe('stale files (warning)', () => {
     beforeEach(() => {
+      const indexed = fileFingerprint(120, new Date('2024-01-15T10:00:00.000Z'));
       const staleFileHashes = [
-        { file_path: 'src/index.ts', indexed_at: '2024-01-15T10:00:00.000Z' },
-        { file_path: 'src/app.ts', indexed_at: '2024-01-15T10:00:00.000Z' },
+        { file_path: 'src/index.ts', hash: indexed },
+        { file_path: 'src/app.ts', hash: indexed },
+        { file_path: 'src/same.ts', hash: fileFingerprint(80, new Date('2024-01-15T10:00:00.000Z')) },
+        { file_path: 'src/gone.ts', hash: indexed },
       ];
 
-      mockDb.prepare = vi.fn((sql: string) => {
-        if (sql.includes('file_hashes')) {
-          return { all: vi.fn().mockReturnValue(staleFileHashes) };
-        }
-        return { get: vi.fn().mockReturnValue(mockProject) };
-      });
+      setFileHashes(staleFileHashes);
 
-      // Files modified after indexed_at
-      vi.mocked(fs.statSync).mockReturnValue({
-        mtimeMs: new Date('2024-02-01T00:00:00.000Z').getTime(),
-      } as fs.Stats);
+      // index.ts edited (newer), app.ts edited (same time, new size),
+      // same.ts untouched, gone.ts deleted
+      vi.mocked(fs.statSync).mockImplementation(((path: string) => {
+        if (path.endsWith('gone.ts')) throw new Error('ENOENT');
+        if (path.endsWith('index.ts')) return { size: 120, mtime: new Date('2024-02-01T00:00:00.000Z') };
+        if (path.endsWith('app.ts')) return { size: 121, mtime: new Date('2024-01-15T10:00:00.000Z') };
+        return { size: 80, mtime: new Date('2024-01-15T10:00:00.000Z') };
+      }) as unknown as typeof fs.statSync);
     });
 
     it('reports stale files as warning', async () => {
@@ -322,7 +319,7 @@ describe('createCheckCommand', () => {
       const jsonOutput = JSON.parse(consoleLogSpy.mock.calls[0][0]);
       expect(jsonOutput.ready).toBe(true); // warnings don't block
 
-      expect(jsonOutput.staleness.filesChanged).toBe(2);
+      expect(jsonOutput.staleness.filesChanged).toBe(3);
       expect(jsonOutput.staleness.needsReindex).toBe(true);
 
       const stalenessIssue = jsonOutput.issues.find((i: { message: string }) =>

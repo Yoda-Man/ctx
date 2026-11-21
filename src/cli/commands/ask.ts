@@ -118,7 +118,7 @@ const SYSTEM_PROMPT = `You are an expert code assistant helping developers under
 ## Context Format
 The context is provided as XML with source references:
 <sources>
-  <source id="1" file="path/to/file.ts" lines="10-25" score="0.95">
+  <source id="1" file="path/to/file.ts" location="lines 10-25">
     // Code content here
   </source>
 </sources>

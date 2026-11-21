@@ -513,6 +513,12 @@ describe('isBinaryFile', () => {
     expect(isBinaryFile('spec.docx')).toBe(false);
   });
 
+  it('skips minified bundles, which only the full suffix identifies', () => {
+    expect(isBinaryFile('bundle.min.js')).toBe(true);
+    expect(isBinaryFile('Theme.MIN.CSS')).toBe(true);
+    expect(isBinaryFile('admin.js')).toBe(false);
+  });
+
   it('does not identify text files as binary', () => {
     expect(isBinaryFile('script.ts')).toBe(false);
     expect(isBinaryFile('readme.md')).toBe(false);

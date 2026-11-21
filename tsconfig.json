@@ -1,10 +1,10 @@
 {
   "compilerOptions": {
     // Output settings
-    "target": "ES2022",
+    "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
+    "lib": ["ES2024"],
 
     // Emit settings (tsup handles actual emit, this is for type checking)
     "declaration": true,

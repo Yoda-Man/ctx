@@ -13,6 +13,32 @@ import { defaultTokenizer } from '../sdk/rag/retrieval/bm25.js';
 
 // Module-level singleton instance
 let db: Database.Database | null = null;
+let exitHandlersRegistered = false;
+/** Undo steps to run before closing if the process is interrupted (see onInterrupt). */
+const interruptCleanups = new Set<() => void>();
+
+/**
+ * Run `cleanup` if Ctrl-C or SIGTERM arrives while it is registered, before
+ * the database closes and the process exits; so a half-finished write can be
+ * undone. It must be synchronous. Returns a function that unregisters it.
+ */
+export function onInterrupt(cleanup: () => void): () => void {
+  interruptCleanups.add(cleanup);
+  return () => interruptCleanups.delete(cleanup);
+}
+
+/** Exit on a signal: undo unfinished writes, close, exit with 128 + signal number. */
+function exitOnSignal(code: number): void {
+  for (const cleanup of interruptCleanups) {
+    try {
+      cleanup();
+    } catch {
+      // Keep exiting: the other cleanups and closing still matter
+    }
+  }
+  closeDb();
+  process.exit(code);
+}
 
 /**
  * SQL functions ctx's schema needs on every connection: ctx_tokens() gives
@@ -69,16 +95,14 @@ export function getDb(): Database.Database {
 
   registerSqlFunctions(db);
 
-  // Register cleanup on process exit
-  process.on('exit', () => closeDb());
-  process.on('SIGINT', () => {
-    closeDb();
-    process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    closeDb();
-    process.exit(0);
-  });
+  // Close on exit; registered once, though closeDb() lets getDb() reconnect
+  if (!exitHandlersRegistered) {
+    exitHandlersRegistered = true;
+    process.on('exit', () => closeDb());
+    // 128 + signal number, as shells report an interrupted command
+    process.on('SIGINT', () => exitOnSignal(130));
+    process.on('SIGTERM', () => exitOnSignal(143));
+  }
 
   return db;
 }

@@ -1,0 +1,46 @@
+schema: spec-driven
+
+# Constraints an agent cannot read from the code
+context: |
+  Context Expert (ctx) is YodaMan's maintained fork of Context Expert, published to npm as yodaman-ctx.
+  Local only: models run on the user's machine (BGE embeddings in-process, answers from Ollama).
+  No cloud model provider, no API key, and no data leaves the machine. Never add one.
+  Every dependency stays on its latest release (npm outdated must be empty before a publish), on Node 24 or later.
+  Nothing may need a compiler at install time: native parts ship prebuilt; parsers without prebuilt
+  binaries ship as WebAssembly in grammars/.
+  Indexing never drops content: every non-blank line of an indexed file lands in exactly one chunk, and a
+  file a parser cannot handle is kept whole, split by size, with a warning.
+  A change to how chunks are split or vectors are made bumps INDEX_VERSION (src/database/index-version.ts).
+  YodaMan runs every search through ctx with --json, so JSON output shapes are a public interface.
+  Write in plain, short sentences.
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

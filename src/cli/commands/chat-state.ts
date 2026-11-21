@@ -23,7 +23,7 @@ import { errorMessage } from '../../utils/error.js';
  * Persists across user inputs within a single session.
  */
 export interface ChatState {
-  /** Currently focused project (null = no RAG, pure LLM mode) */
+  /** Currently focused project (null = each question searches the projects it is about) */
   currentProject: Project | null;
   /** Conversation history with automatic truncation (from @contextaisdk/core) */
   conversationContext: ConversationContext;

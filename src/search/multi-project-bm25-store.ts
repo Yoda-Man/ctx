@@ -89,6 +89,8 @@ export class MultiProjectBM25StoreManager {
   async loadRetrievers(options: MultiProjectBM25LoadOptions): Promise<Map<string, FtsRetriever>> {
     const { projectIds } = options;
     const retrievers = new Map<string, FtsRetriever>();
+    // Searches cover exactly this load's projects, not earlier ones too
+    this.loadedProjects.clear();
 
     for (let i = 0; i < projectIds.length; i++) {
       const projectId = projectIds[i]!;

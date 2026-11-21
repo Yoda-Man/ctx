@@ -17,6 +17,7 @@ import {
 } from '../multi-project-store.js';
 import { EmbeddingMismatchError } from '../errors.js';
 import type { Project } from '../../database/schema.js';
+import { INDEX_VERSION } from '../../database/index-version.js';
 
 // Mock dependencies
 vi.mock('../../database/operations.js', () => ({
@@ -68,7 +69,7 @@ function createMockProject(
     embedding_model: options.embeddingModel ?? 'BAAI/bge-large-en-v1.5',
     embedding_dimensions: options.embeddingDimensions ?? 1024,
     description: null,
-    index_version: 4,
+    index_version: INDEX_VERSION,
   };
 }
 
@@ -318,6 +319,17 @@ describe('MultiProjectVectorStoreManager', () => {
 
       expect(manager.hasProjectStore('proj-1')).toBe(true);
       expect(manager.getLoadedProjects()).toEqual(['proj-1']);
+    });
+
+    it('replaces the projects of an earlier load', async () => {
+      mockDbOps.getProjectById.mockImplementation((id: string) => createMockProject(id, id));
+      mockStoreManager.getStore.mockResolvedValue(createMockStore([]));
+      const manager = new MultiProjectVectorStoreManager();
+
+      await manager.loadStores({ projectIds: ['proj-1', 'proj-2'], dimensions: 1024 });
+      await manager.loadStores({ projectIds: ['proj-3'], dimensions: 1024 });
+
+      expect(manager.getLoadedProjects()).toEqual(['proj-3']);
     });
 
     it('should throw EmbeddingMismatchError when models mismatch', async () => {

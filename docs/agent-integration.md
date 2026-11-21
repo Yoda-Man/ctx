@@ -2,14 +2,14 @@
 
 How to use Context Expert (`ctx`) as a tool from AI agents (Claude Code, Codex, OpenCode, etc.).
 
-Every command supports `--json` for structured output except the interactive ones (`ctx chat` and `ctx eval golden capture`). Always use `--json` when calling `ctx` programmatically.
+Every command supports `--json` for structured output except the interactive ones (`ctx chat`, `ctx eval golden capture`, `ctx eval golden generate`, and `ctx eval golden add` without `--query`). Always use `--json` when calling `ctx` programmatically.
 
 > **Note:** `ctx chat` is designed for interactive human use. Agents should use `ctx ask --json` or `ctx search --json` for programmatic access.
 
 ## Quick Start
 
 ```bash
-npm install -g yodaman-ctx                                     # 1. Install
+npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,tree-sitter-go,tree-sitter-rust,tree-sitter-java,tree-sitter-c-sharp,tree-sitter-c,tree-sitter-cpp,tree-sitter-php,tree-sitter-ruby,tree-sitter-powershell,onnxruntime-node  # 1. Install
 ctx status --json                                                      # 2. Verify installation
 ctx index /path/to/project --name "my-project" --json                  # 3. Index a project
 ctx list --json                                                        # 4. Discover indexed projects
@@ -26,7 +26,9 @@ The `--context-only` flag on `ctx ask` returns XML-formatted code context withou
 
 ### Requirements
 
-1. Install: `npm install -g yodaman-ctx`
+1. Install with the command in the [README](../README.md#install). On npm
+   11.20 and later its `--allow-scripts` list is needed to build ctx's native
+   parts.
 2. For `ctx ask` answers, run [Ollama](https://ollama.com) with a model pulled
    (search and `--context-only` need none). ctx uses local models only, so no
    code or question leaves the machine:
@@ -66,7 +68,7 @@ System health and version info.
 
 ```json
 {
-  "version": "1.2.0",
+  "version": "1.4.0",
   "nodeVersion": "v24.11.0",
   "platform": "darwin",
   "projects": 3,
@@ -149,7 +151,7 @@ Pre-flight health check. Use before `ctx ask` to avoid wasted LLM calls.
 }
 ```
 
-**`ready` field**: `true` when no error-level issues exist. Warnings (stale files, model mismatch) don't block readiness.
+**`ready` field**: `true` when no error-level issues exist. Warnings (stale files, model mismatch, old index version) don't block readiness.
 
 **Exit code**: `1` when `ready` is `false`.
 
@@ -160,7 +162,8 @@ Pre-flight health check. Use before `ctx ask` to avoid wasted LLM calls.
 | `error` | `chunkCount === 0` | Project has no indexed content |
 | `error` | `pathExists === false` | Source directory was moved/deleted |
 | `warning` | Embedding model mismatch | Config model differs from indexed model |
-| `warning` | `filesChanged > 0` | Files modified since last index |
+| `warning` | Index built by an older ctx | Index version is below the current one (5); re-index with `--force` |
+| `warning` | `filesChanged > 0` | Files changed (size or modification time), deleted or added since the last index. Projects indexed before ctx 1.4.0 report 0 until re-indexed |
 
 ---
 
@@ -176,7 +179,7 @@ ctx index /path/to/project --name "my-project" --force --ignore "*.test.ts,fixtu
 | Option | Description |
 |--------|-------------|
 | `--name, -n` | Project name (defaults to directory name) |
-| `--tags, -t` | Comma-separated tags for organization |
+| `--tags, -t` | Comma-separated tags, saved with the project (`tags` in `ctx list --json`). Left out on a re-index, the stored tags are kept |
 | `--force` | Re-index even if project already exists |
 | `--ignore` | Comma-separated gitignore-style patterns to exclude |
 
@@ -249,7 +252,7 @@ ctx ask "How does authentication work?" --project backend-api --json
 
 | Option | Description |
 |--------|-------------|
-| `--project, -p` | Limit to a specific project |
+| `--project, -p` | Project to ask about (default: the most recently updated project; `ask` searches one project only) |
 | `--top-k, -k` | Number of chunks to retrieve (default: 5, max: 20) |
 
 ---
@@ -265,7 +268,7 @@ ctx ask "How does authentication work?" --context-only --project backend-api --j
 ```json
 {
   "question": "How does authentication work?",
-  "context": "<sources>\n  <source id=\"1\" file=\"src/auth/middleware.ts\" lines=\"45-67\" score=\"0.92\">\n    // code content\n  </source>\n</sources>",
+  "context": "<sources>\n  <source id=\"1\" file=\"src/auth/middleware.ts\" location=\"lines 45-67\">\n    // code content\n  </source>\n</sources>",
   "estimatedTokens": 500,
   "sources": [
     {
@@ -328,7 +331,7 @@ When more than one project is searched (no `--project`), each result also has `p
 | Option | Description |
 |--------|-------------|
 | `--project, -p` | Limit to a specific project |
-| `--top, -k` | Number of results (default: 10) |
+| `--top, -k` | Number of results, 1 to 100 (default: `search.top_k` in config, 10) |
 | `--rerank, -r` | Apply BGE cross-encoder reranking |
 
 ---
@@ -416,7 +419,7 @@ Run batch evaluation against a golden dataset. Use as a quality gate after modif
   "comparison": {
     "previous_run_id": "e5f6g7h8-...",
     "metric_changes": {
-      "mrr": 0.050,
+      "mrr": 0.060,
       "precision_at_k": 0.010,
       "recall_at_k": 0.000,
       "hit_rate": -0.020,
@@ -506,8 +509,8 @@ ctx eval traces --project my-project --limit 5 --since 7d --type ask --json
 | Option | Description |
 |--------|-------------|
 | `--project, -p` | Filter by project name |
-| `--limit, -l` | Maximum traces (default: 20) |
-| `--since, -s` | Recency filter: `7d`, `24h`, `2w` |
+| `--limit, -l` | Maximum traces, 1 to 1000 (default: 20) |
+| `--since, -s` | Recency filter: `7d`, `24h`, `2w`, or an ISO date such as `2026-01-15` |
 | `--type, -t` | Trace type: `ask`, `search`, `chat` |
 
 ---
@@ -531,7 +534,7 @@ List golden dataset entries for a project.
 }
 ```
 
-`expectedAnswer` and `tags` appear only on entries that have them.
+`expectedFilePaths`, `expectedAnswer`, `tags` and `evidence` (expected file path to a regular expression, for chunk-level scoring) appear only on entries that have them.
 
 For full eval documentation, see the [Eval & Observability Guide](./eval-observability.md).
 
@@ -568,6 +571,7 @@ With `--verbose --json`, a `stack` field is added:
 | `1` | General error, confirmation required, or project not ready |
 | `2` | Configuration error (for example an invalid `~/.ctx/config.toml`) |
 | `5` | Database error |
+| `130` / `143` | Interrupted by Ctrl+C (SIGINT) / stopped by SIGTERM |
 
 `ctx eval run` exits `0` even when a quality threshold fails; check its `passed` field.
 

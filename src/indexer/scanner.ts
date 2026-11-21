@@ -6,7 +6,7 @@
  */
 
 import { statSync } from 'node:fs';
-import { resolve, relative, extname, basename, normalize } from 'node:path';
+import { resolve, relative, extname, basename, normalize, join } from 'node:path';
 import fg from 'fast-glob';
 
 import {
@@ -26,16 +26,13 @@ import {
 } from './types.js';
 
 // Re-export types for consumers
-export type { ScanResult,  };
+export type { ScanResult };
 
 /**
  * Scan a directory for files to index.
  *
- * This is the main entry point for file discovery. It:
- * 1. Traverses the directory tree using fast-glob
- * 2. Respects .gitignore and default ignore patterns
- * 3. Filters by supported file extensions
- * 4. Gathers metadata for each discovered file
+ * Finds the files to index (see listFiles()) and gathers each one's metadata:
+ * size, modification time, extension, language and type.
  *
  * @param rootPath - Directory to scan (absolute or relative path)
  * @param options - Scan configuration options
@@ -56,25 +53,8 @@ export async function scanDirectory(
   options: ScanOptions = {}
 ): Promise<ScanResult> {
   const startTime = performance.now();
-
-  // Resolve to absolute path
   const absoluteRoot = resolve(rootPath);
 
-  // Get extensions to scan
-  const extensions = options.extensions ?? DEFAULT_SUPPORTED_EXTENSIONS;
-
-  // Build glob patterns for file matching
-  // Pattern: **/*.{ts,js,py,...} matches files at any depth
-  const patterns = buildGlobPatterns(extensions);
-
-  // Create ignore filter
-  const ignoreFilter = createIgnoreFilter({
-    rootPath: absoluteRoot,
-    additionalPatterns: options.additionalIgnorePatterns,
-    useDefaults: true,
-  });
-
-  // Track statistics
   const stats: ScanStats = {
     totalFiles: 0,
     totalSize: 0,
@@ -83,74 +63,11 @@ export async function scanDirectory(
     errorsEncountered: 0,
     scanDurationMs: 0,
   };
-
-  // Initialize counters
-  for (const lang of Object.values(
-    {} as Record<string, Language>
-  ) as Language[]) {
-    stats.byLanguage[lang] = 0;
-  }
-
   const files: FileInfo[] = [];
 
+  let relativePaths: string[];
   try {
-    // Use fast-glob to find all matching files
-    // We use the stream API for memory efficiency on large directories
-    const entries = await fg(patterns, {
-      cwd: absoluteRoot,
-      absolute: true,
-      dot: false, // Don't match dotfiles by default (. prefix)
-      onlyFiles: true,
-      followSymbolicLinks: options.followSymlinks ?? false,
-      deep: options.maxDepth ?? Infinity,
-      suppressErrors: true, // Don't throw on permission errors
-      // Custom filter to apply ignore patterns
-      // fast-glob calls this for each entry
-      ignore: [], // We handle ignore ourselves for more control
-    });
-
-    // Process each discovered file
-    for (const entry of entries) {
-      // fast-glob returns C:/x/y on Windows; use the platform's separators
-      const absolutePath = normalize(entry);
-
-      // Get relative path for ignore checking
-      const relativePath = relative(absoluteRoot, absolutePath);
-
-      // Apply our ignore filter (includes gitignore + defaults)
-      if (ignoreFilter(relativePath)) {
-        continue;
-      }
-
-      // Skip binary files
-      const filename = basename(absolutePath);
-      if (isBinaryFile(filename)) {
-        continue;
-      }
-
-      // Get file metadata
-      let fileInfo: FileInfo;
-      try {
-        fileInfo = getFileInfo(absolutePath, absoluteRoot);
-      } catch (error) {
-        stats.errorsEncountered++;
-        options.onError?.(absolutePath, error as Error);
-        continue;
-      }
-
-      // Add to results
-      files.push(fileInfo);
-
-      // Update statistics
-      stats.totalFiles++;
-      stats.totalSize += fileInfo.size;
-      stats.byLanguage[fileInfo.language] =
-        (stats.byLanguage[fileInfo.language] ?? 0) + 1;
-      stats.byType[fileInfo.type] = (stats.byType[fileInfo.type] ?? 0) + 1;
-
-      // Invoke callback if provided
-      options.onFile?.(fileInfo);
-    }
+    relativePaths = await listFiles(absoluteRoot, options);
   } catch (error) {
     // If the root directory itself is inaccessible, that's a fatal error
     throw new Error(
@@ -158,7 +75,26 @@ export async function scanDirectory(
     );
   }
 
-  // Calculate duration
+  for (const relativePath of relativePaths) {
+    const absolutePath = join(absoluteRoot, relativePath);
+
+    let fileInfo: FileInfo;
+    try {
+      fileInfo = getFileInfo(absolutePath, absoluteRoot);
+    } catch (error) {
+      stats.errorsEncountered++;
+      options.onError?.(absolutePath, error as Error);
+      continue;
+    }
+
+    files.push(fileInfo);
+    stats.totalFiles++;
+    stats.totalSize += fileInfo.size;
+    stats.byLanguage[fileInfo.language] = (stats.byLanguage[fileInfo.language] ?? 0) + 1;
+    stats.byType[fileInfo.type] = (stats.byType[fileInfo.type] ?? 0) + 1;
+    options.onFile?.(fileInfo);
+  }
+
   stats.scanDurationMs = Math.round(performance.now() - startTime);
 
   return {
@@ -169,19 +105,65 @@ export async function scanDirectory(
 }
 
 /**
- * Special filenames that should be matched even without extensions.
- * Maps the filename (lowercase) to the extension it should be treated as.
+ * The files an index of `rootPath` would read, as paths relative to it: those
+ * with a scanned extension or a known name (Dockerfile), at any depth, less
+ * dotfiles, ignored files (.gitignore, defaults and `additionalIgnorePatterns`)
+ * and binaries. Reads no file metadata, so `ctx check` can use it cheaply.
+ */
+export async function listFiles(rootPath: string, options: ScanOptions = {}): Promise<string[]> {
+  const absoluteRoot = resolve(rootPath);
+  const patterns = buildGlobPatterns(options.extensions ?? DEFAULT_SUPPORTED_EXTENSIONS);
+  const ignoreFilter = createIgnoreFilter({
+    rootPath: absoluteRoot,
+    additionalPatterns: options.additionalIgnorePatterns,
+    useDefaults: true,
+  });
+
+  const entries = await fg(patterns, {
+    cwd: absoluteRoot,
+    absolute: true,
+    dot: false, // Don't match dotfiles (. prefix)
+    onlyFiles: true,
+    followSymbolicLinks: options.followSymlinks ?? false,
+    deep: options.maxDepth ?? Infinity,
+    suppressErrors: true, // Don't throw on permission errors
+  });
+
+  const paths: string[] = [];
+  for (const entry of entries) {
+    // fast-glob returns C:/x/y on Windows; use the platform's separators
+    const relativePath = relative(absoluteRoot, normalize(entry));
+    if (!ignoreFilter(relativePath) && !isBinaryFile(basename(relativePath))) {
+      paths.push(relativePath);
+    }
+  }
+  return paths;
+}
+
+/**
+ * A file's fingerprint as indexed: its size and modification time, which
+ * change when it is edited. Stored per file (file_hashes.hash) so `ctx check`
+ * can tell which files changed since the last index without reading them.
+ */
+export function fileFingerprint(size: number, modifiedAt: Date | string): string {
+  return `${size}:${new Date(modifiedAt).toISOString()}`;
+}
+
+/**
+ * Files known by name rather than extension, mapped (by lowercase name) to the
+ * extension they are indexed as: a Gemfile is Ruby, a Makefile plain text.
+ * Each is scanned when its extension is.
  */
 const SPECIAL_FILENAMES: Record<string, string> = {
   dockerfile: 'dockerfile',
-  makefile: 'text',
-  rakefile: 'ruby',
-  gemfile: 'ruby',
-  podfile: 'ruby',
-  vagrantfile: 'ruby',
-  procfile: 'yaml',
-  cakefile: 'text',
-  brewfile: 'ruby',
+  makefile: 'txt',
+  rakefile: 'rb',
+  gemfile: 'rb',
+  podfile: 'rb',
+  vagrantfile: 'rb',
+  brewfile: 'rb',
+  procfile: 'yml',
+  cakefile: 'txt',
 };
 
 /**
@@ -231,10 +213,9 @@ function getFileInfo(absolutePath: string, rootPath: string): FileInfo {
     ext = ext.slice(1);
   }
 
-  // Handle special cases (e.g., Dockerfile has no extension)
-  const filename = basename(absolutePath);
-  if (ext === '' && filename.toLowerCase() === 'dockerfile') {
-    ext = 'dockerfile';
+  // Files known by name (Dockerfile, Gemfile) take their mapped extension
+  if (ext === '') {
+    ext = SPECIAL_FILENAMES[basename(absolutePath).toLowerCase()] ?? '';
   }
 
   // Detect language and type
@@ -250,73 +231,4 @@ function getFileInfo(absolutePath: string, rootPath: string): FileInfo {
     size: stat.size,
     modifiedAt: stat.mtime.toISOString(),
   };
-}
-
-/**
- * Scan multiple directories and merge results.
- *
- * Useful for scanning multiple projects or workspaces.
- * Files are deduplicated by absolute path.
- *
- * @param rootPaths - Array of directories to scan
- * @param options - Scan configuration options
- * @returns Combined scan result
- */
-export async function scanDirectories(
-  rootPaths: string[],
-  options: ScanOptions = {}
-): Promise<ScanResult[]> {
-  const results: ScanResult[] = [];
-
-  for (const rootPath of rootPaths) {
-    const result = await scanDirectory(rootPath, options);
-    results.push(result);
-  }
-
-  return results;
-}
-
-/**
- * Get a quick count of files that would be scanned.
- *
- * Faster than full scan as it doesn't gather metadata.
- * Useful for progress indicators.
- *
- * @param rootPath - Directory to scan
- * @param options - Scan configuration options
- * @returns Number of files that would be scanned
- */
-export async function countFiles(
-  rootPath: string,
-  options: ScanOptions = {}
-): Promise<number> {
-  const absoluteRoot = resolve(rootPath);
-  const extensions = options.extensions ?? DEFAULT_SUPPORTED_EXTENSIONS;
-
-  const patterns = buildGlobPatterns(extensions);
-
-  const ignoreFilter = createIgnoreFilter({
-    rootPath: absoluteRoot,
-    additionalPatterns: options.additionalIgnorePatterns,
-    useDefaults: true,
-  });
-
-  const entries = await fg(patterns, {
-    cwd: absoluteRoot,
-    absolute: false,
-    dot: false,
-    onlyFiles: true,
-    followSymbolicLinks: options.followSymlinks ?? false,
-    deep: options.maxDepth ?? Infinity,
-    suppressErrors: true,
-  });
-
-  let count = 0;
-  for (const entry of entries) {
-    if (!ignoreFilter(entry) && !isBinaryFile(basename(entry))) {
-      count++;
-    }
-  }
-
-  return count;
 }

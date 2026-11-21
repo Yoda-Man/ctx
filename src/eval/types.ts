@@ -499,7 +499,7 @@ export class EvalError extends Error {
   static datasetNotFound(projectName: string): EvalError {
     return new EvalError(
       EvalErrorCodes.DATASET_NOT_FOUND,
-      `Golden dataset not found for project "${projectName}". Run: ctx eval golden init`
+      `Golden dataset not found for project "${projectName}". Create one: ctx eval golden add --project "${projectName}"`
     );
   }
 
