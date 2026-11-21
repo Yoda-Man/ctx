@@ -70,13 +70,5 @@ export function extractMarkdownSegments(content: string): ExtractionResult {
     });
   });
 
-  return { segments, originalContent: content };
-}
-
-/**
- * Check if content is markdown based on extension or content.
- */
-export function isMarkdown(extension: string): boolean {
-  const mdExtensions = new Set(['md', 'mdx', 'markdown']);
-  return mdExtensions.has(extension.toLowerCase());
+  return { segments };
 }

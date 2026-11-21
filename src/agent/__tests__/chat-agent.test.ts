@@ -17,6 +17,7 @@ import { ChatAgent, type ChatAgentEvent, type ChatAgentConfig } from '../chat-ag
 import type { RoutingRAGEngine } from '../routing-rag-engine.js';
 import type { ProjectMetadata } from '../query-router.js';
 import type { Project } from '../../database/schema.js';
+import { INDEX_VERSION } from '../../database/index-version.js';
 
 // ============================================================================
 // Test Helpers
@@ -117,7 +118,7 @@ function createMockProject(): Project {
     config: null,
     embedding_model: null,
     embedding_dimensions: 1024,
-    index_version: 4,
+    index_version: INDEX_VERSION,
   };
 }
 

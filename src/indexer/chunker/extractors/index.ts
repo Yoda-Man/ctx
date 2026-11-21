@@ -5,12 +5,8 @@
  * Each extractor produces ExtractedSegment[] ready for chunking.
  */
 
-export {
-  extractCodeSegments,
-  isLanguageSupported,
-} from './code-extractor.js';
+export { extractCodeSegments, wholeFile } from './code-extractor.js';
 
-export {
-  extractMarkdownSegments,
-  isMarkdown,
-} from './markdown-extractor.js';
+export { prepareLanguage } from './wasm-grammars.js';
+
+export { extractMarkdownSegments } from './markdown-extractor.js';

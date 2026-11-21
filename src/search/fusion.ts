@@ -221,7 +221,7 @@ export class FusionService {
     let fusedResults = computeRRF(denseResults, bm25Results, this.fusionConfig);
 
     // Apply reranking if enabled
-    // Reranker takes top N candidates (default 50) and returns top K after reranking
+    // The reranker sees the fused candidates (at most topK from each list) and keeps the top K
     if (this.shouldRerank && this.rerankerService) {
       fusedResults = await this.rerankerService.rerank(query, fusedResults, topK);
     }

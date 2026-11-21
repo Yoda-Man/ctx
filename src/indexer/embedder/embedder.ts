@@ -94,14 +94,14 @@ async function embedBatch(
  *
  * @example
  * ```typescript
- * import { chunkFiles } from '../chunker';
+ * import { chunkFilesWithResult } from '../chunker';
  * import { createEmbeddingProvider, embedChunks } from '../embedder';
  *
  * // Get chunks from chunking pipeline
- * const chunks = await chunkFiles(files);
+ * const chunks = (await chunkFilesWithResult(files)).files.flatMap((f) => f.chunks);
  *
  * // Create embedding provider from config
- * const provider = await createEmbeddingProvider(config.embedding);
+ * const { provider } = await createEmbeddingProvider(config.embedding);
  *
  * // Compute embeddings with progress reporting
  * const embeddedChunks = await embedChunks(chunks, provider, {

@@ -8,12 +8,12 @@
  *
  * Usage:
  * ```typescript
- * import { chunkFile, chunkFiles } from './chunker';
+ * import { chunkFilesWithResult } from './chunker';
  * import { scanDirectory } from './scanner';
  *
  * const { files } = await scanDirectory('./my-project');
- * const chunks = await chunkFiles(files);
- * // chunks ready for embedding
+ * const { files: results } = await chunkFilesWithResult(files);
+ * // each result's chunks are ready for embedding
  * ```
  */
 
@@ -32,6 +32,4 @@ export { estimateTokens } from './config.js';
 export {
   extractCodeSegments,
   extractMarkdownSegments,
-  isLanguageSupported,
-  isMarkdown,
 } from './extractors/index.js';

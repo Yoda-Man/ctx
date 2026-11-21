@@ -10,7 +10,7 @@
  * 2. Has indexed chunks (error if zero)
  * 3. Source path exists on disk (error if missing)
  * 4. Embedding model matches current config (warning if mismatch)
- * 5. Staleness: compares indexed_at vs file mtimes (warning if stale)
+ * 5. Changed files: edited, deleted or new since the last index (warning)
  */
 
 import { Command } from 'commander';
@@ -18,10 +18,12 @@ import chalk from 'chalk';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { CommandContext } from '../types.js';
-import { getDb, runMigrations, type Project } from '../../database/index.js';
+import { getDatabase, getDb, runMigrations, type Project } from '../../database/index.js';
+import { safeJsonParse } from '../../utils/json.js';
 import { INDEX_VERSION, staleIndexReason } from '../../database/index-version.js';
 import { loadConfig } from '../../config/loader.js';
 import { CLIError } from '../../errors/index.js';
+import { fileFingerprint, listFiles } from '../../indexer/scanner.js';
 
 // ============================================================================
 // Types
@@ -59,47 +61,34 @@ interface CheckResultJSON {
 // ============================================================================
 
 /**
- * Check how many tracked files have been modified since indexing.
+ * Count the files that changed since the last index: indexed files whose size
+ * or modification time differs from what indexing recorded (file_hashes), or
+ * that are gone, plus files an index would now read that it did not, listed
+ * with the ignore patterns that index used. Projects indexed before file
+ * records existed have none, and count 0.
  */
-function checkStaleness(projectId: string, projectPath: string): StalenessInfo {
-  if (!existsSync(projectPath)) {
-    return { filesChanged: 0, needsReindex: false, pathExists: false };
-  }
-
-  const db = getDb();
-
-  const fileHashes = db
-    .prepare('SELECT file_path, indexed_at FROM file_hashes WHERE project_id = ?')
-    .all(projectId) as Array<{ file_path: string; indexed_at: string }>;
+async function countChangedFiles(project: Project): Promise<number> {
+  const fileHashes = getDatabase().getFileHashes(project.id);
 
   let filesChanged = 0;
-
-  for (const fh of fileHashes) {
-    const fullPath = join(projectPath, fh.file_path);
-    if (!existsSync(fullPath)) {
-      filesChanged++;
-      continue;
-    }
-
+  for (const { file_path, hash } of fileHashes) {
     try {
-      const stat = statSync(fullPath);
-      const indexedAt = new Date(fh.indexed_at).getTime();
-      const mtimeMs = stat.mtimeMs;
-
-      if (mtimeMs > indexedAt) {
-        filesChanged++;
-      }
+      const stat = statSync(join(project.path, file_path));
+      if (fileFingerprint(stat.size, stat.mtime) !== hash) filesChanged++;
     } catch {
-      // Can't stat file - count as changed
+      // Deleted, or no longer readable
       filesChanged++;
     }
   }
 
-  return {
-    filesChanged,
-    needsReindex: filesChanged > 0,
-    pathExists: true,
-  };
+  if (fileHashes.length > 0 && project.ignore_patterns !== null) {
+    const indexed = new Set(fileHashes.map((f) => f.file_path));
+    const additionalIgnorePatterns = safeJsonParse<string[]>(project.ignore_patterns, []);
+    const current = await listFiles(project.path, { additionalIgnorePatterns });
+    filesChanged += current.filter((file) => !indexed.has(file)).length;
+  }
+
+  return filesChanged;
 }
 
 // ============================================================================
@@ -115,7 +104,7 @@ export function createCheckCommand(
   return new Command('check')
     .argument('<project>', 'Name of the project to check')
     .description('Check project health and index readiness')
-    .action((projectName: string) => {
+    .action(async (projectName: string) => {
       const ctx = getContext();
       ctx.debug(`Check command for project: ${projectName}`);
 
@@ -180,9 +169,8 @@ export function createCheckCommand(
       }
 
       // 6. Staleness check
-      const staleness = pathExists
-        ? checkStaleness(String(project.id), project.path)
-        : { filesChanged: 0, needsReindex: false, pathExists: false };
+      const filesChanged = pathExists ? await countChangedFiles(project) : 0;
+      const staleness: StalenessInfo = { filesChanged, needsReindex: filesChanged > 0, pathExists };
 
       if (staleness.needsReindex) {
         issues.push({

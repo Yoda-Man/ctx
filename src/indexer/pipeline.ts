@@ -18,13 +18,13 @@
 import { randomUUID } from 'node:crypto';
 import type { EmbeddingProvider } from '../sdk/rag/index.js';
 
-import { scanDirectory, type ScanResult } from './scanner.js';
+import { fileFingerprint, scanDirectory, type ScanResult } from './scanner.js';
 import { chunkFilesWithResult, type ChunkerConfig } from './chunker/index.js';
 import { embedChunks } from './embedder/index.js';
 import type { FileInfo } from './types.js';
 import type { ChunkResult, BatchChunkResult } from './chunker/types.js';
 import type { EmbeddedChunk } from './embedder/types.js';
-import { getDatabase } from '../database/index.js';
+import { getDatabase, onInterrupt } from '../database/index.js';
 import { getVectorStoreManager, getBM25StoreManager } from '../search/index.js';
 import type { IndexingStage, StageStats, IndexPipelineResult } from '../cli/utils/progress.js';
 
@@ -40,6 +40,9 @@ export interface IndexPipelineOptions {
 
   /** Existing project ID (for re-indexing) */
   projectId?: string;
+
+  /** Tags for query routing (`ctx index --tags`); left out, stored tags are kept */
+  tags?: string[];
 
   /** Embedding provider instance */
   embeddingProvider: EmbeddingProvider;
@@ -77,7 +80,8 @@ export interface IndexPipelineOptions {
    * - At the end, data is swapped atomically (DELETE old + INSERT new in one transaction)
    *
    * This eliminates the "query gap" during re-indexing where searches would return 0 results.
-   * Use this when re-indexing an existing project (--force flag).
+   * Use this when re-indexing an existing project (--force flag). Without it the
+   * project must be new: a failed or cancelled index deletes it.
    */
   useStaging?: boolean;
 
@@ -85,7 +89,8 @@ export interface IndexPipelineOptions {
    * AbortSignal for cancellation support.
    *
    * When aborted, the pipeline will stop at the next safe checkpoint
-   * (between stages or between batches). Partial data is cleaned up.
+   * (between stages or between batches). Nothing partial is left: a fresh
+   * index's project is removed, a re-index keeps its old chunks.
    *
    * @example
    * ```typescript
@@ -359,12 +364,32 @@ export async function runIndexPipeline(
   let chunksStored = 0;
   const useStaging = options.useStaging ?? false;
 
+  // A re-index that finds nothing (an emptied or unmounted folder) keeps the
+  // old index rather than replacing it with an empty one
+  if (useStaging && embeddedChunks.length === 0) {
+    throw new Error(
+      `Found nothing to index in ${projectPath}. Nothing was stored; the existing index for this project is unchanged.`
+    );
+  }
+
+  // Undo what was stored: a re-index drops its staging table (the old chunks
+  // were never touched); a fresh index removes its half-stored project. Runs
+  // on a failure, a cancel, or Ctrl-C, which would otherwise exit mid-store.
+  const undoStoring = () => {
+    if (useStaging) db.dropChunksStagingTable();
+    else db.deleteProject(projectId);
+  };
+  const stopUndoOnInterrupt = onInterrupt(undoStoring);
+
   try {
     // Ensure project exists in database with embedding config
     db.upsertProject({
       id: projectId,
       name: projectName,
       path: projectPath,
+      tags: options.tags,
+      // Saved so ctx check can list the files this index would read
+      ignorePatterns: options.additionalIgnorePatterns ?? [],
       embeddingModel: options.embeddingModel,
       embeddingDimensions: options.embeddingDimensions,
     });
@@ -410,40 +435,47 @@ export async function runIndexPipeline(
       await yieldToEventLoop();
     }
 
-    // If using staging table: atomically swap old chunks with new chunks
-    // This is the critical operation that makes re-indexing "zero-downtime"
-    if (useStaging) {
-      const swapResult = db.atomicSwapChunks(projectId);
-      db.dropChunksStagingTable();
+    // Finish in one transaction, so the chunks, the file records ctx check
+    // compares against, and the stats (with the index version) land together:
+    // a re-index swaps its staged chunks in, old ones out
+    const chunkIds = Map.groupBy(embeddedChunks, (chunk) => chunk.file_path);
+    const swapResult = db.inTransaction(() => {
+      const swapped = useStaging ? db.atomicSwapChunks(projectId) : undefined;
+      db.replaceFileHashes(
+        projectId,
+        scanResult.files.map((file) => ({
+          filePath: file.relativePath,
+          hash: fileFingerprint(file.size, file.modifiedAt),
+          chunkIds: (chunkIds.get(file.relativePath) ?? []).map((chunk) => chunk.id),
+        }))
+      );
+      db.updateProjectStats(projectId, {
+        fileCount: scanResult.files.length,
+        chunkCount: chunksStored,
+      });
+      return swapped;
+    });
 
+    if (swapResult) {
+      db.dropChunksStagingTable();
       // Invalidate search caches so they rebuild with new data on next query
       getVectorStoreManager().invalidate(projectId);
       getBM25StoreManager().invalidate(projectId);
-
-      // Log swap details (only visible in verbose mode)
       onWarning?.(`Atomic swap: deleted ${swapResult.deleted} old chunks, inserted ${swapResult.inserted} new chunks`, 'atomic-reindex');
     }
-
-    // Update project statistics
-    db.updateProjectStats(projectId, {
-      fileCount: scanResult.files.length,
-      chunkCount: chunksStored,
-    });
   } catch (error) {
-    // Clean up staging table on error to avoid orphaned data
-    if (useStaging) {
-      try {
-        db.dropChunksStagingTable();
-      } catch (cleanupError) {
-        // Log cleanup failure but don't mask the original error
-        onWarning?.(
-          `Failed to cleanup staging table: ${(cleanupError as Error).message}`,
-          'staging-cleanup'
-        );
-      }
+    try {
+      undoStoring();
+    } catch (cleanupError) {
+      // Log cleanup failure but don't mask the original error
+      onWarning?.(
+        `Failed to clean up after the failed index: ${(cleanupError as Error).message}`,
+        useStaging ? 'staging-cleanup' : 'partial-cleanup'
+      );
     }
-    // Fatal storage error
     throw error;
+  } finally {
+    stopUndoOnInterrupt();
   }
 
   const storeDuration = performance.now() - storeStartTime;

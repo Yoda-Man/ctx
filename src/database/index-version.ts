@@ -11,8 +11,11 @@
  * - 2: 1.3.0, BGE vectors use CLS pooling (were mean-pooled)
  * - 3: Go and Rust files are split by top-level item (were split by size)
  * - 4: Java and C# are split by method; vectors embed each chunk's file path
+ * - 5: C, C++, PHP, Ruby, PowerShell, Dart, Kotlin and Swift are split by
+ *   definition; .tsx files are parsed as TSX; Dart, VB.NET and PowerShell
+ *   files are indexed
  */
-export const INDEX_VERSION = 4;
+export const INDEX_VERSION = 5;
 
 /**
  * Why a project's index is stale, or null if it is current.

@@ -130,9 +130,6 @@
   export interface ExtractionResult {
     /** Extracted segments */
     segments: ExtractedSegment[];
-
-    /** Original file content (for line number calculation) */
-    originalContent: string;
   }
 
 // ============================================================================
@@ -150,9 +147,7 @@
 type SkipReason =
   | 'too_large'    // File exceeds MAX_FILE_SIZE limit
   | 'empty'        // File has no content (success, just nothing to chunk)
-  | 'read_error'   // Could not read file from disk
-  | 'parse_error'  // Extraction/parsing failed (tree-sitter, regex, etc.)
-  | 'unsupported'; // File type not supported for chunking
+  | 'read_error';  // Could not read file from disk
 
 /**
  * Result of chunking a single file with full context.

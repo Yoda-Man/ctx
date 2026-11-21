@@ -120,8 +120,8 @@ function displayWelcome(state: ChatState, ctx: CommandContext): void {
     // Check if there are ANY projects in the database
     if (hasAnyProjects()) {
       // Projects exist but none are focused (maybe paths missing)
-      ctx.log(chalk.dim('No project focused (pure LLM mode)'));
-      ctx.log(chalk.dim('Use /focus <project> to enable RAG search'));
+      ctx.log(chalk.dim('No project focused: each question searches the projects it is about'));
+      ctx.log(chalk.dim('Use /focus <project> to search only that project'));
     } else {
       // No projects at all - show helpful onboarding message
       ctx.log(chalk.yellow('No projects indexed.'));

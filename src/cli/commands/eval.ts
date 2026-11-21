@@ -82,7 +82,8 @@ interface EvalRunOutputJSON {
 /**
  * Parse --since value into an ISO date string.
  *
- * Supports relative durations (7d, 24h, 2w) and passthrough ISO dates.
+ * Supports relative durations (7d, 24h, 2w) and passthrough ISO dates; throws
+ * a CLIError for anything else.
  */
 export function parseSince(since: string): string {
   const now = new Date();
@@ -106,8 +107,11 @@ export function parseSince(since: string): string {
     return now.toISOString();
   }
 
-  // Assume ISO date string passthrough
-  return since;
+  // An ISO date (2026-01-15, 2026-01-15T09:00:00Z) passes through
+  if (/^\d{4}-\d{2}-\d{2}/.test(since) && !Number.isNaN(Date.parse(since))) {
+    return since;
+  }
+  throw new CLIError(`Invalid --since value: ${since}`, 'Use a duration (24h, 7d, 2w) or an ISO date (2026-01-15)');
 }
 
 /**
@@ -498,13 +502,15 @@ function createTracesSubcommand(
       if (cmdOptions.project) {
         const project = db.getProjectByName(cmdOptions.project);
         if (!project) {
-          ctx.error(`Project not found: ${cmdOptions.project}`);
-          return;
+          throw new CLIError(`Project not found: ${cmdOptions.project}`, 'Run: ctx list  to see available projects');
         }
         projectId = project.id;
       }
 
-      const limit = parseInt(cmdOptions.limit, 10) || 20;
+      const limit = Number(cmdOptions.limit);
+      if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
+        throw new CLIError(`Invalid --limit value: ${cmdOptions.limit}`, 'Must be a whole number from 1 to 1000');
+      }
       const startDate = cmdOptions.since ? parseSince(cmdOptions.since) : undefined;
 
       const traces = db.getTraces({

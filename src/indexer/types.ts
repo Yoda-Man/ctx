@@ -24,6 +24,9 @@ export type Language =
   | 'swift'
   | 'kotlin'
   | 'scala'
+  | 'dart'
+  | 'vb'
+  | 'powershell'
   | 'html'
   | 'css'
   | 'scss'
@@ -214,6 +217,16 @@ const EXTENSION_TO_LANGUAGE: Record<string, Language> = {
   scala: 'scala',
   sc: 'scala',
 
+  // Dart
+  dart: 'dart',
+
+  // Visual Basic .NET
+  vb: 'vb',
+
+  // PowerShell (.psd1 manifests are data, left out)
+  ps1: 'powershell',
+  psm1: 'powershell',
+
   // Web
   html: 'html',
   htm: 'html',
@@ -269,6 +282,9 @@ const LANGUAGE_TO_TYPE: Record<Language, FileType> = {
   swift: 'code',
   kotlin: 'code',
   scala: 'code',
+  dart: 'code',
+  vb: 'code',
+  powershell: 'code',
   html: 'code',
   shell: 'code',
   dockerfile: 'code',

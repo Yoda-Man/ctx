@@ -84,6 +84,14 @@ describe('indexing Word and PDF specs', () => {
     expect(pdf.map((c) => c.content).join('\n')).toContain('handled by the bank');
   });
 
+  it('splits a Word file by section, like Markdown, not as code', async () => {
+    const docx = await chunkFile(info(fixture('spec.docx')));
+
+    expect(docx.length).toBeGreaterThan(1);
+    expect(docx.every((c) => c.content_type === 'docs')).toBe(true);
+    expect(docx.some((c) => c.metadata.sectionHeader)).toBe(true);
+  });
+
   it('judges size by the converted text, so a large file with little text is indexed', async () => {
     const chunks = await chunkFile(info(fixture('spec.docx'), 10 * 1024 * 1024)); // 10 MB of images and layout
     expect(chunks.length).toBeGreaterThan(0);

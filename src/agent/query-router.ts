@@ -134,6 +134,15 @@ const SINGLE_PROJECT_INDICATORS = new Set([
   'here',
 ]);
 
+/**
+ * Whether a phrase appears as whole words: "here" must not match "where",
+ * nor "vs" match "devs".
+ */
+function hasPhrase(text: string, phrase: string): boolean {
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^a-z0-9])${escaped}($|[^a-z0-9])`).test(text);
+}
+
 // ============================================================================
 // QueryIntentClassifier
 // ============================================================================
@@ -255,7 +264,7 @@ export class QueryIntentClassifier {
     const found: string[] = [];
 
     for (const keyword of this.multiProjectKeywords) {
-      if (normalizedQuery.includes(keyword)) {
+      if (hasPhrase(normalizedQuery, keyword)) {
         found.push(keyword);
       }
     }
@@ -268,7 +277,7 @@ export class QueryIntentClassifier {
    */
   private hasSingleProjectIndicators(normalizedQuery: string): boolean {
     for (const indicator of SINGLE_PROJECT_INDICATORS) {
-      if (normalizedQuery.includes(indicator)) {
+      if (hasPhrase(normalizedQuery, indicator)) {
         return true;
       }
     }

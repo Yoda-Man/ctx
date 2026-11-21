@@ -230,10 +230,10 @@ export function isBinaryFile(filename: string): boolean {
     // Other
     'wasm',
     'map',
-    'min.js',
-    'min.css',
   ]);
 
-  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
-  return binaryExtensions.has(ext);
+  const name = filename.toLowerCase();
+  // Minified bundles are text, but one line of generated code each: noise in search
+  if (name.endsWith('.min.js') || name.endsWith('.min.css')) return true;
+  return binaryExtensions.has(name.split('.').pop() ?? '');
 }

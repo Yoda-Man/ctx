@@ -188,10 +188,12 @@ export function createIndexCommand(
           projectPath,
           projectName,
           projectId: existingProject?.id,
+          tags,
           embeddingProvider,
           embeddingModel,
           embeddingDimensions,
           embeddingTimeout: config.embedding.timeout_ms,
+          embeddingBatchSize: config.embedding.batch_size,
           useStaging, // Atomic re-indexing: use staging table pattern
           additionalIgnorePatterns: additionalIgnorePatterns.length > 0
             ? additionalIgnorePatterns : undefined,

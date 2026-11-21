@@ -214,6 +214,18 @@ describe('/describe', () => {
     expect(output()).toContain('Updated project: shop');
   });
 
+  it('gives routing the new description at once', async () => {
+    const id = addProject('shop');
+    const state = chatState();
+
+    await run('/describe shop "Checkout and refunds" --tags payments', state);
+
+    expect(state.allProjects).toEqual([
+      expect.objectContaining({ id, name: 'shop', description: 'Checkout and refunds', tags: ['payments'] }),
+    ]);
+    expect(state.chatAgent.updateProject).toHaveBeenCalledWith(null, state.allProjects, undefined);
+  });
+
   it('accepts quoted tags with spaces', async () => {
     addProject('shop');
     await run('/describe shop --tags "payments, backend"');
@@ -266,6 +278,26 @@ describe('/index', () => {
     expect(errors).toEqual([]);
     expect(getDatabase().getProjectByName('fresh')!.chunk_count).toBeGreaterThan(0);
     expect(state.currentProject?.name).toBe('fresh');
+  });
+
+  it('embeds in batches no larger than the configured batch_size', async () => {
+    const dir = sampleProject('batches', { 'a.ts': code('add'), 'b.ts': code('sub'), 'c.ts': code('mul') });
+    const { createMockEmbeddingProvider } = await import('../../__tests__/integration/setup.js');
+    const provider = createMockEmbeddingProvider();
+    const sizes: number[] = [];
+    const embedBatch = provider.embedBatch.bind(provider);
+    provider.embedBatch = async (texts: string[]) => {
+      sizes.push(texts.length);
+      return embedBatch(texts);
+    };
+    vi.mocked(createEmbeddingProvider).mockResolvedValueOnce({ provider, model: 'mock', dimensions: 1024 });
+    const config = { ...DEFAULT_CONFIG, embedding: { ...DEFAULT_CONFIG.embedding, batch_size: 2 } };
+
+    await run(`/index ${dir} -n batches`, chatState({ tui: tui() as unknown as ChatState['tui'], config }));
+
+    expect(errors).toEqual([]);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBeGreaterThan(2);
+    expect(Math.max(...sizes)).toBe(2);
   });
 
   it('lets the agent search a project indexed in a chat that started with none', async () => {

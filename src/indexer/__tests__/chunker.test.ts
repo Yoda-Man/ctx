@@ -15,11 +15,10 @@ import { tmpdir } from 'node:os';
 import {
   extractCodeSegments,
   extractMarkdownSegments,
-  isLanguageSupported,
-  isMarkdown,
   chunkFile,
   estimateTokens,
 } from '../chunker/index.js';
+import { prepareLanguage } from '../chunker/extractors/index.js';
 import type { FileInfo } from '../types.js';
 
 // Test fixtures directory
@@ -34,35 +33,6 @@ afterAll(() => {
 });
 
 describe('Code Extractor', () => {
-  describe('isLanguageSupported', () => {
-    it('should support TypeScript', () => {
-      expect(isLanguageSupported('typescript')).toBe(true);
-    });
-
-    it('should support JavaScript', () => {
-      expect(isLanguageSupported('javascript')).toBe(true);
-    });
-
-    it('should support Python', () => {
-      expect(isLanguageSupported('python')).toBe(true);
-    });
-
-    it('should support Go and Rust', () => {
-      expect(isLanguageSupported('go')).toBe(true);
-      expect(isLanguageSupported('rust')).toBe(true);
-    });
-
-    it('should support Java and C#', () => {
-      expect(isLanguageSupported('java')).toBe(true);
-      expect(isLanguageSupported('csharp')).toBe(true);
-    });
-
-    it('should not support unsupported languages', () => {
-      expect(isLanguageSupported('ruby')).toBe(false);
-      expect(isLanguageSupported('php')).toBe(false);
-    });
-  });
-
   describe('extractCodeSegments - TypeScript', () => {
     it('keeps a JSDoc comment with the function it documents', () => {
       const code = `
@@ -324,7 +294,7 @@ def calculate(x, y):
     it('other languages: keeps the code, not only the comments', () => {
       const code = '# Entry point\nclass Main\n  def run; end\nend';
 
-      const { segments } = extractCodeSegments(code, 'ruby');
+      const { segments } = extractCodeSegments(code, 'scala');
 
       expectFullCoverage(code, segments);
     });
@@ -491,11 +461,315 @@ def calculate(x, y):
       expectEveryLineOnce(code, segments);
     });
 
+    it("does not hand a one-line class's comment to its first member", () => {
+      const code = '/// <summary>An order.</summary>\npublic class Order { public void Clear() { } }\n';
+
+      const { segments } = extractCodeSegments(code, 'csharp');
+
+      const clear = segments.find((s) => s.metadata.symbolName === 'Clear')!;
+      expect(clear.content).not.toContain('An order.');
+      expectEveryLineOnce(code, segments);
+    });
+
     it('handles file-scoped namespaces', () => {
       const code = 'namespace Shop;\n\npublic class Cart\n{\n    public void Add() { }\n}\n';
       const { segments } = extractCodeSegments(code, 'csharp');
 
       expect(segments.map((s) => s.metadata.symbolName)).toEqual([undefined, 'Add']);
+    });
+  });
+
+  /** [symbolType, symbolName, parentSymbol] of each segment */
+  const labels = (segments: ReturnType<typeof extractCodeSegments>['segments']) =>
+    segments.map((s) => [s.metadata.symbolType, s.metadata.symbolName, s.metadata.parentSymbol]);
+
+  describe('extractCodeSegments - TSX', () => {
+    it('parses JSX with the TSX grammar, so a function after it is found', () => {
+      const code = 'const a = <div>{"}"}</div>;\nfunction B() {\n  return 1;\n}\n';
+
+      // The plain TypeScript grammar reads the JSX as an error and loses B
+      expect(labels(extractCodeSegments(code, 'typescript').segments)).toEqual([['module', undefined, undefined]]);
+      const { segments } = extractCodeSegments(code, 'typescript', 'tsx');
+      expect(labels(segments)).toEqual([['module', undefined, undefined], ['function', 'B', undefined]]);
+      expectEveryLineOnce(code, segments);
+    });
+  });
+
+  describe('extractCodeSegments - C and C++', () => {
+    it('C: steps through an include guard; functions keep their comment, structs and typedefs are types', () => {
+      const code = [
+        '#ifndef MATH_H',
+        '#define MATH_H',
+        '',
+        '/* Adds two ints. */',
+        'static int add(int a, int b) {',
+        '    return a + b;',
+        '}',
+        '',
+        'int *make(void) { return 0; }',
+        '',
+        'struct Point { int x; int y; };',
+        'typedef struct { int w; } Size;',
+        'int proto(int);',
+        '#endif',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'c', 'c');
+
+      expect(labels(segments)).toEqual([
+        ['module', undefined, undefined],
+        ['function', 'add', undefined],
+        ['function', 'make', undefined],
+        ['type', 'Point', undefined],
+        ['type', 'Size', undefined],
+        ['module', undefined, undefined],
+      ]);
+      expect(segments[1]!.content.startsWith('/* Adds two ints. */')).toBe(true);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('C++: methods inside classes, functions inside namespaces and extern "C"', () => {
+      const code = [
+        'namespace shop {',
+        'class Cart {',
+        'public:',
+        '    Cart();',
+        '    void add(int id) {',
+        '        items.push_back(id);',
+        '    }',
+        '    std::vector<int> items;',
+        '};',
+        'void Cart::clear() { items.clear(); }',
+        'template <typename T> T first(T t) { return t; }',
+        '}',
+        'extern "C" { int version(void) { return 1; } }',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'cpp', 'cpp');
+
+      expect(labels(segments)).toEqual([
+        ['module', undefined, 'shop'],
+        ['method', 'add', 'Cart'],
+        ['module', undefined, 'Cart'],
+        ['function', 'Cart::clear', 'shop'],
+        ['function', 'first', 'shop'],
+        ['function', 'version', undefined],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('C++: a class declared with a variable is split by method too', () => {
+      const code = 'static struct Handler {\n    void run() {}\n    void stop() {}\n} handler;\n';
+
+      const { segments } = extractCodeSegments(code, 'cpp', 'cpp');
+
+      expect(labels(segments).filter(([type]) => type === 'method')).toEqual([
+        ['method', 'run', 'Handler'],
+        ['method', 'stop', 'Handler'],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('a .h file is read with the C++ grammar, so a class in a header is split', () => {
+      const code = '#pragma once\nclass A {\npublic:\n    void m() { }\n    int x;\n};\n';
+
+      const { segments } = extractCodeSegments(code, 'c', 'h');
+
+      expect(labels(segments)).toContainEqual(['method', 'm', 'A']);
+      expectEveryLineOnce(code, segments);
+    });
+  });
+
+  describe('extractCodeSegments - PHP, Ruby and PowerShell', () => {
+    it('PHP: methods by class, functions on their own, not split inside a function', () => {
+      const code = [
+        '<?php',
+        'namespace App;',
+        '',
+        '/** A cart. */',
+        'class Cart {',
+        '    private array $items = [];',
+        '    public function add(int $id): void {',
+        '        $this->items[] = $id;',
+        '    }',
+        '}',
+        '',
+        'function total(array $xs): int {',
+        '    $sum = 0;',
+        '    foreach ($xs as $x) { $sum += $x; }',
+        '    return $sum;',
+        '}',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'php', 'php');
+
+      expect(labels(segments)).toEqual([
+        ['module', undefined, undefined],
+        ['method', 'add', 'Cart'],
+        ['function', 'total', undefined],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('Ruby: instance and class methods by class, top-level methods as functions', () => {
+      const code = [
+        'require "json"',
+        '',
+        '# A cart.',
+        'class Cart < Base',
+        '  attr_reader :items',
+        '  def add(id)',
+        '    items << id',
+        '  end',
+        '  def self.empty; new; end',
+        'end',
+        '',
+        'def total(xs)',
+        '  xs.sum',
+        'end',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'ruby', 'rb');
+
+      expect(labels(segments)).toEqual([
+        ['module', undefined, undefined],
+        ['method', 'add', 'Cart'],
+        ['method', 'empty', 'Cart'],
+        ['function', 'total', undefined],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('PowerShell: functions, and class methods by class', () => {
+      const code = [
+        '# Gets an item.',
+        'function Get-Item {',
+        '    param($Id)',
+        '    return $Id',
+        '}',
+        '',
+        'class Cart {',
+        '    [int]$Count',
+        '    [void] Add() { $this.Count++ }',
+        '}',
+        '$cart = [Cart]::new()',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'powershell', 'ps1');
+
+      expect(labels(segments)).toEqual([
+        ['function', 'Get-Item', undefined],
+        ['module', undefined, 'Cart'],
+        ['method', 'Add', 'Cart'],
+        ['module', undefined, undefined],
+      ]);
+      expect(segments[0]!.content.startsWith('# Gets an item.')).toBe(true);
+      expectEveryLineOnce(code, segments);
+    });
+  });
+
+  describe('extractCodeSegments - Dart, Kotlin and Swift (WebAssembly parsers)', () => {
+    beforeAll(async () => {
+      for (const language of ['dart', 'kotlin', 'swift'] as const) await prepareLanguage(language);
+    });
+
+    it('Dart: methods by class, each with its body; top-level functions', () => {
+      const code = [
+        "import 'dart:math';",
+        '',
+        '/// A cart.',
+        'class Cart {',
+        '  final items = <int>[];',
+        '  int get count => items.length;',
+        '  void add(int id) {',
+        '    items.add(id);',
+        '  }',
+        '}',
+        '',
+        'void main() {',
+        '  Cart().add(1);',
+        '}',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'dart', 'dart');
+
+      expect(labels(segments)).toEqual([
+        ['module', undefined, undefined],
+        ['method', 'count', 'Cart'],
+        ['method', 'add', 'Cart'],
+        ['function', 'main', undefined],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('Kotlin: methods by class, companion objects included; top-level functions', () => {
+      const code = [
+        'package shop',
+        '',
+        'class Cart(val owner: String) {',
+        '    val items = mutableListOf<Int>()',
+        '    fun add(id: Int) {',
+        '        items.add(id)',
+        '    }',
+        '    companion object {',
+        '        fun empty() = Cart("")',
+        '    }',
+        '}',
+        '',
+        'fun main() {',
+        '    Cart("a").add(1)',
+        '}',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'kotlin', 'kt');
+
+      expect(labels(segments).filter(([type]) => type !== 'module')).toEqual([
+        ['method', 'add', 'Cart'],
+        ['method', 'empty', 'Cart'],
+        ['function', 'main', undefined],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+
+    it('Swift: methods and initializers by type; top-level functions', () => {
+      const code = [
+        'import Foundation',
+        '',
+        '/// A cart.',
+        'struct Cart {',
+        '    var items: [Int] = []',
+        '    init() {}',
+        '    mutating func add(_ id: Int) {',
+        '        items.append(id)',
+        '    }',
+        '}',
+        '',
+        'func main() {',
+        '    var cart = Cart()',
+        '}',
+      ].join('\n');
+
+      const { segments } = extractCodeSegments(code, 'swift', 'swift');
+
+      expect(labels(segments)).toEqual([
+        ['module', undefined, undefined],
+        ['method', 'init', 'Cart'],
+        ['method', 'add', 'Cart'],
+        ['function', 'main', undefined],
+      ]);
+      expectEveryLineOnce(code, segments);
+    });
+  });
+
+  describe('extractCodeSegments - lines no node covers', () => {
+    it('keeps an unfinished block at the end of a file instead of dropping it', () => {
+      // tree-sitter leaves `else {` outside every named node; it used to be lost
+      const code = 'run(function () {\n  if (a) {\n    b();\n  }\n  else {';
+
+      const { segments } = extractCodeSegments(code, 'javascript');
+
+      expectEveryLineOnce(code, segments);
+      expect(segments[segments.length - 1]!.content).toBe('  else {');
     });
   });
 
@@ -508,29 +782,17 @@ class Main
 end
 `;
 
-      const result = extractCodeSegments(code, 'ruby');
-
       // It used to keep only the comment and drop the code
-      expect(result.segments).toHaveLength(1);
-      expect(result.segments[0]!.content).toBe(code);
+      for (const language of ['scala', 'vb'] as const) {
+        const result = extractCodeSegments(code, language);
+        expect(result.segments).toHaveLength(1);
+        expect(result.segments[0]).toMatchObject({ content: code, startLine: 1, metadata: { symbolType: 'module' } });
+      }
     });
   });
 });
 
 describe('Markdown Extractor', () => {
-  describe('isMarkdown', () => {
-    it('should recognize markdown extensions', () => {
-      expect(isMarkdown('md')).toBe(true);
-      expect(isMarkdown('mdx')).toBe(true);
-      expect(isMarkdown('markdown')).toBe(true);
-    });
-
-    it('should not recognize non-markdown extensions', () => {
-      expect(isMarkdown('txt')).toBe(false);
-      expect(isMarkdown('ts')).toBe(false);
-    });
-  });
-
   describe('extractMarkdownSegments - sections', () => {
     it('makes one segment per section, heading included, covering every line once', () => {
       const md = [
@@ -833,6 +1095,24 @@ function test() {
       expect(chunk.start_line).toBeGreaterThan(0);
       expect(chunk.end_line).toBeGreaterThanOrEqual(chunk.start_line);
     }
+  });
+  it('a short segment is still a chunk, so no line goes unindexed', async () => {
+    // `x = 1` is 5 characters; segments under 10 used to be dropped
+    const content = 'x = 1\n\n\ndef f():\n    return 2\n';
+    const filePath = join(TEST_DIR, 'short.py');
+    writeFileSync(filePath, content);
+
+    const chunks = await chunkFile({
+      path: filePath,
+      relativePath: 'short.py',
+      extension: 'py',
+      language: 'python',
+      type: 'code',
+      size: Buffer.byteLength(content),
+      modifiedAt: new Date().toISOString(),
+    });
+
+    expect(chunks.map((c) => c.content)).toEqual(['x = 1', 'def f():\n    return 2']);
   });
 });
 

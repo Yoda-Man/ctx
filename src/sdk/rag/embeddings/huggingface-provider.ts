@@ -22,7 +22,7 @@ import { loadTransformers, withModelDownloadLock } from '../transformers.js';
 export interface HuggingFaceEmbeddingConfig {
   /** Model identifier (e.g., "Xenova/bge-large-en-v1.5") */
   model?: string;
-  /** Output embedding dimensions (auto-detected from model if not specified) */
+  /** Output embedding dimensions (1024 if not specified; not read from the model) */
   dimensions?: number;
   /** Maximum texts per batch request */
   batchSize?: number;

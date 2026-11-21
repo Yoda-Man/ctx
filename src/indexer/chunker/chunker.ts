@@ -40,11 +40,11 @@ import type {
 import {
   extractCodeSegments,
   extractMarkdownSegments,
-  isMarkdown,
+  prepareLanguage,
+  wholeFile,
 } from './extractors/index.js';
 import {
   MAX_FILE_SIZE,
-  MIN_CHUNK_SIZE,
   getChunkConfig,
   estimateTokens,
 } from './config.js';
@@ -132,20 +132,11 @@ async function chunkFileWithResult(
     };
   }
 
-  // Extract segments based on file type
-  const { segments, error: extractError } = extractSegments(content, fileInfo);
-
-  // Handle extraction/parsing failures
-  if (extractError) {
-    return {
-      filePath: fileInfo.relativePath,
-      success: false,
-      chunks: [],
-      skipReason: 'parse_error',
-      error: `Extraction failed: ${extractError}`,
-      warnings,
-    };
-  }
+  // Extract segments based on file type (a WebAssembly parser loads first, once)
+  const parserWarning = await prepareLanguage(fileInfo.language);
+  if (parserWarning) warnings.push(parserWarning);
+  const { segments, warning: extractWarning } = extractSegments(content, fileInfo);
+  if (extractWarning) warnings.push(extractWarning);
 
   // Warn if no segments were extracted from a non-empty file
   if (segments.length === 0) {
@@ -157,11 +148,8 @@ async function chunkFileWithResult(
   let chunkIndex = 0;
 
   for (const segment of segments) {
-    // Skip very small segments and warn about it
-    if (segment.content.length < MIN_CHUNK_SIZE) {
-      warnings.push(`Segment at line ${segment.startLine} too small (${segment.content.length} chars), skipped`);
-      continue;
-    }
+    // A short segment (`x = 1`, `package main`) is still a chunk: every line is indexed
+    if (!segment.content.trim()) continue;
 
     // Get chunk configuration for this content type
     const chunkConfig = getChunkConfig(segment.contentType);
@@ -341,12 +329,9 @@ export async function chunkFilesWithResult(
 /**
  * Chunk a single file into segments ready for embedding.
  *
- * This is the backward-compatible entry point. It delegates to
- * chunkFileWithResult() and converts the result to the legacy format
- * (ChunkResult[] with callback-based error reporting).
- *
- * For new code, prefer chunkFileWithResult() which provides explicit
- * success/failure information.
+ * Delegates to chunkFileWithResult() and reports problems through callbacks
+ * instead of a result. The pipeline uses chunkFilesWithResult(), which
+ * returns each file's success, skip reason and warnings.
  *
  * @param fileInfo - File metadata from discovery
  * @param config - Optional chunker configuration
@@ -381,9 +366,10 @@ export async function chunkFile(
 /**
  * Result of segment extraction with error handling.
  */
-interface ExtractionResultWithError {
+interface ExtractionResultWithWarning {
   segments: ExtractedSegment[];
-  error?: string;
+  /** Set when parsing failed and the file was kept whole instead */
+  warning?: string;
 }
 
 /**
@@ -392,33 +378,25 @@ interface ExtractionResultWithError {
  * Wraps extractor calls in try-catch to capture parse errors gracefully
  * instead of crashing the entire chunking pipeline.
  */
-function extractSegments(content: string, fileInfo: FileInfo): ExtractionResultWithError {
+function extractSegments(content: string, fileInfo: FileInfo): ExtractionResultWithWarning {
   // Config files → treat as single segment (no parsing, can't fail)
   if (fileInfo.type === 'config') {
-    return {
-      segments: [{
-        content,
-        contentType: 'config',
-        startLine: 1,
-        endLine: content.split('\n').length,
-        metadata: {},
-      }],
-    };
+    return { segments: [wholeFile(content, 'config', {})] };
   }
 
   try {
-    // Markdown files → use markdown extractor
-    if (isMarkdown(fileInfo.extension)) {
+    // Markdown, and Word and PDF files (read as Markdown) → split by section
+    if (fileInfo.language === 'markdown') {
       return { segments: extractMarkdownSegments(content).segments };
     }
 
     // Code files (supported or fallback) → use code extractor
-    return { segments: extractCodeSegments(content, fileInfo.language).segments };
+    return { segments: extractCodeSegments(content, fileInfo.language, fileInfo.extension).segments };
   } catch (error) {
-    // Parsing failed - return error instead of crashing
+    // Parsing failed: keep the whole file, split by size, so it is still searchable
     return {
-      segments: [],
-      error: (error as Error).message,
+      segments: [wholeFile(content, fileInfo.language === 'markdown' ? 'docs' : 'code')],
+      warning: `Parsing failed (${(error as Error).message}), so the file is split by size`,
     };
   }
 }

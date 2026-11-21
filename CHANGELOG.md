@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-20
+
+**Re-index your projects after upgrading** (`ctx index <path> --force`): the
+index version is now 5, because files in eight more languages are split
+differently and Dart, VB.NET and PowerShell files are indexed for the first time.
+
+### Added
+- **Eight more languages are split at their definitions:** C, C++, PHP, Ruby,
+  PowerShell, Dart, Kotlin and Swift, fifteen in all. Where code lives in
+  classes, namespaces or modules, each method is its own chunk, labelled with
+  its class. C and C++ step through include guards and `extern "C"` blocks; a
+  `.h` file is read with the C++ grammar, which reads C too.
+- **Dart, VB.NET and PowerShell files are indexed** (`.dart`, `.vb`, `.ps1`,
+  `.psm1`); VB.NET is split by size.
+- Dart, Kotlin and Swift have no prebuilt native parser, so they ship as
+  WebAssembly parsers in `grammars/`, built from pinned upstream commits by
+  `scripts/build-grammars.sh` and loaded through `web-tree-sitter`. Nothing is
+  compiled on install. If one fails to load, its files are split by size.
+- New dependencies: tree-sitter-c, tree-sitter-cpp, tree-sitter-php,
+  tree-sitter-ruby (each overridden to the shared tree-sitter, as
+  tree-sitter-rust is), tree-sitter-powershell (loaded by file, like
+  tree-sitter-c-sharp) and web-tree-sitter. All five native parsers ship
+  prebuilt; the install command's `--allow-scripts` list names them.
+
+### Changed
+- Dependencies: better-sqlite3 13.2.0, ignore 7.0.16, marked 18.2.1,
+  tree-sitter-c-sharp 0.24.0, unpdf 2.2.1; dev: oxlint 1.94.0, vitest and
+  @vitest/coverage-v8 5.1.1.
+
+### Fixed
+- **`.tsx` files are parsed with the TSX grammar.** The plain TypeScript grammar
+  read JSX as an error, which could fold the definitions after it into one chunk.
+- **No line is dropped any more.** A line outside every syntax node, such as an
+  unfinished `else {` at the end of a file, was in no chunk and never indexed.
+  Cutting real files short dropped lines in 54 of 3,389 cases (JavaScript, TSX,
+  C#, Dart, Kotlin, PowerShell); now none. Segments under 10 characters
+  (`x = 1`, a lone `else {`) were also dropped; they are now chunks too.
+- **A file whose parser throws is still indexed.** It was dropped with the
+  skip reason `parse_error` (now removed); it is kept whole, split by size,
+  with a warning. A WebAssembly parser that fails to load is reported once in
+  the index warnings.
+- **`ctx index --tags` saves the tags.** They were parsed and then dropped, and
+  every re-index set a project's tags to empty, wiping tags set with
+  `/describe` in `ctx chat`. Tags left out on a re-index are now kept.
+- **One context format for the model.** Questions about several projects sent
+  sources with `lines` and `score` attributes, and left quotes and ampersands in
+  file paths and project names unescaped; they now use the single-project
+  format (`location="lines 10-25"`, no score). `ctx ask`'s system prompt
+  described the old attributes and now shows the real ones.
+- **Minified bundles are skipped.** `.min.js` and `.min.css` files were meant
+  to be, but the check compared only the last extension, so they were indexed.
+- Updating a project without embedding dimensions no longer resets them to 1024.
+- **Word and PDF files are split by section**, like Markdown. They were read as
+  Markdown but then cut as code, with no section headers.
+- **`ctx search` uses `search.top_k` from config** when `--top` is not given. It
+  always used 10, so `ctx config set search.top_k 20`, the example in
+  `ctx --help`, did nothing.
+- **Chat turns are recorded as traces.** They were rejected because chat
+  records `top_k` 0 (the agent picks the count per search); 0 is now allowed.
+- **`@file` content comes out in file order.** A file's chunks were joined by
+  their random IDs.
+- **Project routing matches hints as whole words**, so "where" no longer counts
+  as "here", nor "devs" as "vs".
+- Messages that were wrong: `ctx --help` said `ctx ask` covers all projects (it
+  uses the most recently indexed one, or `-p`); chat said an unfocused session
+  is "pure LLM mode", but it searches the projects each question is about.
+- `ctx eval` told users with no golden dataset to run `ctx eval golden init`,
+  which does not exist; it now names `ctx eval golden add --project <name>`.
+- **`ctx check` counts changed files.** Nothing recorded the files an index
+  read, so its `filesChanged` was always 0. Indexing now records each file's
+  size and modification time, and the ignore patterns it used; `ctx check`
+  counts the files that differ, are gone, or are new.
+- **Makefile, Gemfile, Rakefile, Podfile, Vagrantfile, Brewfile, Cakefile and
+  Procfile are indexed.** They mapped to language names rather than
+  extensions, so the scanner never matched them; only Dockerfile was found.
+- **A forced re-index that finds nothing keeps the old index.** It failed with
+  "no staged chunks found" after already changing the project's path; it now
+  fails first with "Found nothing to index", changing nothing.
+- **A failed, cancelled or interrupted first index leaves nothing behind.**
+  The chunks stored so far, and the project, stayed in the database as a
+  partial index, including after Ctrl-C while storing.
+- **Chat searches only the projects routed for each question.** Every project
+  routed in earlier turns stayed in the search until chat was restarted.
+- **`/describe` takes effect at once** in `ctx chat`; routing used the old
+  description and tags until a restart.
+- **The Ollama model check needs the exact tag.** `qwen3.5` counted as
+  available when only `qwen3.5:9b` was installed; Ollama would then fail to
+  find `qwen3.5:latest`. A name without a tag means `:latest`, as in Ollama.
+- **Ollama embeddings use `OLLAMA_HOST`**, as answers do; they always called
+  `http://localhost:11434`.
+- **`embedding.batch_size` is used** by `ctx index` (and caps chat's smaller
+  batches); it was validated but never read.
+- **Models ctx does not know are measured.** Their dimensions were recorded as
+  1024 whatever they produced; one text is now embedded to find out.
+- **Failed and unfinished eval runs are left out** of `ctx eval report` and of
+  the comparison with the previous run; their zero metrics showed as
+  regressions and improvements.
+- **`ctx eval traces` checks its options.** `--limit -5` crashed with a raw
+  validation error, an unknown `--project` exited 0, and an unreadable
+  `--since` was used as a raw string; each now fails with a clear message.
+- **`ctx config set` rejects unknown keys and keeps comments.** A typo such as
+  `search.topk` was written and then ignored, and every set rewrote the file
+  without its comments; now only the setting's line changes. Settings ctx
+  ignores (the retired `search.rerank`, a cloud `default_provider`) are
+  removed, and `default_provider` can still only be set to `ollama`.
+- **`--json` applies to every error**: errors outside a command and option
+  errors such as `unknown option` were plain text.
+- **Ctrl-C exits with code 130** (SIGTERM 143), not 0, so scripts can tell an
+  interrupted run from a finished one.
+
 ## [1.3.5] - 2026-11-13
 
 **Re-index your projects after upgrading** (`ctx index <path> --force`):

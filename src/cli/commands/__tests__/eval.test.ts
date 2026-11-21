@@ -102,6 +102,12 @@ describe('parseSince', () => {
     const dateStr = '2026-01-15';
     expect(parseSince(dateStr)).toBe(dateStr);
   });
+
+  it('rejects anything else rather than filtering by a raw string', () => {
+    for (const bad of ['7days', 'yesterday', '2026-13-45', '']) {
+      expect(() => parseSince(bad)).toThrow(/Invalid --since value/);
+    }
+  });
 });
 
 // ============================================================================
@@ -951,6 +957,26 @@ describe('eval traces --type', () => {
     expect(mockDb.getTraces).toHaveBeenCalledWith(
       expect.objectContaining({ trace_type: undefined }),
     );
+  });
+
+  it('fails for an unknown --project', async () => {
+    vi.mocked(database.getDatabase).mockReturnValue({
+      getProjectByName: vi.fn().mockReturnValue(undefined),
+      getTraces: vi.fn(),
+    } as unknown as ReturnType<typeof database.getDatabase>);
+
+    await expect(runTraces(createMockCtx().ctx, ['--project', 'nope'])).rejects.toThrow(/Project not found: nope/);
+  });
+
+  it('rejects a --limit that is not 1 to 1000', async () => {
+    vi.mocked(database.getDatabase).mockReturnValue({
+      getProjectByName: vi.fn(),
+      getTraces: vi.fn().mockReturnValue([]),
+    } as unknown as ReturnType<typeof database.getDatabase>);
+
+    for (const bad of ['-5', '0', '2.5', 'ten', '1001']) {
+      await expect(runTraces(createMockCtx().ctx, ['--limit', bad])).rejects.toThrow(/Invalid --limit value/);
+    }
   });
 
   it('validates --type value and rejects invalid types', async () => {

@@ -5,11 +5,11 @@
  * Uses mock providers to avoid model downloads in CI.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { EmbeddingProvider, EmbeddingResult } from '../../../sdk/rag/index.js';
 
 import { embedChunks, embedChunk, embeddingText, estimateEmbeddingMemory } from '../embedder.js';
-import { getModelDimensions } from '../provider.js';
+import { createEmbeddingProvider, getModelDimensions } from '../provider.js';
 import type { ChunkResult } from '../../chunker/types.js';
 import type { FileType, Language } from '../../types.js';
 
@@ -322,8 +322,33 @@ describe('getModelDimensions', () => {
     expect(getModelDimensions('mxbai-embed-large')).toBe(1024);
   });
 
-  it('should return default 1024 for unknown models', () => {
-    expect(getModelDimensions('unknown-model')).toBe(1024);
+  it('knows nothing of other models', () => {
+    expect(getModelDimensions('unknown-model')).toBeUndefined();
+  });
+});
+
+describe('createEmbeddingProvider with Ollama', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it('uses OLLAMA_HOST and measures an unknown model\'s dimensions', async () => {
+    vi.stubEnv('OLLAMA_HOST', 'http://gpu-box:11434/');
+    const fetch = vi.fn(async (url: string) =>
+      url.endsWith('/api/tags')
+        ? Response.json({ models: [{ name: 'all-minilm:latest' }] })
+        : Response.json({ embedding: Array.from({ length: 384 }, () => 0.1) })
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    const result = await createEmbeddingProvider({ provider: 'ollama', model: 'all-minilm' });
+
+    expect(result.dimensions).toBe(384);
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      'http://gpu-box:11434/api/tags',
+      'http://gpu-box:11434/api/embeddings',
+    ]);
   });
 });
 

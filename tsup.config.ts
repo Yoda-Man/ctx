@@ -24,8 +24,8 @@ export default defineConfig({
   // Clean dist/ before each build
   clean: true,
 
-  // Target Node.js 20
-  target: 'node20',
+  // Target Node.js 24, the minimum in package.json engines
+  target: 'node24',
 
   // Add shebang to CLI entry point
   // This makes the file directly executable: ./dist/cli.js

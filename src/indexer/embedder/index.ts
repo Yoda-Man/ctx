@@ -7,13 +7,13 @@
  * Usage:
  * ```typescript
  * import { createEmbeddingProvider, embedChunks } from './embedder';
- * import { chunkFiles } from './chunker';
+ * import { chunkFilesWithResult } from './chunker';
  *
  * // 1. Create provider from config (returns provider + metadata)
  * const { provider, model, dimensions } = await createEmbeddingProvider(config.embedding);
  *
  * // 2. Get chunks from chunking pipeline
- * const chunks = await chunkFiles(files);
+ * const chunks = (await chunkFilesWithResult(files)).files.flatMap((f) => f.chunks);
  *
  * // 3. Compute embeddings
  * const embeddedChunks = await embedChunks(chunks, provider, {

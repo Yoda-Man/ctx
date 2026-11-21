@@ -165,7 +165,8 @@ describe('EvalError', () => {
 
       expect(error.code).toBe(EvalErrorCodes.DATASET_NOT_FOUND);
       expect(error.message).toContain('my-project');
-      expect(error.message).toContain('ctx eval golden init');
+      // A command that exists: there is no `golden init`
+      expect(error.message).toContain('ctx eval golden add --project "my-project"');
     });
   });
 

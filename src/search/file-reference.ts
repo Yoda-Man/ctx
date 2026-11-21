@@ -376,7 +376,7 @@ function getFileContent(projectId: string, filePath: string): string {
         SELECT content
         FROM chunks
         WHERE project_id = ? AND file_path = ?
-        ORDER BY id
+        ORDER BY start_line
         `
       )
       .all(projectId, filePath) as Array<{ content: string }>;

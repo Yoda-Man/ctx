@@ -93,7 +93,7 @@ conversation stays in the terminal's scrollback.
 - No runtime dependencies beyond chalk and Node's readline
 - Full control over cursor positioning and scroll behavior
 - Streaming writes go straight to stdout, with no re-render step
-- Small: about 450 lines when adopted; about 2,300 in `src/cli/tui/` today,
+- Small: about 450 lines when adopted; about 2,200 in `src/cli/tui/` today,
   status bar, chat area and input handling included
 
 ### Negative
@@ -104,7 +104,7 @@ conversation stays in the terminal's scrollback.
 
 ### Mitigations
 
-- 116 tests across the TUI's five modules (terminal regions, status line, chat
+- 115 tests across the TUI's five modules (terminal regions, status line, chat
   area, input manager, controller) cover region bounds, ANSI output and the
   edge cases above
 - Escape sequences are defined once, as the `ANSI` constants in

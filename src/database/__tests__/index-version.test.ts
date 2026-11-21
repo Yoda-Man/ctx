@@ -40,3 +40,28 @@ describe('index_version in the database', () => {
     ops.deleteProject(id);
   });
 });
+
+describe('re-indexing a project', () => {
+  it('keeps tags, a description and dimensions it is not given, and replaces tags it is given', async () => {
+    const { runMigrations } = await import('../migrate.js');
+    const { getDb } = await import('../connection.js');
+    const { DatabaseOperations } = await import('../operations.js');
+    runMigrations();
+    const ops = new DatabaseOperations(getDb());
+    const row = (id: string) =>
+      getDb().prepare('SELECT tags, description FROM projects WHERE id = ?').get(id) as { tags: string | null; description: string | null };
+
+    const name = `tags-${Date.now()}`;
+    const id = ops.upsertProject({ name, path: '/code/tags', tags: ['api'], description: 'The API', embeddingDimensions: 384 });
+    // What the pipeline does on a plain re-index: no tags, no description
+    ops.upsertProject({ id, name, path: '/code/tags' });
+    expect(row(id)).toEqual({ tags: JSON.stringify(['api']), description: 'The API' });
+    const dimensions = getDb().prepare('SELECT embedding_dimensions FROM projects WHERE id = ?').get(id) as { embedding_dimensions: number };
+    expect(dimensions.embedding_dimensions).toBe(384);
+
+    ops.upsertProject({ id, name, path: '/code/tags', tags: ['web'] });
+    expect(JSON.parse(row(id).tags!)).toEqual(['web']);
+
+    ops.deleteProject(id);
+  });
+});

@@ -79,6 +79,7 @@ import {
   type MultiProjectFusionService,
 } from '../search/multi-project-fusion.js';
 import type { MultiProjectSearchResult } from '../search/types.js';
+import { escapeXml, escapeXmlAttribute } from '../sdk/rag/assembly/xml-assembler.js';
 import { EmbeddingMismatchError } from '../search/errors.js';
 
 // ============================================================================
@@ -132,7 +133,8 @@ function toRAGSearchResult(
 /**
  * Format multi-project search results as XML context.
  *
- * Includes project attribution in each source element.
+ * The same attributes as the single-project XmlAssembler (id, file,
+ * location="lines a-b", no score), plus the project each source comes from.
  */
 function formatMultiProjectContext(results: MultiProjectSearchResult[]): string {
   if (results.length === 0) {
@@ -141,19 +143,11 @@ function formatMultiProjectContext(results: MultiProjectSearchResult[]): string 
 
   const sourceElements = results
     .map((r, idx) => {
-      const lineRange =
-        r.lineRange.start === r.lineRange.end
-          ? `${r.lineRange.start}`
-          : `${r.lineRange.start}-${r.lineRange.end}`;
-
-      // Escape XML special characters in content
-      const escapedContent = r.content
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-
-      return `  <source id="${idx + 1}" project="${r.projectName}" file="${r.filePath}" lines="${lineRange}" score="${r.score.toFixed(3)}">
-${escapedContent}
+      const project = escapeXmlAttribute(r.projectName);
+      const file = escapeXmlAttribute(r.filePath);
+      const location = `lines ${r.lineRange.start}-${r.lineRange.end}`;
+      return `  <source id="${idx + 1}" project="${project}" file="${file}" location="${location}">
+${escapeXml(r.content)}
   </source>`;
     })
     .join('\n');

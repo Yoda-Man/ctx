@@ -19,7 +19,8 @@ const CAMEL_BOUNDARY = /(?<=\p{Ll})(?=\p{Lu})|(?<=\p{Lu})(?=\p{Lu}\p{Ll})/u;
  * getuserbyid, get, user, by, id), so both the exact identifier and a query
  * that spells it out in words can match.
  *
- * Letters and digits of any script count; there is no stemming or stop-word list.
+ * Letters and digits of any script count. Each word also gives its stem
+ * (authentication → authent); there is no stop-word list.
  */
 export const defaultTokenizer = (text: string): string[] => {
   const tokens: string[] = [];

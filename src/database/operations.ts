@@ -96,6 +96,19 @@ export class DatabaseOperations {
   }
 
   /**
+   * Run `fn` in one transaction: its writes all land, or none do. Operations
+   * that open their own transaction inside it nest (as savepoints).
+   */
+  inTransaction<T>(fn: () => T): T {
+    return this.db.transaction(fn)();
+  }
+
+  /** Whether the connection is still open (closeDb() closes it). */
+  isOpen(): boolean {
+    return this.db.open;
+  }
+
+  /**
    * The database's size on disk in bytes (0 before it exists), counting its
    * write-ahead log.
    */
@@ -106,7 +119,9 @@ export class DatabaseOperations {
   /**
    * Create or update a project.
    *
-   * Uses INSERT OR REPLACE to handle both new and existing projects.
+   * On update, optional fields left out (tags, ignore patterns, embedding
+   * model, description) keep their stored value: re-indexing must not wipe
+   * tags or a description set with /describe in `ctx chat`.
    */
   upsertProject(input: ProjectUpsertInput): string {
     const id = input.id ?? generateId();
@@ -114,12 +129,12 @@ export class DatabaseOperations {
 
     const stmt = this.db.prepare(`
       INSERT INTO projects (id, name, path, tags, ignore_patterns, indexed_at, updated_at, file_count, chunk_count, config, embedding_model, embedding_dimensions, description)
-      VALUES (@id, @name, @path, @tags, @ignorePatterns, @now, @now, 0, 0, NULL, @embeddingModel, @embeddingDimensions, @description)
+      VALUES (@id, @name, @path, @tags, @ignorePatterns, @now, @now, 0, 0, NULL, @embeddingModel, COALESCE(@embeddingDimensions, 1024), @description)
       ON CONFLICT(id) DO UPDATE SET
         name = @name,
         path = @path,
-        tags = @tags,
-        ignore_patterns = @ignorePatterns,
+        tags = COALESCE(@tags, tags),
+        ignore_patterns = COALESCE(@ignorePatterns, ignore_patterns),
         indexed_at = @now,
         updated_at = @now,
         embedding_model = COALESCE(@embeddingModel, embedding_model),
@@ -134,7 +149,7 @@ export class DatabaseOperations {
       tags: input.tags ? JSON.stringify(input.tags) : null,
       ignorePatterns: input.ignorePatterns ? JSON.stringify(input.ignorePatterns) : null,
       embeddingModel: input.embeddingModel ?? null,
-      embeddingDimensions: input.embeddingDimensions ?? 1024,
+      embeddingDimensions: input.embeddingDimensions ?? null,
       description: input.description ?? null,
       now,
     });
@@ -176,6 +191,29 @@ export class DatabaseOperations {
     });
 
     insertMany(chunks);
+  }
+
+  /**
+   * Record the files a finished index read, replacing the project's earlier
+   * records: `ctx check` compares each file's fingerprint (see
+   * fileFingerprint() in indexer/scanner.ts) with the file as it is now.
+   */
+  replaceFileHashes(projectId: string, files: Array<{ filePath: string; hash: string; chunkIds: string[] }>): void {
+    const insert = this.db.prepare(
+      'INSERT INTO file_hashes (project_id, file_path, hash, chunk_ids, indexed_at) VALUES (?, ?, ?, ?, ?)'
+    );
+    const now = new Date().toISOString();
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM file_hashes WHERE project_id = ?').run(projectId);
+      for (const file of files) insert.run(projectId, file.filePath, file.hash, JSON.stringify(file.chunkIds), now);
+    })();
+  }
+
+  /** The files the project's last index read, with their fingerprints. */
+  getFileHashes(projectId: string): Array<{ file_path: string; hash: string }> {
+    return this.db
+      .prepare('SELECT file_path, hash FROM file_hashes WHERE project_id = ?')
+      .all(projectId) as Array<{ file_path: string; hash: string }>;
   }
 
   /**
@@ -603,8 +641,10 @@ export class DatabaseOperations {
   /**
    * Get eval run history for a project.
    *
-   * Returns runs ordered by most recent first.
-   * Used by `ctx eval report` to show trends.
+   * Returns runs ordered by most recent first, leaving out runs the runner
+   * marked failed or never finished (notes `status:failed` or
+   * `status:running`): their metrics are zeros, not results.
+   * Used by `ctx eval report` to show trends, and to compare with the last run.
    */
   getEvalRuns(projectId: string, limit?: number): EvalRun[] {
     const limitClause = limit ? 'LIMIT @limit' : '';
@@ -615,7 +655,9 @@ export class DatabaseOperations {
 
     const rows = this.db
       .prepare(
-        `SELECT * FROM eval_runs WHERE project_id = @projectId ORDER BY timestamp DESC ${limitClause}`
+        `SELECT * FROM eval_runs WHERE project_id = @projectId
+         AND (notes IS NULL OR (notes NOT LIKE 'status:running%' AND notes NOT LIKE 'status:failed%'))
+         ORDER BY timestamp DESC ${limitClause}`
       )
       .all(params);
 
@@ -775,7 +817,8 @@ let dbOpsInstance: DatabaseOperations | null = null;
  * throughout the application lifecycle.
  */
 export function getDatabase(): DatabaseOperations {
-  if (!dbOpsInstance) {
+  // Reconnect after closeDb(): the old instance holds a closed connection
+  if (!dbOpsInstance || !dbOpsInstance.isOpen()) {
     dbOpsInstance = new DatabaseOperations();
   }
   return dbOpsInstance;

@@ -191,6 +191,8 @@ export class MultiProjectVectorStoreManager {
     }
 
     const stores = new Map<string, VectorStore>();
+    // Searches cover exactly this load's projects, not earlier ones too
+    this.loadedProjects.clear();
 
     for (let i = 0; i < projectIds.length; i++) {
       const projectId = projectIds[i]!;

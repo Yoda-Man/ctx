@@ -48,8 +48,8 @@ import { errorMessage } from '../../utils/error.js';
 interface SearchCommandOptions {
   /** Limit search to specific project name */
   project?: string;
-  /** Number of results to return (default: 10, max: 100) */
-  top: string;
+  /** Number of results to return (default: config search.top_k, max: 100) */
+  top?: string;
   /** Enable BGE cross-encoder reranking (off by default) */
   rerank?: boolean;
 }
@@ -58,7 +58,6 @@ interface SearchCommandOptions {
 // Constants
 // ============================================================================
 
-const DEFAULT_TOP_K = 10;
 const MAX_TOP_K = 100;
 
 // ============================================================================
@@ -186,7 +185,7 @@ export function createSearchCommand(
     .argument('<query>', 'Search query text')
     .description('Search for code patterns across indexed projects')
     .option('-p, --project <name>', 'Limit search to specific project')
-    .option('-k, --top <number>', 'Number of results to return', String(DEFAULT_TOP_K))
+    .option('-k, --top <number>', 'Number of results to return (default: search.top_k in config, 10)')
     .option('-r, --rerank', 'Enable BGE cross-encoder reranking for improved precision')
     .action(async (query: string, cmdOptions: SearchCommandOptions) => {
       const ctx = getContext();
@@ -208,8 +207,8 @@ export function createSearchCommand(
       // ─────────────────────────────────────────────────────────────────────
       // 2. Parse options
       // ─────────────────────────────────────────────────────────────────────
-      const topK = parseTopK(cmdOptions.top);
-      ctx.debug(`Top-K: ${topK}`);
+      // Validated now, before any slow work; without --top, config decides (below)
+      const topKOption = cmdOptions.top === undefined ? undefined : parseTopK(cmdOptions.top);
 
       // ─────────────────────────────────────────────────────────────────────
       // 3. Resolve projects
@@ -225,6 +224,8 @@ export function createSearchCommand(
       // ─────────────────────────────────────────────────────────────────────
       const config = loadConfig();
       ctx.debug(`Embedding: ${config.embedding.model} (${config.embedding.provider})`);
+      const topK = topKOption ?? config.search.top_k;
+      ctx.debug(`Top-K: ${topK}`);
 
       const { provider: embeddingProvider, model: embeddingModel, dimensions } =
         await createEmbeddingProvider(config.embedding, {

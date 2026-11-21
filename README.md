@@ -33,18 +33,18 @@ and works just as well on its own.
 | **Hybrid search** | Dense vectors and BM25 keyword search, merged with Reciprocal Rank Fusion. `ctx search --rerank` adds a BGE cross-encoder. |
 | **Grounded answers** | `ctx ask` and `ctx chat` retrieve first, then answer with citations to the files and lines used. |
 | **Across projects** | Index any number of codebases and search one of them or all at once; `ctx chat` routes each question to the projects it is about. |
-| **Code-aware chunks** | Tree-sitter splits TypeScript, JavaScript, Python, Go and Rust by function, class or type, and Java and C# by method, each with its comments, and indexes the code between them too. Markdown splits by section, heading included. |
+| **Code-aware chunks** | Tree-sitter splits code at its definitions in 15 languages: TypeScript (TSX too), JavaScript, Python, Go, Rust and C by function, class or type; Java, C#, C++, PHP, Ruby, PowerShell, Dart, Kotlin and Swift by method, labelled with its class. Each chunk keeps its comments, and the code between definitions is indexed too. Other languages, VB.NET among them, are split by size. Markdown splits by section, heading included. |
 | **Specs and docs too** | Markdown, text, Word (`.docx`) and PDF are indexed alongside code, so answers can come from requirements as well as source. |
 | **Local by default** | BGE embeddings run on your machine; models are cached in `~/.ctx/models` and survive reinstalls. |
 | **Private** | Answers come from a local Ollama model; ctx has no cloud provider and needs no API key. |
-| **Built to be scripted** | Every command except the interactive `ctx chat` has `--json` output, made for agents and tools such as YodaMan. |
+| **Built to be scripted** | Every command except the interactive ones (`ctx chat`, `ctx eval golden capture` and `ctx eval golden generate`) has `--json` output, made for agents and tools such as YodaMan. |
 | **Measured, not guessed** | `ctx eval` scores retrieval against a golden dataset (MRR, hit rate, precision, NDCG) and tracks regressions. |
 | **Current** | Every dependency is on its latest release, checked in CI and before every publish. |
 
 ## Install
 
 ```bash
-npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,tree-sitter-go,tree-sitter-rust,tree-sitter-java,tree-sitter-c-sharp,onnxruntime-node
+npm install -g yodaman-ctx --allow-scripts=better-sqlite3,protobufjs,sharp,tree-sitter,tree-sitter-javascript,tree-sitter-python,tree-sitter-typescript,tree-sitter-go,tree-sitter-rust,tree-sitter-java,tree-sitter-c-sharp,tree-sitter-c,tree-sitter-cpp,tree-sitter-php,tree-sitter-ruby,tree-sitter-powershell,onnxruntime-node
 ```
 
 Requires **Node.js 24** or later. The `--allow-scripts` list lets npm 11.20
@@ -109,7 +109,7 @@ ctx index . --force  # Re-index, replacing existing data
 | Option | Description |
 |--------|-------------|
 | `--name, -n` | Project name (defaults to directory name) |
-| `--tags, -t` | Comma-separated tags, shown by `ctx list` and used by `ctx chat` to route questions |
+| `--tags, -t` | Comma-separated tags, saved with the project. `ctx chat` uses them to route questions, and `ctx list --json` shows them. Left out on a re-index, the stored tags are kept |
 | `--force` | Replace existing index for this project |
 | `--ignore` | Comma-separated gitignore-style patterns to exclude |
 
@@ -149,7 +149,7 @@ ctx search "authentication" --top 20 --rerank
 | Option | Description |
 |--------|-------------|
 | `--project, -p` | Limit search to specific project |
-| `--top, -k` | Number of results (default: 10) |
+| `--top, -k` | Number of results, 1 to 100 (default: `search.top_k` in config, 10) |
 | `--rerank, -r` | Rerank with the BGE cross-encoder (off by default: in testing it ranked tables and code lower) |
 
 ### `ctx ask <question>`
@@ -164,8 +164,8 @@ ctx ask "Explain the caching strategy" --top-k 15 --json
 
 | Option | Description |
 |--------|-------------|
-| `--project, -p` | Limit context to specific project |
-| `--top-k, -k` | Number of chunks to retrieve (default: 5) |
+| `--project, -p` | Project to ask about (default: the most recently updated project) |
+| `--top-k, -k` | Number of chunks to retrieve (default: 5, max: 20) |
 | `--context-only` | Return retrieved context without LLM generation |
 | `--json` | Output structured JSON response |
 
@@ -240,7 +240,7 @@ ctx check backend-api
 ctx check backend-api --json
 ```
 
-Checks that the project exists, has indexed chunks, the source path is on disk, and the embedding model matches current config. Returns `ready: true/false` in JSON mode. Exit code `1` when not ready.
+Checks that the project exists, has indexed chunks, the source path is on disk, and the embedding model matches current config. It also warns when the index was built by an older ctx and needs `--force` re-indexing, and counts the files changed, deleted or added since. Returns `ready: true/false` in JSON mode. Exit code `1` when not ready.
 
 ### `ctx remove <name>`
 
@@ -290,7 +290,7 @@ Configuration is stored in `~/.ctx/config.toml`. The database is stored in `~/.c
 ### Environment Variables
 
 ```bash
-# Optional: where Ollama runs (default http://localhost:11434)
+# Optional: where Ollama runs, for answers and Ollama embeddings (default http://localhost:11434)
 export OLLAMA_HOST=http://localhost:11434
 ```
 
@@ -391,6 +391,7 @@ src/
 ├── config/         # TOML config loading with Zod validation
 ├── errors/         # Custom error classes and handler
 └── utils/          # Logging, path validation, table formatting
+grammars/           # WebAssembly parsers for Dart, Kotlin and Swift (scripts/build-grammars.sh)
 ```
 
 ## Use with YodaMan
@@ -403,7 +404,7 @@ searchable there.
 
 ## Agent Integration
 
-Every command except the interactive `ctx chat` supports `--json` for structured output, making ctx a first-class tool for AI agents (Claude Code, Codex, OpenCode, etc.). See the [Agent Integration Guide](./docs/agent-integration.md) for JSON response schemas, recommended workflows, and error handling.
+Every command except the interactive ones (`ctx chat`, `ctx eval golden capture` and `ctx eval golden generate`) supports `--json` for structured output, making ctx a first-class tool for AI agents (Claude Code, Codex, OpenCode, etc.). See the [Agent Integration Guide](./docs/agent-integration.md) for JSON response schemas, recommended workflows, and error handling.
 
 ## Evaluation & Observability
 
@@ -413,7 +414,7 @@ Measure retrieval quality with golden datasets and track every interaction with 
 
 Issues and pull requests are welcome at
 [github.com/Yoda-Man/ctx](https://github.com/Yoda-Man/ctx). Open pull requests
-against `dev`; CI runs the type check, tests and build on Node 24 and 26 (Linux) and Node 24 (Windows),
+against `dev`; CI runs the type check, lint, tests and build on Node 24 and 26 (Linux) and Node 24 (Windows),
 and fails if any dependency is behind its latest release.
 
 ## License
